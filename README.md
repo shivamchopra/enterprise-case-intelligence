@@ -1,5 +1,7 @@
 # Enterprise Case Intelligence
 
+[![CI](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml/badge.svg)](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml)
+
 **Foundation / Phase 0**
 
 A small .NET 10 reference implementation for exploring enterprise case modernization. The current repository establishes a runnable, tested application boundary; business workflows and infrastructure are planned.

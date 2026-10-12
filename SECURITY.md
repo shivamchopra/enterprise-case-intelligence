@@ -6,7 +6,7 @@ Security fixes apply to the current `main` foundation: HTTP endpoints, dependenc
 
 ## Reporting a vulnerability
 
-Use GitHub's private vulnerability reporting through the repository's **Security → Report a vulnerability** option when available. Do not publish exploit details, credentials or sensitive vulnerability information in a public issue.
+Private vulnerability reporting is enabled. [Report a vulnerability privately](https://github.com/shivamchopra/enterprise-case-intelligence/security/advisories/new) through GitHub's **Security → Report a vulnerability** option. Do not publish exploit details, credentials or sensitive vulnerability information in a public issue.
 
 If private reporting is unavailable, request a private contact route through GitHub using only a non-sensitive message. Wait for a private route before sharing details. No reporting email address is assumed.
 
