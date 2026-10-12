@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/EnterpriseCaseIntelligence.Api/EnterpriseCaseIntelligence.Api.csproj" />
+    <Project Path="src/EnterpriseCaseIntelligence.Domain/EnterpriseCaseIntelligence.Domain.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/EnterpriseCaseIntelligence.Api.Tests/EnterpriseCaseIntelligence.Api.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Restore
+        run: dotnet restore EnterpriseCaseIntelligence.slnx
+      - name: Verify formatting
+        run: dotnet format EnterpriseCaseIntelligence.slnx --verify-no-changes --no-restore
+      - name: Build
+        run: dotnet build EnterpriseCaseIntelligence.slnx --configuration Release --no-restore
+      - name: Test
+        run: dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
