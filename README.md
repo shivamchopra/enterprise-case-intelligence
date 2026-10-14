@@ -4,36 +4,35 @@
 
 **Foundation / Phase 0**
 
-A small .NET 10 reference implementation for exploring enterprise case modernization. The current repository establishes a runnable, tested application boundary; business workflows and infrastructure are planned.
+A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: one small API, an explicit domain boundary, integration tests, CI and architecture decisions. Business workflows and infrastructure are planned.
+
+[Review the implementation](#current-implemented-scope) · [Read the architecture](docs/architecture/overview.md) · [Run locally](#getting-started)
 
 ## Problem / Context
 
-Case-centric enterprise processes often span legacy systems, fragmented information and manual handoffs. Modernization requires secure integration and operational reliability before AI-assisted workflows can be considered. This project explores that generic problem using synthetic concepts, without modeling any employer or client system.
+Enterprise case processes span legacy systems, fragmented information and manual handoffs. Modernization requires secure integration and operational reliability before future AI-assisted workflows. This project explores those concerns using synthetic concepts, without modeling any employer or client system.
 
 ## Project Goals
 
-- Explore enterprise modernization patterns and disciplined software architecture.
-- Document decisions, constraints and tradeoffs as requirements emerge.
-- Evolve toward secure cloud deployment and asynchronous integration.
-- Explore trustworthy AI integration in a later phase.
+- Demonstrate .NET engineering through runnable code, tests and documented tradeoffs.
+- Add architecture when requirements justify it.
+- Evolve toward secure cloud deployment, asynchronous integration and trustworthy AI in later phases.
 
 ## Current Implemented Scope
 
-- .NET 10 / ASP.NET Core Minimal API foundation.
-- An intentionally empty Domain project establishing a dependency boundary.
-- `GET /`: HTTP 200 with `service` and `status` metadata only.
-- `GET /health`: ASP.NET Core health checks, with no external dependencies.
-- In-memory integration tests for both endpoints.
-- GitHub Actions restore, format verification, Release build and tests.
-- Architecture overview and two accepted architecture decisions.
+| Implemented now | Evidence |
+| --- | --- |
+| `GET /`: service/foundation metadata. `GET /health`: framework health checks | [Program.cs](src/EnterpriseCaseIntelligence.Api/Program.cs) |
+| Api → Domain dependency; Domain intentionally empty | [Api project reference](src/EnterpriseCaseIntelligence.Api/EnterpriseCaseIntelligence.Api.csproj) |
+| Two in-memory integration tests using `WebApplicationFactory<Program>` | [Endpoint tests](tests/EnterpriseCaseIntelligence.Api.Tests) |
+| Restore, format verification, Release build and tests in CI; warnings treated as errors | [CI workflow](.github/workflows/ci.yml) · [Build configuration](Directory.Build.props) |
+| Architecture overview and two accepted decisions | [Architecture overview](docs/architecture/overview.md) · [ADR index](docs/adr/README.md) |
 
-## Planned Evolution
-
-**Planned / Conceptual:** relational persistence; Azure deployment; asynchronous/event-driven integration; Infrastructure as Code; structured observability; identity and authorization; Python-based AI capabilities; retrieval and AI evaluation; human approval boundaries. None is implemented today. Specific technologies and services will be chosen through future requirements and ADRs.
+Health checks confirm the host can respond, with no external dependencies checked. Tests require no database, cloud account, secrets or network services.
 
 ## Architecture at a Glance
 
-Current architecture: one runnable API, one internal project boundary and an in-memory test host.
+One runnable API, one internal boundary and an in-memory test host.
 
 ```mermaid
 flowchart LR
@@ -44,17 +43,20 @@ flowchart LR
 ## Repository Structure
 
 ```text
-src/EnterpriseCaseIntelligence.Api/       HTTP hosting and endpoints
-src/EnterpriseCaseIntelligence.Domain/    Domain boundary; no models yet
-tests/EnterpriseCaseIntelligence.Api.Tests/ Integration tests
-docs/architecture/                       Current design and conceptual direction
-docs/adr/                                Decision records
-.github/                                 CI and dependency-update configuration
+src/
+  EnterpriseCaseIntelligence.Api/        HTTP hosting and endpoints
+  EnterpriseCaseIntelligence.Domain/     Domain boundary; no models yet
+tests/
+  EnterpriseCaseIntelligence.Api.Tests/  Integration tests
+docs/
+  architecture/                         Design and conceptual direction
+  adr/                                  Architecture decisions
+.github/                                CI and dependency updates
 ```
 
 ## Getting Started
 
-Prerequisite: a stable **.NET 10 SDK** satisfying `global.json` (10.0.300 or a later stable feature band in the .NET 10.0 family). No cloud account, database, secret or environment variable is required.
+Prerequisite: a stable **.NET 10 SDK** satisfying [global.json](global.json): 10.0.300 or a later stable patch/feature band within .NET 10.0. No environment variables or external infrastructure required.
 
 ```sh
 git clone https://github.com/shivamchopra/enterprise-case-intelligence.git
@@ -71,11 +73,11 @@ curl http://localhost:5080/
 curl http://localhost:5080/health
 ```
 
-The root returns `{"service":"Enterprise Case Intelligence","status":"foundation"}`. The health endpoint returns HTTP 200 when the application is healthy. With no dependency checks registered, it confirms the running host can respond; it does not establish readiness of future infrastructure.
+Both return HTTP 200. The root returns `{"service":"Enterprise Case Intelligence","status":"foundation"}`; health returns `Healthy`.
 
 ## Build and Test
 
-From the repository root, run the same quality gates as CI:
+Run the same quality gates as CI from the repository root:
 
 ```sh
 dotnet restore EnterpriseCaseIntelligence.slnx
@@ -84,24 +86,26 @@ dotnet build EnterpriseCaseIntelligence.slnx --configuration Release --no-restor
 dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 ```
 
-Tests use `WebApplicationFactory<Program>` and do not call external services.
-
 ## Architecture Decisions
 
-- [Architecture overview](docs/architecture/overview.md)
-- [ADR index and process](docs/adr/README.md)
-- [ADR 0001: Use .NET 10 and ASP.NET Core](docs/adr/0001-use-dotnet-10.md)
-- [ADR 0002: Start with a modular application boundary](docs/adr/0002-start-with-a-modular-application-boundary.md)
+- [Architecture overview](docs/architecture/overview.md): boundaries, constraints and conceptual future direction.
+- [ADR index](docs/adr/README.md): decision process and status.
+- [ADR 0001](docs/adr/0001-use-dotnet-10.md): use .NET 10 and ASP.NET Core.
+- [ADR 0002](docs/adr/0002-start-with-a-modular-application-boundary.md): start with one small application and internal boundaries; justify independent services through requirements.
+
+## Planned Evolution
+
+**Planned / Conceptual — none is implemented today:** relational persistence; Azure deployment; asynchronous/event-driven integration; Infrastructure as Code; structured observability; identity and authorization; Python-based AI capabilities; retrieval; AI evaluation; human approval boundaries. Specific technologies and services require future requirements and ADRs.
+
+## Roadmap
+
+- **Now:** the runnable, tested and documented Phase 0 foundation.
+- **Next:** define a small synthetic case use case and its requirements before adding domain behavior or persistence.
+- **Later:** evaluate the planned capabilities against concrete needs and operational tradeoffs.
 
 ## Security and Privacy
 
 Synthetic/example concepts only. Never submit real customer, employer or client information, proprietary material or credentials. This foundation has no authentication or authorization and is not a production deployment. See [security reporting](SECURITY.md) and [contribution guidance](CONTRIBUTING.md).
-
-## Roadmap
-
-- **Now:** runnable foundation, integration tests, CI and documented boundaries.
-- **Next:** define a small synthetic case use case and its requirements before adding domain behavior or persistence.
-- **Later:** evaluate cloud hosting, asynchronous integration, identity, observability and trustworthy AI capabilities when justified.
 
 ## License
 
