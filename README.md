@@ -51,6 +51,7 @@ tests/
 docs/
   architecture/                         Design and conceptual direction
   adr/                                  Architecture decisions
+  requirements/                         Proposed behavior and acceptance criteria
 .github/                                CI and dependency updates
 ```
 
@@ -100,7 +101,7 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 ## Roadmap
 
 - **Now:** the runnable, tested and documented Phase 0 foundation.
-- **Next:** define a small synthetic case use case and its requirements before adding domain behavior or persistence.
+- **Next:** review the [proposed Phase 1 case workflow](docs/requirements/phase-1-case-workflow.md), then implement its agreed domain rules and tests. Case endpoints and storage remain unimplemented.
 - **Later:** evaluate the planned capabilities against concrete needs and operational tradeoffs.
 
 ## Security and Privacy
