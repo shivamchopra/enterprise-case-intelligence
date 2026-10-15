@@ -1,8 +1,8 @@
-# Phase 1 proposal: synthetic case workflow
+# Phase 1 requirements: synthetic case workflow
 
-**Status: Proposed requirements — not implemented.**
+**Status: Reviewed requirements — domain rules implemented; HTTP workflow pending.**
 
-The application remains at **Foundation / Phase 0**. This document proposes the first business behavior to implement after review; it does not claim that case endpoints, models or storage exist. See the [current architecture](../architecture/overview.md) and [application-boundary decision](../adr/0002-start-with-a-modular-application-boundary.md).
+**Phase 1 is in progress.** The case model, text validation and lifecycle rules are implemented and unit tested. Case HTTP operations and storage remain planned. This document records the reviewed workflow contract and its remaining acceptance criteria. See the [current architecture](../architecture/overview.md) and [application-boundary decision](../adr/0002-start-with-a-modular-application-boundary.md).
 
 ## Purpose and scenario
 
@@ -20,7 +20,7 @@ This scenario introduces a small lifecycle and validation rules without borrowin
 
 ## Scope
 
-The proposed slice supports creating one case, retrieving it by identifier and progressing its status. Each operation acts on a single case.
+The complete slice will support creating one case, retrieving it by identifier and progressing its status. Each operation acts on a single case. Only domain creation and status changes are implemented so far.
 
 Out of scope: listing/search/pagination, editing case text, deletion, assignment, priorities, comments, attachments, reopening, cancellation, approvals, audit history, notifications and external integrations. Database implementation, Azure, messaging, Python/AI, authentication/authorization, frontend, infrastructure and observability integrations remain deferred.
 
@@ -39,7 +39,7 @@ Clients cannot supply an identifier or initial status. Creation accepts only `ti
 
 ## Lifecycle rules
 
-The proposed forward lifecycle is:
+The implemented domain lifecycle is:
 
 ```mermaid
 stateDiagram-v2
@@ -114,7 +114,7 @@ The acceptance scenarios below describe sequential operations in one running ins
 
 ## Acceptance criteria
 
-These are criteria for the **future implementation**. This documentation change does not satisfy them by adding executable behavior.
+These criteria describe the **complete workflow**. Domain behavior is covered by unit tests; HTTP-specific assertions remain pending, as detailed below.
 
 | ID | Given / when | Expected result |
 | --- | --- | --- |
@@ -135,6 +135,18 @@ These are criteria for the **future implementation**. This documentation change 
 | AC-15 | Exercise the specified failure responses | Problem media type, status and code agree; field errors appear where required; submitted text and internal details are absent. |
 | AC-16 | Run the existing root and health integration tests | Existing Phase 0 behavior remains intact. |
 
+## Current implementation coverage
+
+| Area | Implemented now | Still pending |
+| --- | --- | --- |
+| AC-01–04 | Domain ID generation, initial status, text normalization and .NET string-length/null/whitespace validation | HTTP creation, JSON type/shape validation, response representation and `Location` |
+| AC-08–11 | All nine domain transition combinations, immediate repeated requests, undefined enum rejection and unchanged state on failure | HTTP status/error mapping and exact JSON status strings |
+| AC-14 | Independent case identifiers and object state | Storage-backed API isolation |
+| AC-16 | Existing root and health integration tests | No additional foundation behavior is planned |
+| AC-05–07, AC-12–13, AC-15 | None of their case-HTTP assertions | Case routes, server-owned-field rejection, lookup, media types and problem responses |
+
+[Domain tests](../../tests/EnterpriseCaseIntelligence.Domain.Tests) reference Domain directly and have no web or storage dependencies. The API still exposes only `/` and `/health`.
+
 ## Verification approach for implementation
 
 - Test domain normalization, field boundaries and all nine transition-matrix cells independently of HTTP and storage.
@@ -142,13 +154,13 @@ These are criteria for the **future implementation**. This documentation change 
 - Give tests isolated state; avoid execution-order dependence and shared static case data. No external service, secret or machine-specific configuration may be needed.
 - Keep format verification, warnings-as-errors, Release build and tests in CI.
 
-No new test framework or test project is introduced by this requirements change. Focused domain tests can be added when domain behavior is implemented.
+The Domain.Tests project uses the same xUnit/VSTest tooling as the API tests. No new testing framework is introduced.
 
 ## Implementation sequence and decision gates
 
-1. Review this proposal, especially the three-state lifecycle, text limits and lack of durable-storage requirements. Amend the document when product assumptions change.
-2. Implement the agreed domain rules and focused tests. Keep Domain independent of HTTP, storage and infrastructure. This is the next coding task.
+1. **Reviewed:** the three-state lifecycle, text limits and absence of durable-storage requirements are the baseline for this slice. Amend the document when product assumptions change.
+2. **Implemented:** domain rules and focused tests. Domain remains independent of HTTP, storage and infrastructure.
 3. Decide the minimum storage approach needed for the local workflow. Record a meaningful architecture choice in an ADR before adding storage-dependent endpoints. Define concrete lifetime, isolation and mutation semantics; do not create speculative layers.
 4. Implement only the proposed case operations and integration criteria after that decision. Keep existing endpoints intact and update documentation to distinguish completed behavior from remaining plans.
 
-Completion of this requirements task means that the proposal, HTTP contract, acceptance criteria and deferred decisions are documented and linked. Completion of the future workflow requires the agreed criteria to pass in executable tests; a written proposal alone is not implemented functionality.
+The domain slice is implemented. Completion of the full workflow still requires the planned HTTP and storage-dependent acceptance criteria to pass in executable tests; domain tests alone do not establish a working case API.
