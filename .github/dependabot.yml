@@ -5,6 +5,7 @@ updates:
       - /src/EnterpriseCaseIntelligence.Api
       - /src/EnterpriseCaseIntelligence.Domain
       - /tests/EnterpriseCaseIntelligence.Api.Tests
+      - /tests/EnterpriseCaseIntelligence.Domain.Tests
     schedule:
       interval: weekly
   - package-ecosystem: github-actions

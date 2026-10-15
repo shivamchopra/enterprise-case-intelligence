@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml/badge.svg)](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml)
 
-**Foundation / Phase 0**
+**Phase 1 in progress: domain rules and tests**
 
-A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: one small API, an explicit domain boundary, integration tests, CI and architecture decisions. Business workflows and infrastructure are planned.
+A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: a small foundation API, case domain rules, unit and integration tests, CI and architecture decisions. Case HTTP operations and storage remain planned.
 
 [Review the implementation](#current-implemented-scope) · [Read the architecture](docs/architecture/overview.md) · [Run locally](#getting-started)
 
@@ -23,7 +23,8 @@ Enterprise case processes span legacy systems, fragmented information and manual
 | Implemented now | Evidence |
 | --- | --- |
 | `GET /`: service/foundation metadata. `GET /health`: framework health checks | [Program.cs](src/EnterpriseCaseIntelligence.Api/Program.cs) |
-| Api → Domain dependency; Domain intentionally empty | [Api project reference](src/EnterpriseCaseIntelligence.Api/EnterpriseCaseIntelligence.Api.csproj) |
+| Case creation, text validation and `New → InReview → Closed` lifecycle; Domain has no HTTP/storage dependencies | [Case model](src/EnterpriseCaseIntelligence.Domain/Cases/Case.cs) · [Statuses](src/EnterpriseCaseIntelligence.Domain/Cases/CaseStatus.cs) |
+| Domain unit tests cover normalization, length boundaries, all status transitions and case isolation | [Domain tests](tests/EnterpriseCaseIntelligence.Domain.Tests) |
 | Two in-memory integration tests using `WebApplicationFactory<Program>` | [Endpoint tests](tests/EnterpriseCaseIntelligence.Api.Tests) |
 | Restore, format verification, Release build and tests in CI; warnings treated as errors | [CI workflow](.github/workflows/ci.yml) · [Build configuration](Directory.Build.props) |
 | Architecture overview and two accepted decisions | [Architecture overview](docs/architecture/overview.md) · [ADR index](docs/adr/README.md) |
@@ -32,12 +33,13 @@ Health checks confirm the host can respond, with no external dependencies checke
 
 ## Architecture at a Glance
 
-One runnable API, one internal boundary and an in-memory test host.
+One runnable API with a separate domain model; unit and integration tests exercise each boundary.
 
 ```mermaid
 flowchart LR
-    Tests[Api.Tests: in-memory integration tests] --> Api[Api: HTTP hosting and composition root]
-    Api --> Domain[Domain: empty boundary]
+    ApiTests[Api.Tests: integration tests] --> Api[Api: foundation endpoints]
+    DomainTests[Domain.Tests: unit tests] --> Domain[Domain: case rules]
+    Api --> Domain
 ```
 
 ## Repository Structure
@@ -45,13 +47,14 @@ flowchart LR
 ```text
 src/
   EnterpriseCaseIntelligence.Api/        HTTP hosting and endpoints
-  EnterpriseCaseIntelligence.Domain/     Domain boundary; no models yet
+  EnterpriseCaseIntelligence.Domain/     Case model and lifecycle rules
 tests/
-  EnterpriseCaseIntelligence.Api.Tests/  Integration tests
+  EnterpriseCaseIntelligence.Api.Tests/  Endpoint integration tests
+  EnterpriseCaseIntelligence.Domain.Tests/ Domain unit tests
 docs/
   architecture/                         Design and conceptual direction
   adr/                                  Architecture decisions
-  requirements/                         Proposed behavior and acceptance criteria
+  requirements/                         Workflow contract and implementation status
 .github/                                CI and dependency updates
 ```
 
@@ -100,8 +103,8 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 
 ## Roadmap
 
-- **Now:** the runnable, tested and documented Phase 0 foundation.
-- **Next:** review the [proposed Phase 1 case workflow](docs/requirements/phase-1-case-workflow.md), then implement its agreed domain rules and tests. Case endpoints and storage remain unimplemented.
+- **Now:** the foundation API plus tested case domain rules from the [Phase 1 requirements](docs/requirements/phase-1-case-workflow.md).
+- **Next:** decide and document the minimum storage approach, then implement the planned case HTTP operations and integration criteria.
 - **Later:** evaluate the planned capabilities against concrete needs and operational tradeoffs.
 
 ## Security and Privacy
