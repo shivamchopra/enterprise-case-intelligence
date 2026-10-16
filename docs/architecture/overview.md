@@ -67,7 +67,7 @@ Framework health checks and automated build/test gates exist now. The health end
 
 Start with one small deployable application and explicit internal boundaries. Add abstractions, processes or independent services when requirements justify deployment independence, scaling differences, reliability, ownership, security or operational isolation. Avoid optimizing for hypothetical scale. Record meaningful decisions in [ADRs](../adr/README.md).
 
-The [reviewed Phase 1 requirements](../requirements/phase-1-case-workflow.md) distinguish implemented domain behavior from planned HTTP operations. The next decision is the minimum storage approach and its lifetime/isolation limits; no store or persistence interface is selected yet.
+The [reviewed Phase 1 requirements](../requirements/phase-1-case-workflow.md) distinguish implemented domain behavior from planned HTTP operations. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) proposes a host-owned, process-memory store for the local workflow, with one synchronization gate and immutable snapshots. The proposed store is not implemented. Data loss on restart, isolated host state and the lack of durable/multi-instance guarantees are explicit limits of that proposal.
 
 ## Conceptual Future Direction — Not Yet Implemented
 

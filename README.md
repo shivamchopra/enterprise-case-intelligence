@@ -96,6 +96,7 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 - [ADR index](docs/adr/README.md): decision process and status.
 - [ADR 0001](docs/adr/0001-use-dotnet-10.md): use .NET 10 and ASP.NET Core.
 - [ADR 0002](docs/adr/0002-start-with-a-modular-application-boundary.md): start with one small application and internal boundaries; justify independent services through requirements.
+- [ADR 0003](docs/adr/0003-use-process-memory-for-the-phase-1-local-workflow.md): proposed process-memory storage for the local Phase 1 workflow; not implemented.
 
 ## Planned Evolution
 
@@ -104,7 +105,7 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 ## Roadmap
 
 - **Now:** the foundation API plus tested case domain rules from the [Phase 1 requirements](docs/requirements/phase-1-case-workflow.md).
-- **Next:** decide and document the minimum storage approach, then implement the planned case HTTP operations and integration criteria.
+- **Next:** review [ADR 0003](docs/adr/0003-use-process-memory-for-the-phase-1-local-workflow.md), then implement the proposed local store and planned case HTTP operations with their acceptance tests. Storage and case endpoints remain unimplemented.
 - **Later:** evaluate the planned capabilities against concrete needs and operational tradeoffs.
 
 ## Security and Privacy

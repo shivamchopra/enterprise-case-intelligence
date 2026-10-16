@@ -15,7 +15,7 @@ This scenario introduces a small lifecycle and validation rules without borrowin
 - **Staff member:** the conceptual user who creates, reads and progresses a case. This is a scenario actor, not an implemented identity or authorization role.
 - All input is synthetic. There are no customer records, people, attachments or confidential documents.
 - The first implementation is a local demonstration. Its API contract must be demonstrable within one running application instance.
-- Durable storage, restart recovery, multi-instance operation and concurrent-writer guarantees are not requirements of this first slice. A storage approach still needs a decision before case endpoints are implemented.
+- Durable storage, restart recovery, multi-instance operation and stale-client conflict detection are outside this first slice. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) proposes synchronized in-process operations and host-owned storage for review before case endpoints are implemented.
 - These are proposed product assumptions for this reference project, not validated enterprise requirements.
 
 ## Scope
@@ -110,7 +110,7 @@ HTTP method/status semantics use [RFC 9110](https://www.rfc-editor.org/rfc/rfc91
 
 ### Concurrency and durability limits
 
-The acceptance scenarios below describe sequential operations in one running instance. The slice does not promise protection from stale client writes or durable recovery. Choose and document storage lifetime, mutation behavior and limitations before implementing the HTTP operations. An in-memory demonstration would require explicit documentation that data disappears on restart and is not shared between instances. No store, interface or database is selected or scaffolded by this proposal.
+The workflow criteria below describe sequential operations in one running instance. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) proposes an empty, host-owned in-memory store: operations are serialized under one gate and return immutable snapshots. All data is lost when that host ends and is never shared with another host. The proposal adds no durable recovery, stale-client/version-token protection or promised concurrent request ordering. Its additional storage/isolation/concurrency test scenarios will apply when the decision is accepted and implemented. No store, interface or database implementation exists yet.
 
 ## Acceptance criteria
 
@@ -160,7 +160,7 @@ The Domain.Tests project uses the same xUnit/VSTest tooling as the API tests. No
 
 1. **Reviewed:** the three-state lifecycle, text limits and absence of durable-storage requirements are the baseline for this slice. Amend the document when product assumptions change.
 2. **Implemented:** domain rules and focused tests. Domain remains independent of HTTP, storage and infrastructure.
-3. Decide the minimum storage approach needed for the local workflow. Record a meaningful architecture choice in an ADR before adding storage-dependent endpoints. Define concrete lifetime, isolation and mutation semantics; do not create speculative layers.
+3. **Proposed:** [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) records the local storage approach, lifetime/isolation limits and mutation semantics. Review it before implementing the store or storage-dependent endpoints; do not create speculative layers.
 4. Implement only the proposed case operations and integration criteria after that decision. Keep existing endpoints intact and update documentation to distinguish completed behavior from remaining plans.
 
 The domain slice is implemented. Completion of the full workflow still requires the planned HTTP and storage-dependent acceptance criteria to pass in executable tests; domain tests alone do not establish a working case API.
