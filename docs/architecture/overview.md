@@ -10,31 +10,38 @@ Maintainability, evolvability, security, reliability and testability guide curre
 
 ## Current Architecture
 
-One ASP.NET Core .NET 10 Minimal API is the only deployable application. It returns foundation metadata at `/` and uses the framework's health-check infrastructure at `/health`. Integration tests run the real application in an in-memory host.
+One ASP.NET Core .NET 10 Minimal API is the only deployable application. It exposes the foundation `/` and `/health` routes plus case creation, retrieval and status changes. Integration tests run the real application in isolated in-memory hosts.
 
-The Domain library implements case creation, text validation and the `New → InReview → Closed` lifecycle. Focused unit tests exercise these rules directly. The API references Domain but does not yet expose case operations or store cases.
+The Domain library implements case creation, text validation and the `New → InReview → Closed` lifecycle. Focused unit tests exercise these rules directly. The API owns a singleton in-memory case store, scoped to its host. One private gate protects collection access and domain mutations; callers receive immutable snapshots.
 
 ```mermaid
 flowchart LR
-    ApiTests[Api.Tests] -->|WebApplicationFactory| Api[Api]
-    DomainTests[Domain.Tests] -->|unit tests| Domain[Domain: case rules]
-    Api -->|project reference| Domain
+    ApiTests[Api.Tests] -->|WebApplicationFactory| Api[Api: HTTP endpoints]
+    Api --> Store[Api: host-owned in-memory store]
+    Store -->|project reference| Domain[Domain: case rules]
+    DomainTests[Domain.Tests] -->|unit tests| Domain
 ```
 
 ## Current Boundaries
 
-- **Api:** composition root, dependency injection, HTTP hosting and the two foundation endpoints. Case HTTP operations remain planned.
+- **Api:** composition root, dependency injection, foundation/case endpoints and a concrete host-owned store. Input validation, HTTP error mapping and serialization remain here. No stored mutable entity escapes the store.
 - **Domain:** a `Case` model and `CaseStatus` enum. Creation generates an identifier, trims and validates required text and starts the case in `New`. Identifier and text are immutable. Status can move forward or remain unchanged; invalid values/transitions are rejected before mutation.
 
-The domain uses standard argument exceptions for invalid input and `InvalidOperationException` for a disallowed transition. These contain no submitted case text. HTTP error mapping belongs to the future API implementation; the domain does not know HTTP status codes or problem details.
+The domain uses standard argument exceptions for invalid input and `InvalidOperationException` for a disallowed transition. These contain no submitted case text. The API maps these outcomes to the reviewed HTTP contract; the domain does not know HTTP status codes or problem details. A fallback exception handler emits a generic problem response for unexpected failures.
 
 ## Dependency Direction
 
 Api references Domain. Api.Tests references Api. Domain.Tests references Domain directly. Domain references neither Api nor tests and has no web, storage or infrastructure dependencies. Additional boundaries will be introduced only when actual implementation needs them.
 
+## Storage lifetime and concurrency
+
+The store starts empty for each host, retains cases in memory until that host ends and shares no state between instances. Reads and lookup/transition/snapshot operations use one synchronous gate. Snapshots preserve an operation's values even if a later request changes the case. Independent test hosts have independent stores.
+
+This local demo has no durable recovery, capacity limit, expiration or stale-client/version-token protection. Concurrent request arrival order is not guaranteed. It is for small synthetic demonstrations, with no production persistence or authorization capability. See [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md).
+
 ## Constraints
 
-The foundation and this first domain slice use no external infrastructure, secrets or real business data. The SDK is pinned to an installed stable .NET 10 baseline, with stable feature-band roll-forward within .NET 10.0. SLNX is created through normal CLI tooling. One CI workflow enforces formatting, warnings-as-errors, Release compilation and tests.
+The local case workflow uses no external infrastructure, secrets or real business data. The SDK is pinned to an installed stable .NET 10 baseline, with stable feature-band roll-forward within .NET 10.0. SLNX is created through normal CLI tooling. One CI workflow enforces formatting, warnings-as-errors, Release compilation and tests.
 
 ## Assumptions
 
@@ -48,7 +55,7 @@ Each assumption will be revisited with concrete requirements and evidence.
 
 ## Non-goals
 
-This slice does not implement case HTTP workflows, storage/persistence, cloud resources, containers, messaging, identity, authorization, a frontend, Python services, AI, production deployment or telemetry integration. It does not define a distributed system or promise a final modular-monolith topology.
+This slice does not implement durable persistence, cloud resources, containers, messaging, identity, authorization, a frontend, Python services, AI, production deployment or telemetry integration. It does not define a distributed system or promise a final modular-monolith topology.
 
 ## Security Principles
 
@@ -57,7 +64,7 @@ This slice does not implement case HTTP workflows, storage/persistence, cloud re
 - Prefer secure defaults and least privilege; CI has read-only repository permissions.
 - Future authorization and data-access boundaries must be designed before handling sensitive information.
 
-The present API is a local foundation without authentication. These principles do not constitute implemented production security controls.
+The present API is a local synthetic workflow without authentication. These principles do not constitute implemented production security controls.
 
 ## Operability Principles
 
@@ -67,7 +74,7 @@ Framework health checks and automated build/test gates exist now. The health end
 
 Start with one small deployable application and explicit internal boundaries. Add abstractions, processes or independent services when requirements justify deployment independence, scaling differences, reliability, ownership, security or operational isolation. Avoid optimizing for hypothetical scale. Record meaningful decisions in [ADRs](../adr/README.md).
 
-The [reviewed Phase 1 requirements](../requirements/phase-1-case-workflow.md) distinguish implemented domain behavior from planned HTTP operations. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) proposes a host-owned, process-memory store for the local workflow, with one synchronization gate and immutable snapshots. The proposed store is not implemented. Data loss on restart, isolated host state and the lack of durable/multi-instance guarantees are explicit limits of that proposal.
+The [reviewed Phase 1 requirements](../requirements/phase-1-case-workflow.md) are implemented for the local workflow. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) records the current temporary storage choice. Further persistence, consistency or deployment requirements must be evaluated before replacing this small local demonstration.
 
 ## Conceptual Future Direction — Not Yet Implemented
 
