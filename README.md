@@ -112,7 +112,7 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 ## Roadmap
 
 - **Now:** the local case workflow and its [reviewed acceptance criteria](docs/requirements/phase-1-case-workflow.md), plus foundation endpoints and tests.
-- **Next:** review the implemented workflow and define the next requirement before expanding persistence or architecture.
+- **Next (proposed):** [preserve the local case workflow across restarts](docs/requirements/phase-2-durable-case-workflow.md). Review the durability requirements, then evaluate storage in an ADR before implementation; no storage technology is selected yet.
 - **Later:** evaluate the planned capabilities against concrete needs and operational tradeoffs.
 
 ## Security and Privacy

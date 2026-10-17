@@ -76,6 +76,8 @@ Start with one small deployable application and explicit internal boundaries. Ad
 
 The [reviewed Phase 1 requirements](../requirements/phase-1-case-workflow.md) are implemented for the local workflow. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) records the current temporary storage choice. Further persistence, consistency or deployment requirements must be evaluated before replacing this small local demonstration.
 
+The [proposed Phase 2 requirements](../requirements/phase-2-durable-case-workflow.md) define restart continuity, atomic writes and safe storage failures for a single local API process. They are not implemented and do not select a database or change the current architecture. A subsequent storage ADR must evaluate those requirements before code or infrastructure expands.
+
 ## Conceptual Future Direction — Not Yet Implemented
 
 The following relationships are possibilities, not selected services or deployed components:
