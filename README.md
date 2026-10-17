@@ -104,6 +104,7 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 - [ADR 0001](docs/adr/0001-use-dotnet-10.md): use .NET 10 and ASP.NET Core.
 - [ADR 0002](docs/adr/0002-start-with-a-modular-application-boundary.md): start with one small application and internal boundaries; justify independent services through requirements.
 - [ADR 0003](docs/adr/0003-use-process-memory-for-the-phase-1-local-workflow.md): accepted process-memory storage for the implemented local Phase 1 workflow.
+- [ADR 0004](docs/adr/0004-use-sqlite-for-the-durable-local-workflow.md): proposed SQLite storage for Phase 2; not implemented.
 
 ## Planned Evolution
 
@@ -112,7 +113,7 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 ## Roadmap
 
 - **Now:** the local case workflow and its [reviewed acceptance criteria](docs/requirements/phase-1-case-workflow.md), plus foundation endpoints and tests.
-- **Next (proposed):** [preserve the local case workflow across restarts](docs/requirements/phase-2-durable-case-workflow.md). Review the durability requirements, then evaluate storage in an ADR before implementation; no storage technology is selected yet.
+- **Next:** review the [proposed SQLite decision](docs/adr/0004-use-sqlite-for-the-durable-local-workflow.md) against the [reviewed restart/durability requirements](docs/requirements/phase-2-durable-case-workflow.md), then implement the accepted decision. Phase 2 persistence is not implemented.
 - **Later:** evaluate the planned capabilities against concrete needs and operational tradeoffs.
 
 ## Security and Privacy
