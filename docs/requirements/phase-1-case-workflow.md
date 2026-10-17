@@ -1,8 +1,8 @@
 # Phase 1 requirements: synthetic case workflow
 
-**Status: Reviewed requirements — domain rules implemented; HTTP workflow pending.**
+**Status: Reviewed requirements — local workflow implemented.**
 
-**Phase 1 is in progress.** The case model, text validation and lifecycle rules are implemented and unit tested. Case HTTP operations and storage remain planned. This document records the reviewed workflow contract and its remaining acceptance criteria. See the [current architecture](../architecture/overview.md) and [application-boundary decision](../adr/0002-start-with-a-modular-application-boundary.md).
+The case model, host-owned in-memory store and create/read/status HTTP workflow are implemented and tested. This document records the local workflow contract and its acceptance coverage. Durable storage and production capabilities remain deferred. See the [current architecture](../architecture/overview.md) and [application-boundary decision](../adr/0002-start-with-a-modular-application-boundary.md).
 
 ## Purpose and scenario
 
@@ -15,12 +15,12 @@ This scenario introduces a small lifecycle and validation rules without borrowin
 - **Staff member:** the conceptual user who creates, reads and progresses a case. This is a scenario actor, not an implemented identity or authorization role.
 - All input is synthetic. There are no customer records, people, attachments or confidential documents.
 - The first implementation is a local demonstration. Its API contract must be demonstrable within one running application instance.
-- Durable storage, restart recovery, multi-instance operation and stale-client conflict detection are outside this first slice. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) proposes synchronized in-process operations and host-owned storage for review before case endpoints are implemented.
+- Durable storage, restart recovery, multi-instance operation and stale-client conflict detection are outside this first slice. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) defines synchronized in-process operations and host-owned storage for the implemented local workflow.
 - These are proposed product assumptions for this reference project, not validated enterprise requirements.
 
 ## Scope
 
-The complete slice will support creating one case, retrieving it by identifier and progressing its status. Each operation acts on a single case. Only domain creation and status changes are implemented so far.
+The slice supports creating one case, retrieving it by identifier and progressing its status. Each operation acts on a single case. Data exists only for the lifetime of its application host.
 
 Out of scope: listing/search/pagination, editing case text, deletion, assignment, priorities, comments, attachments, reopening, cancellation, approvals, audit history, notifications and external integrations. Database implementation, Azure, messaging, Python/AI, authentication/authorization, frontend, infrastructure and observability integrations remain deferred.
 
@@ -35,7 +35,7 @@ Out of scope: listing/search/pagination, editing case text, deletion, assignment
 
 Length limits use .NET string length after trimming. Null, missing, non-string and whitespace-only title/description values are invalid. Preserve internal whitespace. No timestamps, user identifiers or external references are required in this slice.
 
-Clients cannot supply an identifier or initial status. Creation accepts only `title` and `description`; unknown properties are rejected. Distinct successful create requests produce distinct identifiers, even when the text is identical. Duplicate detection and retry/idempotency keys are deferred.
+Clients cannot supply an identifier or initial status. Creation accepts only `title` and `description`; unknown properties are rejected. Property names are case-sensitive and duplicate properties are rejected to avoid ambiguous input. Distinct successful create requests produce distinct identifiers, even when the text is identical. Duplicate detection and retry/idempotency keys are deferred.
 
 ## Lifecycle rules
 
@@ -60,9 +60,9 @@ The complete transition matrix is the business rule:
 
 A successful transition preserves the case identifier, title and description. An invalid operation must leave the entire case unchanged. Status input accepts exactly the strings `New`, `InReview` and `Closed`; numeric, null, unknown or differently cased values are invalid.
 
-## Proposed HTTP contract
+## HTTP contract
 
-**All routes below are planned.** The existing `GET /` and `GET /health` retain their Phase 0 behavior.
+**The routes below are implemented.** The existing `GET /` and `GET /health` retain their foundation behavior.
 
 | Operation | Request | Successful response |
 | --- | --- | --- |
@@ -70,7 +70,7 @@ A successful transition preserves the case identifier, title and description. An
 | Retrieve | `GET /cases/{id}` | `200 OK`; complete case representation |
 | Change status | `PUT /cases/{id}/status` with only `status` | `200 OK`; complete case representation, including for an unchanged status |
 
-Request and response fields use camelCase. Writes accept `application/json`; successful bodies use `application/json`. A case representation contains exactly the four fields above. IDs in route segments must be non-empty canonical hyphenated UUIDs.
+Request and response fields use camelCase. Writes accept UTF-8 `application/json` (charset absent or `utf-8`); successful bodies use `application/json`. Other media types and charsets are unsupported. A case representation contains exactly the four fields above. IDs in route segments must be non-empty canonical hyphenated UUIDs.
 
 Example create request, containing synthetic text only:
 
@@ -97,10 +97,11 @@ Reject unsupported content types before parsing JSON. Validate the route identif
 
 | Condition | HTTP status | Stable problem `code` |
 | --- | --- | --- |
-| Invalid or all-zero route UUID; empty, malformed or non-object JSON; missing, invalid or unknown fields | `400 Bad Request` | `validation_failed` |
+| Invalid or all-zero route UUID; empty, malformed or non-object JSON, including invalid Unicode; missing, invalid, duplicate or unknown fields | `400 Bad Request` | `validation_failed` |
 | Valid request/identifier but no matching case | `404 Not Found` | `case_not_found` |
 | Known case and recognized status, but transition rejected by the matrix | `409 Conflict` | `invalid_transition` |
-| A write uses an unsupported content type | `415 Unsupported Media Type` | `unsupported_media_type` |
+| A write uses an unsupported content type or charset | `415 Unsupported Media Type` | `unsupported_media_type` |
+| An unexpected application failure | `500 Internal Server Error` | `internal_error` |
 
 Failures use `application/problem+json` with standard problem fields `type`, `title` and `status`, plus the stable `code` above. `about:blank` is sufficient for `type`; use the corresponding HTTP reason phrase for `title`. No hosted error-documentation service is required. Field-validation problems also include an `errors` object keyed by the relevant request field; route and body-level failures may use `id` and `body` respectively.
 
@@ -110,11 +111,11 @@ HTTP method/status semantics use [RFC 9110](https://www.rfc-editor.org/rfc/rfc91
 
 ### Concurrency and durability limits
 
-The workflow criteria below describe sequential operations in one running instance. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) proposes an empty, host-owned in-memory store: operations are serialized under one gate and return immutable snapshots. All data is lost when that host ends and is never shared with another host. The proposal adds no durable recovery, stale-client/version-token protection or promised concurrent request ordering. Its additional storage/isolation/concurrency test scenarios will apply when the decision is accepted and implemented. No store, interface or database implementation exists yet.
+The workflow criteria below describe operations in one running instance. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) defines the implemented store: it starts empty, serializes operations under one gate and returns immutable snapshots. All data is lost when that host ends and is never shared with another host. No durable recovery, stale-client/version-token protection, enforced memory cap or promised concurrent request arrival order is provided. Additional storage/isolation/concurrency tests cover the ADR scenarios.
 
 ## Acceptance criteria
 
-These criteria describe the **complete workflow**. Domain behavior is covered by unit tests; HTTP-specific assertions remain pending, as detailed below.
+These criteria describe the **implemented local workflow**. Domain tests, store tests and isolated-host integration tests cover them as detailed below.
 
 | ID | Given / when | Expected result |
 | --- | --- | --- |
@@ -137,17 +138,18 @@ These criteria describe the **complete workflow**. Domain behavior is covered by
 
 ## Current implementation coverage
 
-| Area | Implemented now | Still pending |
-| --- | --- | --- |
-| AC-01–04 | Domain ID generation, initial status, text normalization and .NET string-length/null/whitespace validation | HTTP creation, JSON type/shape validation, response representation and `Location` |
-| AC-08–11 | All nine domain transition combinations, immediate repeated requests, undefined enum rejection and unchanged state on failure | HTTP status/error mapping and exact JSON status strings |
-| AC-14 | Independent case identifiers and object state | Storage-backed API isolation |
-| AC-16 | Existing root and health integration tests | No additional foundation behavior is planned |
-| AC-05–07, AC-12–13, AC-15 | None of their case-HTTP assertions | Case routes, server-owned-field rejection, lookup, media types and problem responses |
+| Criteria | Evidence |
+| --- | --- |
+| AC-01–05 | [Creation tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseCreationEndpointTests.cs): ID/Location/representation, normalization, boundaries, required types and server-owned/unknown-field rejection |
+| AC-06–07, AC-12 | [Lookup/isolation tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseLookupAndIsolationTests.cs): retrieval, route validation, missing cases and validation-before-lookup |
+| AC-08–11 | [Status tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseStatusEndpointTests.cs): every matrix cell, no-op retries, strict status input and unchanged state after rejection |
+| AC-13–15 | Creation/status tests cover body/media-type failures, independent cases and safe problem responses; [unexpected-error test](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/UnexpectedErrorTests.cs) checks generic fallback behavior |
+| AC-16 | Existing [root](../../tests/EnterpriseCaseIntelligence.Api.Tests/RootEndpointTests.cs) and [health](../../tests/EnterpriseCaseIntelligence.Api.Tests/HealthEndpointTests.cs) tests |
+| ADR 0003 | [Store tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/InMemoryCaseStoreTests.cs) cover immutable snapshots and failed writes; API tests cover concurrent requests, host isolation and data loss on host replacement |
 
-[Domain tests](../../tests/EnterpriseCaseIntelligence.Domain.Tests) reference Domain directly and have no web or storage dependencies. The API still exposes only `/` and `/health`.
+[Domain tests](../../tests/EnterpriseCaseIntelligence.Domain.Tests) remain independent of HTTP/storage. The API exposes the three case operations plus `/` and `/health`. See the [local walkthrough](../usage/local-case-workflow.md) for a manual create/read/transition sequence.
 
-## Verification approach for implementation
+## Verification approach
 
 - Test domain normalization, field boundaries and all nine transition-matrix cells independently of HTTP and storage.
 - Use `WebApplicationFactory<Program>` integration tests for routes, JSON/media types, `Location`, error mapping and the create/read/transition/read sequence.
@@ -160,7 +162,7 @@ The Domain.Tests project uses the same xUnit/VSTest tooling as the API tests. No
 
 1. **Reviewed:** the three-state lifecycle, text limits and absence of durable-storage requirements are the baseline for this slice. Amend the document when product assumptions change.
 2. **Implemented:** domain rules and focused tests. Domain remains independent of HTTP, storage and infrastructure.
-3. **Proposed:** [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) records the local storage approach, lifetime/isolation limits and mutation semantics. Review it before implementing the store or storage-dependent endpoints; do not create speculative layers.
-4. Implement only the proposed case operations and integration criteria after that decision. Keep existing endpoints intact and update documentation to distinguish completed behavior from remaining plans.
+3. **Accepted and implemented:** [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) records the local storage approach, lifetime/isolation limits and mutation semantics.
+4. **Implemented:** the three case operations and their acceptance tests, with existing foundation endpoints preserved.
 
-The domain slice is implemented. Completion of the full workflow still requires the planned HTTP and storage-dependent acceptance criteria to pass in executable tests; domain tests alone do not establish a working case API.
+The local workflow is implemented. Further capabilities require new requirements and decisions; this slice does not authorize durable persistence, external integrations or production deployment.

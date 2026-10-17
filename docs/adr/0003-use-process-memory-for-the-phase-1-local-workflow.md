@@ -2,19 +2,19 @@
 
 ## Status
 
-**Proposed — implementation pending.** This ADR is the recommended storage decision for review before implementing case HTTP operations. It does not describe an existing store.
+**Accepted — implemented for the Phase 1 local demonstration.** The decision was reviewed in PR #8; the store and case HTTP operations now implement the semantics below.
 
 ## Context
 
-The [reviewed workflow](../requirements/phase-1-case-workflow.md) needs create, retrieve-by-ID and status-update operations across requests in one running local application. Its domain model and tests already exist. The API currently exposes only `/` and `/health`.
+The [reviewed workflow](../requirements/phase-1-case-workflow.md) needs create, retrieve-by-ID and status-update operations across requests in one running local application. At decision time, the domain model and tests existed and the API exposed only `/` and `/health`.
 
 All data is synthetic. Durable recovery, multiple application instances and stale-client conflict detection are outside this first slice. Adding a database would introduce schema, configuration and operational work before any durability requirement has been established. The hosting layer can still receive concurrent requests, so shared mutable case state requires deliberate synchronization.
 
 ## Decision
 
-For this local demonstration, implement one small concrete in-memory case store in the existing Api project. Register it through dependency injection as a **singleton per application host/service provider**. The store will own an instance-level `Dictionary<Guid, Case>` and one private synchronization gate.
+For this local demonstration, implement one small concrete in-memory case store in the existing Api project. Register it through dependency injection as a **singleton per application host/service provider**. The store owns an instance-level `Dictionary<Guid, Case>` and one private synchronization gate.
 
-The store will support only create, retrieve and change-status operations. Keep Domain independent of hosting and storage. Add no persistence project, repository interface, generic repository, database provider or external service for this slice. These boundaries can change when actual persistence requirements appear.
+The store supports only create, retrieve and change-status operations. Keep Domain independent of hosting and storage. Add no persistence project, repository interface, generic repository, database provider or external service for this slice. These boundaries can change when actual persistence requirements appear.
 
 ### Lifetime and data ownership
 
@@ -40,9 +40,9 @@ Dependency injection does not make a shared singleton thread-safe, and a diction
 
 ### HTTP and test boundaries
 
-The future HTTP layer validates JSON, route IDs and status strings and maps store/domain outcomes to the reviewed response contract. The store does not return HTTP results or expose request/response objects. Existing foundation endpoints retain their behavior and acquire no storage readiness check for an external service that does not exist.
+The HTTP layer validates JSON, route IDs and status strings and maps store/domain outcomes to the reviewed response contract. The store does not return HTTP results or expose request/response objects. Existing foundation endpoints retain their behavior and acquire no storage readiness check for an external service that does not exist.
 
-Future store/API tests must establish:
+The [store and API tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases) establish:
 
 | Scenario | Required outcome |
 | --- | --- |
@@ -79,6 +79,8 @@ The demo will lose data on restart and cannot support multiple instances, durabl
 
 Revisit this ADR before requiring data to survive restart, deploying multiple instances, handling real/sensitive records, supporting durable audit/integration, detecting stale writes or meeting a measured throughput/memory requirement. A later ADR must define the needed persistence, consistency, security and migration behavior. It may replace this concrete store; this decision does not promise a drop-in database replacement.
 
-## Implementation boundary
+## Implementation
 
-This PR records a proposed decision only. It adds no store, synchronization code, snapshots, dependency registrations, new projects or case endpoints. After approval, mark the ADR Accepted. The next task is to implement this store and the already-specified case HTTP operations with their acceptance tests, then update current-scope documentation with actual behavior and validation results.
+[InMemoryCaseStore](../../src/EnterpriseCaseIntelligence.Api/Cases/InMemoryCaseStore.cs) owns the dictionary and synchronization gate; [CaseSnapshot](../../src/EnterpriseCaseIntelligence.Api/Cases/CaseSnapshot.cs) holds immutable result values. The composition root registers the store once per host. [Case endpoints](../../src/EnterpriseCaseIntelligence.Api/Cases/CaseEndpoints.cs) validate input and map outcomes without exposing stored entities.
+
+No new production project, package, repository abstraction or external service was added. The [local walkthrough](../usage/local-case-workflow.md) documents data loss and other limits. Durable persistence and production deployment remain future decisions.
