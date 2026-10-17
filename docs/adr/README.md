@@ -15,3 +15,4 @@ Future meaningful choices should receive ADRs when they are evaluated and select
 | [0001: Use .NET 10 and ASP.NET Core](0001-use-dotnet-10.md) | Accepted |
 | [0002: Start with a modular application boundary](0002-start-with-a-modular-application-boundary.md) | Accepted |
 | [0003: Use process memory for the Phase 1 local workflow](0003-use-process-memory-for-the-phase-1-local-workflow.md) | Accepted |
+| [0004: Use SQLite for the durable local workflow](0004-use-sqlite-for-the-durable-local-workflow.md) | Proposed — not implemented |

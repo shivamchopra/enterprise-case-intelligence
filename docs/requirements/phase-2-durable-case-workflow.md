@@ -1,8 +1,8 @@
 # Phase 2 requirements: durable local case workflow
 
-**Status: Proposed — for review; not implemented.**
+**Status: Reviewed requirements — not implemented.** Reviewed in PR #10. Storage selection is proposed separately in [ADR 0004](../adr/0004-use-sqlite-for-the-durable-local-workflow.md).
 
-The [Phase 1 workflow](phase-1-case-workflow.md) is implemented with temporary host-owned memory. This proposal adds one capability: resume the same synthetic case workflow after restarting the application. It defines required behavior before choosing a storage technology or changing code. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) remains the accepted, implemented storage decision.
+The [Phase 1 workflow](phase-1-case-workflow.md) is implemented with temporary host-owned memory. These requirements add one capability: resume the same synthetic case workflow after restarting the application. They define required behavior before accepting a storage technology or changing code. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) remains the accepted, implemented storage decision.
 
 ## Purpose and scenario
 
@@ -56,7 +56,7 @@ Document local setup, configuration, initialization, restart and deliberate disp
 
 ## Acceptance criteria for the future implementation
 
-These are proposed verification requirements, not claims of passing tests. **P2-01–12 are not implemented.**
+These are reviewed verification requirements, not claims of passing tests. **P2-01–12 are not implemented.**
 
 | ID | Given / when | Required evidence |
 | --- | --- | --- |
@@ -83,9 +83,9 @@ The later implementation must define reproducible local and CI storage setup. Ex
 
 ## Decision and implementation sequence
 
-1. **Review this proposal:** agree that restart continuity is the next user need and accept or amend the operating/failure assumptions.
-2. **Propose a storage ADR:** evaluate options against these criteria, including setup cost, durability limits, transaction/concurrency behavior, initialization/schema compatibility, safe failures and actual-engine testability. Explain configuration, domain rehydration and any necessary boundary changes. Supersede ADR 0003 only when the replacement decision is accepted; document implementation status accurately.
+1. **Reviewed in PR #10:** restart continuity and the operating/failure assumptions form the requirements baseline for this slice.
+2. **Proposed in ADR 0004:** evaluate options against these criteria, including setup cost, durability limits, transaction/concurrency behavior, initialization/schema compatibility, safe failures and actual-engine testability. Explain configuration, domain rehydration and any necessary boundary changes. Supersede ADR 0003 only when the replacement decision is accepted; document implementation status accurately.
 3. **Implement the accepted decision:** introduce only the storage, domain-loading support and test/configuration changes that decision needs, preserving the case HTTP contract.
 4. **Verify and update public evidence:** run the acceptance checks and update the walkthrough, architecture and README with implemented behavior and remaining limits.
 
-Until those steps are reviewed and implemented, the API remains the Phase 1 temporary-memory demonstration. This proposal does not authorize a production deployment or select infrastructure.
+Until the storage decision is accepted and implemented, the API remains the Phase 1 temporary-memory demonstration. These requirements do not authorize a production deployment or select infrastructure.
