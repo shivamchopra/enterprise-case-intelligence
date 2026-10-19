@@ -2,7 +2,7 @@
 
 ## Status
 
-**Accepted — implemented for the Phase 1 local demonstration.** The decision was reviewed in PR #8; the store and case HTTP operations now implement the semantics below.
+**Superseded for Phase 2 by [ADR 0004](0004-use-sqlite-for-the-durable-local-workflow.md).** Reviewed in PR #8 and implemented for Phase 1 in PR #9. The sections below preserve that historical decision; the current API uses SQLite.
 
 ## Context
 
@@ -42,7 +42,7 @@ Dependency injection does not make a shared singleton thread-safe, and a diction
 
 The HTTP layer validates JSON, route IDs and status strings and maps store/domain outcomes to the reviewed response contract. The store does not return HTTP results or expose request/response objects. Existing foundation endpoints retain their behavior and acquire no storage readiness check for an external service that does not exist.
 
-The [store and API tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases) establish:
+The [store and API tests](https://github.com/shivamchopra/enterprise-case-intelligence/tree/4fde8995fc0cc6f326cf0ed35ba77e9a05bd48d8/tests/EnterpriseCaseIntelligence.Api.Tests/Cases) establish:
 
 | Scenario | Required outcome |
 | --- | --- |
@@ -79,8 +79,8 @@ The demo will lose data on restart and cannot support multiple instances, durabl
 
 Revisit this ADR before requiring data to survive restart, deploying multiple instances, handling real/sensitive records, supporting durable audit/integration, detecting stale writes or meeting a measured throughput/memory requirement. A later ADR must define the needed persistence, consistency, security and migration behavior. It may replace this concrete store; this decision does not promise a drop-in database replacement.
 
-## Implementation
+## Historical implementation
 
-[InMemoryCaseStore](../../src/EnterpriseCaseIntelligence.Api/Cases/InMemoryCaseStore.cs) owns the dictionary and synchronization gate; [CaseSnapshot](../../src/EnterpriseCaseIntelligence.Api/Cases/CaseSnapshot.cs) holds immutable result values. The composition root registers the store once per host. [Case endpoints](../../src/EnterpriseCaseIntelligence.Api/Cases/CaseEndpoints.cs) validate input and map outcomes without exposing stored entities.
+[InMemoryCaseStore](https://github.com/shivamchopra/enterprise-case-intelligence/blob/4fde8995fc0cc6f326cf0ed35ba77e9a05bd48d8/src/EnterpriseCaseIntelligence.Api/Cases/InMemoryCaseStore.cs) owns the dictionary and synchronization gate; [CaseSnapshot](https://github.com/shivamchopra/enterprise-case-intelligence/blob/4fde8995fc0cc6f326cf0ed35ba77e9a05bd48d8/src/EnterpriseCaseIntelligence.Api/Cases/CaseSnapshot.cs) holds immutable result values. The composition root registers the store once per host. [Case endpoints](https://github.com/shivamchopra/enterprise-case-intelligence/blob/4fde8995fc0cc6f326cf0ed35ba77e9a05bd48d8/src/EnterpriseCaseIntelligence.Api/Cases/CaseEndpoints.cs) validate input and map outcomes without exposing stored entities.
 
-No new production project, package, repository abstraction or external service was added. The [local walkthrough](../usage/local-case-workflow.md) documents data loss and other limits. Durable persistence and production deployment remain future decisions.
+No new production project, package, repository abstraction or external service was added. The [local walkthrough](https://github.com/shivamchopra/enterprise-case-intelligence/blob/4fde8995fc0cc6f326cf0ed35ba77e9a05bd48d8/docs/usage/local-case-workflow.md) documents data loss and other limits. Durable persistence and production deployment remain future decisions.

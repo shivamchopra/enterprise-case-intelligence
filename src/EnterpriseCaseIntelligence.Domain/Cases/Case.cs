@@ -18,6 +18,36 @@ public sealed class Case
 
     public CaseStatus Status { get; private set; }
 
+    private Case(Guid id, string title, string description, CaseStatus status)
+    {
+        Id = id;
+        Title = title;
+        Description = description;
+        Status = status;
+    }
+
+    public static Case Restore(Guid id, string title, string description, CaseStatus status)
+    {
+        if (id == Guid.Empty)
+        {
+            throw new ArgumentException("A non-empty identifier is required.", nameof(id));
+        }
+
+        if (!Enum.IsDefined(status))
+        {
+            throw new ArgumentOutOfRangeException(nameof(status), "The case status is not recognized.");
+        }
+
+        var normalizedTitle = NormalizeRequiredText(title, 120, nameof(title));
+        var normalizedDescription = NormalizeRequiredText(description, 2_000, nameof(description));
+        if (title != normalizedTitle || description != normalizedDescription)
+        {
+            throw new ArgumentException("Stored text must already be normalized.");
+        }
+
+        return new Case(id, title, description, status);
+    }
+
     public void ChangeStatus(CaseStatus status)
     {
         if (!Enum.IsDefined(status))

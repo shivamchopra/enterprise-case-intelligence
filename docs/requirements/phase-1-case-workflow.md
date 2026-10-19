@@ -2,7 +2,7 @@
 
 **Status: Reviewed requirements — local workflow implemented.**
 
-The case model, host-owned in-memory store and create/read/status HTTP workflow are implemented and tested. This document records the local workflow contract and its acceptance coverage. Durable storage and production capabilities remain deferred. See the [current architecture](../architecture/overview.md) and [application-boundary decision](../adr/0002-start-with-a-modular-application-boundary.md).
+This document preserves the Phase 1 HTTP/domain contract and its original temporary-memory assumptions. The contract remains implemented and tested. [Phase 2](phase-2-durable-case-workflow.md) now replaces those storage assumptions with retained local SQLite storage; production capabilities remain deferred. See the [current architecture](../architecture/overview.md) and [application-boundary decision](../adr/0002-start-with-a-modular-application-boundary.md).
 
 ## Purpose and scenario
 
@@ -22,7 +22,7 @@ This scenario introduces a small lifecycle and validation rules without borrowin
 
 The slice supports creating one case, retrieving it by identifier and progressing its status. Each operation acts on a single case. Data exists only for the lifetime of its application host.
 
-Out of scope: listing/search/pagination, editing case text, deletion, assignment, priorities, comments, attachments, reopening, cancellation, approvals, audit history, notifications and external integrations. Database implementation, Azure, messaging, Python/AI, authentication/authorization, frontend, infrastructure and observability integrations remain deferred.
+Out of scope: listing/search/pagination, editing case text, deletion, assignment, priorities, comments, attachments, reopening, cancellation, approvals, audit history, notifications and external integrations. Database implementation was deferred in Phase 1 and is now covered separately by Phase 2. Azure, messaging, Python/AI, authentication/authorization, frontend, infrastructure and observability integrations remain deferred.
 
 ## Minimum case data
 
@@ -111,7 +111,7 @@ HTTP method/status semantics use [RFC 9110](https://www.rfc-editor.org/rfc/rfc91
 
 ### Concurrency and durability limits
 
-The workflow criteria below describe operations in one running instance. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) defines the implemented store: it starts empty, serializes operations under one gate and returns immutable snapshots. All data is lost when that host ends and is never shared with another host. No durable recovery, stale-client/version-token protection, enforced memory cap or promised concurrent request arrival order is provided. Additional storage/isolation/concurrency tests cover the ADR scenarios.
+The workflow criteria below describe operations in one running instance. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) defines the historical Phase 1 store: it starts empty, serializes operations under one gate and returns immutable snapshots. All data is lost when that host ends and is never shared with another host. No durable recovery, stale-client/version-token protection, enforced memory cap or promised concurrent request arrival order is provided. Current storage/recovery behavior is defined and tested under Phase 2 and ADR 0004.
 
 ## Acceptance criteria
 
@@ -143,9 +143,9 @@ These criteria describe the **implemented local workflow**. Domain tests, store 
 | AC-01–05 | [Creation tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseCreationEndpointTests.cs): ID/Location/representation, normalization, boundaries, required types and server-owned/unknown-field rejection |
 | AC-06–07, AC-12 | [Lookup/isolation tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseLookupAndIsolationTests.cs): retrieval, route validation, missing cases and validation-before-lookup |
 | AC-08–11 | [Status tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseStatusEndpointTests.cs): every matrix cell, no-op retries, strict status input and unchanged state after rejection |
-| AC-13–15 | Creation/status tests cover body/media-type failures, independent cases and safe problem responses; [unexpected-error test](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/UnexpectedErrorTests.cs) checks generic fallback behavior |
+| AC-13–15 | Creation/status tests cover body/media-type failures, independent cases and safe problem responses; [storage failure tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseStorageFailureTests.cs) checks generic fallback behavior |
 | AC-16 | Existing [root](../../tests/EnterpriseCaseIntelligence.Api.Tests/RootEndpointTests.cs) and [health](../../tests/EnterpriseCaseIntelligence.Api.Tests/HealthEndpointTests.cs) tests |
-| ADR 0003 | [Store tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/InMemoryCaseStoreTests.cs) cover immutable snapshots and failed writes; API tests cover concurrent requests, host isolation and data loss on host replacement |
+| Current storage, ADR 0004 | [Durability tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseDurabilityTests.cs) cover immutable snapshots, committed state and restart continuity; Phase 2 supersedes the old data-loss behavior |
 
 [Domain tests](../../tests/EnterpriseCaseIntelligence.Domain.Tests) remain independent of HTTP/storage. The API exposes the three case operations plus `/` and `/health`. See the [local walkthrough](../usage/local-case-workflow.md) for a manual create/read/transition sequence.
 
@@ -162,7 +162,7 @@ The Domain.Tests project uses the same xUnit/VSTest tooling as the API tests. No
 
 1. **Reviewed:** the three-state lifecycle, text limits and absence of durable-storage requirements are the baseline for this slice. Amend the document when product assumptions change.
 2. **Implemented:** domain rules and focused tests. Domain remains independent of HTTP, storage and infrastructure.
-3. **Accepted and implemented:** [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) records the local storage approach, lifetime/isolation limits and mutation semantics.
+3. **Historical, superseded by ADR 0004:** [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) records the local storage approach, lifetime/isolation limits and mutation semantics.
 4. **Implemented:** the three case operations and their acceptance tests, with existing foundation endpoints preserved.
 
-The local workflow is implemented. Further capabilities require new requirements and decisions; this slice does not authorize durable persistence, external integrations or production deployment.
+The local workflow is implemented. Phase 2 and ADR 0004 now add durable local persistence while retaining this HTTP/domain contract. External integrations and production deployment still require separate requirements and decisions.

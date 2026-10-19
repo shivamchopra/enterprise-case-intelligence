@@ -13,7 +13,7 @@ internal static class CaseEndpoints
         endpoints.MapPut("/cases/{id}/status", ChangeStatus);
     }
 
-    private static async Task<IResult> CreateCase(HttpRequest request, InMemoryCaseStore store, CancellationToken cancellationToken)
+    private static async Task<IResult> CreateCase(HttpRequest request, SqliteCaseStore store, CancellationToken cancellationToken)
     {
         var (body, error) = await ReadBodyAsync(request, cancellationToken);
         if (error is not null)
@@ -39,7 +39,7 @@ internal static class CaseEndpoints
         }
     }
 
-    private static IResult GetCase(string id, InMemoryCaseStore store)
+    private static IResult GetCase(string id, SqliteCaseStore store)
     {
         if (!TryReadId(id, out var caseId))
         {
@@ -50,7 +50,7 @@ internal static class CaseEndpoints
         return snapshot is null ? MissingCase() : Results.Ok(Representation(snapshot));
     }
 
-    private static async Task<IResult> ChangeStatus(string id, HttpRequest request, InMemoryCaseStore store, CancellationToken cancellationToken)
+    private static async Task<IResult> ChangeStatus(string id, HttpRequest request, SqliteCaseStore store, CancellationToken cancellationToken)
     {
         if (!TryReadId(id, out var caseId))
         {
@@ -82,15 +82,13 @@ internal static class CaseEndpoints
             return Validation("status", "Use New, InReview or Closed.");
         }
 
-        try
-        {
-            var snapshot = store.ChangeStatus(caseId, status.Value);
-            return snapshot is null ? MissingCase() : Results.Ok(Representation(snapshot));
-        }
-        catch (InvalidOperationException)
+        var result = store.ChangeStatus(caseId, status.Value);
+        if (result.IsConflict)
         {
             return Problem(409, "Conflict", "invalid_transition");
         }
+
+        return result.Case is null ? MissingCase() : Results.Ok(Representation(result.Case));
     }
 
     private static bool TryReadId(string value, out Guid id)

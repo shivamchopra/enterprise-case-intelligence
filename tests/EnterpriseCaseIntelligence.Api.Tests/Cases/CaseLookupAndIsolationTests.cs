@@ -46,7 +46,8 @@ public class CaseLookupAndIsolationTests : CaseApiTest
     public async Task IndependentHostsDoNotShareCases()
     {
         var created = await CreateAsync();
-        using var otherFactory = new WebApplicationFactory<Program>();
+        using var otherDatabase = new TemporaryCaseDatabase();
+        using var otherFactory = otherDatabase.CreateFactory();
         using var otherClient = otherFactory.CreateClient();
 
         var firstRead = Client.GetAsync(PathFor(created.Id));
@@ -64,10 +65,10 @@ public class CaseLookupAndIsolationTests : CaseApiTest
     }
 
     [Fact]
-    public async Task ANewHostStartsEmptyAfterPreviousHostIsDisposed()
+    public async Task ANewHostReopensCommittedCasesAfterPreviousHostIsDisposed()
     {
         Guid oldId;
-        using (var oldFactory = new WebApplicationFactory<Program>())
+        using (var oldFactory = Database.CreateFactory())
         using (var oldClient = oldFactory.CreateClient())
         {
             using var response = await oldClient.PostAsJsonAsync("/cases", new { title = ValidTitle, description = ValidDescription });
@@ -75,10 +76,10 @@ public class CaseLookupAndIsolationTests : CaseApiTest
             oldId = (await ReadCaseAsync(response)).Id;
         }
 
-        using var newFactory = new WebApplicationFactory<Program>();
+        using var newFactory = Database.CreateFactory();
         using var newClient = newFactory.CreateClient();
         using var get = await newClient.GetAsync(PathFor(oldId));
 
-        await AssertProblemAsync(get, HttpStatusCode.NotFound, "case_not_found");
+        Assert.Equal(oldId, (await ReadCaseAsync(get)).Id);
     }
 }

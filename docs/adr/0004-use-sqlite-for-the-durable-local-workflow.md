@@ -2,17 +2,17 @@
 
 ## Status
 
-**Proposed — for review; not implemented.** This proposal follows the [Phase 2 durability requirements](../requirements/phase-2-durable-case-workflow.md), reviewed in PR #10. [ADR 0003](0003-use-process-memory-for-the-phase-1-local-workflow.md) remains accepted and implemented. If this decision is accepted, record that it supersedes ADR 0003 for Phase 2 and track implementation separately; do not imply the existing API already persists data.
+**Accepted — implemented for the durable local Phase 2 workflow.** Reviewed in PR #11 following the requirements review in PR #10. Supersedes [ADR 0003](0003-use-process-memory-for-the-phase-1-local-workflow.md) for Phase 2. The HTTP contract remains unchanged; storage now uses a retained local SQLite file.
 
 ## Context
 
-The current API creates, retrieves and progresses synthetic cases, but loses all data when its host stops. Phase 2 requires acknowledged writes to survive application restart and abrupt API-process termination, assuming retained, intact storage. It also requires atomic status operations, deliberate store initialization, unchanged HTTP/domain behavior and safe storage failures.
+At decision time, the API created, retrieved and progressed synthetic cases but lost all data when its host stopped. Phase 2 requires acknowledged writes to survive application restart and abrupt API-process termination, assuming retained, intact storage. It also requires atomic status operations, deliberate store initialization, unchanged HTTP/domain behavior and safe storage failures.
 
 The supported scope is one local API process using one store at a time, with small synthetic demonstrations and no measured throughput requirement. Shared storage between application instances, real records, cloud deployment, hardware/power-loss recovery, backup and high availability remain outside scope. A future intention to evaluate SQL Server / Azure SQL does not by itself require a server database for this local capability.
 
 ## Decision
 
-Propose a **file-backed SQLite database accessed through Microsoft.Data.Sqlite**, using parameterized SQL in the existing Api project. Keep the Domain library independent of storage. Replace the concrete in-memory store when implementing this decision; do not keep a runtime memory fallback or selectable second provider.
+Use a **file-backed SQLite database accessed through Microsoft.Data.Sqlite**, using parameterized SQL in the existing Api project. Keep the Domain library independent of storage. Replace the concrete in-memory store when implementing this decision; do not keep a runtime memory fallback or selectable second provider.
 
 Add the main Microsoft.Data.Sqlite package on a stable .NET 10-compatible release, with an explicit version selected and verified during implementation. Its default native SQLite bundle avoids a separately installed database engine or CLI; verify the resolved engine version and required features on local macOS and Linux CI. Do not add EF Core, Dapper, custom native builds, a database server, containers or another production project for this slice. See the official [provider overview](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/) and [native bundle documentation](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/custom-versions).
 
@@ -72,7 +72,7 @@ These are judgments against the reviewed local requirements, not database perfor
 
 | Option | Fit and tradeoff | Outcome for this slice |
 | --- | --- | --- |
-| SQLite + Microsoft.Data.Sqlite | Embedded transactions, a retained local file and actual-engine tests without a server; synchronous I/O and limited writer concurrency are acceptable here. | Proposed. |
+| SQLite + Microsoft.Data.Sqlite | Embedded transactions, a retained local file and actual-engine tests without a server; synchronous I/O and limited writer concurrency are acceptable here. | Accepted. |
 | SQL Server / Azure SQL | Would provide a server-managed relational boundary, but adds provisioning, connection/access configuration and a separate test service. The local workflow does not require shared server storage. | Defer until requirements justify it; no incompatibility with the long-term direction is implied. |
 | PostgreSQL or another server database | Also adds server lifecycle and integration setup without a reviewed need for it. | Defer for the same scope reason. |
 | SQLite + EF Core | Keeps local storage benefits but adds ORM mapping/change tracking and migration conventions for three small operations. | Prefer direct SQL now; revisit if mapping/query complexity justifies an ORM. |
@@ -81,7 +81,7 @@ These are judgments against the reviewed local requirements, not database perfor
 
 ## Required implementation evidence
 
-No persistence code or acceptance evidence exists yet. The eventual implementation must cover every [P2 criterion](../requirements/phase-2-durable-case-workflow.md#acceptance-criteria-for-the-future-implementation):
+The implementation and automated tests cover every [P2 criterion](../requirements/phase-2-durable-case-workflow.md#acceptance-criteria):
 
 | Criteria | Required verification with this design |
 | --- | --- |
@@ -101,6 +101,16 @@ Keep the existing format, warnings-as-errors, Release build and test gates. Add 
 
 ## Consequences and revisit triggers
 
-The proposed workflow survives API restarts while keeping one deployable application and the existing HTTP surface. The cost is a native dependency, explicit local storage setup, blocking disk I/O, schema/version ownership, failure handling and additional process/integration tests. Data consumes disk without an enforced quota and remains accessible to whoever can access the local files.
+The implemented workflow survives API restarts while keeping one deployable application and the existing HTTP surface. The cost is a native dependency, explicit local storage setup, blocking disk I/O, schema/version ownership, failure handling and additional process/integration tests. Data consumes disk without an enforced quota and remains accessible to whoever can access the local files.
 
-Revisit before sharing storage between application processes, using network-mounted storage, deploying to ephemeral/multiple hosts, requiring backups or audit, handling sensitive data, adding materially more queries, or meeting a measured concurrency/latency target. Such requirements may justify SQL Server / Azure SQL, an ORM or a new boundary through another ADR. Acceptance of this proposal does not authorize cloud resources or production deployment.
+Revisit before sharing storage between application processes, using network-mounted storage, deploying to ephemeral/multiple hosts, requiring backups or audit, handling sensitive data, adding materially more queries, or meeting a measured concurrency/latency target. Such requirements may justify SQL Server / Azure SQL, an ORM or a new boundary through another ADR. Acceptance of this decision does not authorize cloud resources or production deployment.
+
+## Implementation evidence
+
+[CaseDatabase](../../src/EnterpriseCaseIntelligence.Api/Cases/CaseDatabase.cs) implements configuration, exclusive initialization, schema/integrity checks and connection settings. [SqliteCaseStore](../../src/EnterpriseCaseIntelligence.Api/Cases/SqliteCaseStore.cs) owns operation ordering and transactions; [Case.Restore](../../src/EnterpriseCaseIntelligence.Domain/Cases/Case.cs) validates loaded values without changing their identity or text. No new production project or provider abstraction was needed.
+
+The API pins Microsoft.Data.Sqlite **10.0.13**, resolving SQLitePCLRaw **2.1.13**. The bundled engine is SQLite **3.53.3**, verified locally; engine support is asserted and reported by the [lifecycle tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseStoreLifecycleTests.cs); native loading and STRICT/transaction behavior are exercised locally and in Linux CI.
+
+[Requirements coverage](../requirements/phase-2-durable-case-workflow.md#current-implementation-coverage) links each acceptance criterion to the tests. [Process recovery](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseProcessRecoveryTests.cs) forcibly terminates the API after acknowledged writes. [Storage failure tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseStorageFailureTests.cs) use actual SQLite triggers/locks, and [response-loss tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseResponseLossTests.cs) suppress responses after committed operations. These do not simulate hardware power loss or every native commit-error timing.
+
+The preceding decision sections record the selected implementation constraints; the [walkthrough](../usage/local-case-workflow.md) gives runnable commands.

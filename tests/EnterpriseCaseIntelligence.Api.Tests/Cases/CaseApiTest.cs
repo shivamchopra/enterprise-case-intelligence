@@ -10,10 +10,15 @@ public abstract class CaseApiTest : IDisposable
 {
     protected const string ValidTitle = "Correct the sample guide";
     protected const string ValidDescription = "Update the fictional example section.";
-    protected WebApplicationFactory<Program> Factory { get; } = new();
+    protected TemporaryCaseDatabase Database { get; } = new();
+    protected WebApplicationFactory<Program> Factory { get; }
     protected HttpClient Client { get; }
 
-    protected CaseApiTest() => Client = Factory.CreateClient();
+    protected CaseApiTest()
+    {
+        Factory = Database.CreateFactory();
+        Client = Factory.CreateClient();
+    }
 
     protected async Task<CaseRepresentation> CreateAsync(string title = ValidTitle, string description = ValidDescription)
     {
@@ -103,6 +108,7 @@ public abstract class CaseApiTest : IDisposable
     {
         Client.Dispose();
         Factory.Dispose();
+        Database.Dispose();
         GC.SuppressFinalize(this);
     }
 }
