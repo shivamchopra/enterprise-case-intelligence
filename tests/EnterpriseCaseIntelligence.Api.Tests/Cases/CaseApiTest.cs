@@ -58,7 +58,11 @@ public abstract class CaseApiTest : IDisposable
     {
         Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        var body = document.RootElement;
+        return ReadCase(document.RootElement);
+    }
+
+    protected static CaseRepresentation ReadCase(JsonElement body)
+    {
         Assert.Equal(new[] { "description", "id", "status", "title" },
             body.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
         var id = body.GetProperty("id").GetGuid();

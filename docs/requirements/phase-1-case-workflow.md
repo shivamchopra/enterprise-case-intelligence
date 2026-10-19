@@ -22,7 +22,7 @@ This scenario introduces a small lifecycle and validation rules without borrowin
 
 The slice supports creating one case, retrieving it by identifier and progressing its status. Each operation acts on a single case. Data exists only for the lifetime of its application host.
 
-Out of scope: listing/search/pagination, editing case text, deletion, assignment, priorities, comments, attachments, reopening, cancellation, approvals, audit history, notifications and external integrations. Database implementation was deferred in Phase 1 and is now covered separately by Phase 2. Azure, messaging, Python/AI, authentication/authorization, frontend, infrastructure and observability integrations remain deferred.
+Out of scope for the original Phase 1 slice: listing/search/pagination, editing case text, deletion, assignment, priorities, comments, attachments, reopening, cancellation, approvals, audit history, notifications and external integrations. Database implementation was deferred in Phase 1 and is now covered separately by Phase 2; Phase 3 now adds bounded listing/pagination. Azure, messaging, Python/AI, authentication/authorization, frontend, infrastructure and observability integrations remain deferred.
 
 ## Minimum case data
 
@@ -147,7 +147,7 @@ These criteria describe the **implemented local workflow**. Domain tests, store 
 | AC-16 | Existing [root](../../tests/EnterpriseCaseIntelligence.Api.Tests/RootEndpointTests.cs) and [health](../../tests/EnterpriseCaseIntelligence.Api.Tests/HealthEndpointTests.cs) tests |
 | Current storage, ADR 0004 | [Durability tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseDurabilityTests.cs) cover immutable snapshots, committed state and restart continuity; Phase 2 supersedes the old data-loss behavior |
 
-[Domain tests](../../tests/EnterpriseCaseIntelligence.Domain.Tests) remain independent of HTTP/storage. The API exposes the three case operations plus `/` and `/health`. See the [local walkthrough](../usage/local-case-workflow.md) for a manual create/read/transition sequence.
+[Domain tests](../../tests/EnterpriseCaseIntelligence.Domain.Tests) remain independent of HTTP/storage. The API preserves the original three case operations, adds [Phase 3 browsing](phase-3-case-list.md), and retains `/` and `/health`. See the [local walkthrough](../usage/local-case-workflow.md) for a manual create/read/transition sequence.
 
 ## Verification approach
 

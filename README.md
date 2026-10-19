@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml/badge.svg)](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml)
 
-**Phase 2: durable local synthetic case workflow**
+**Phase 3: browse and progress durable local synthetic cases**
 
-A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: create, retrieve and progress synthetic cases through a tested HTTP API backed by a retained local SQLite file. Domain rules, unit/integration tests, CI and architecture decisions support this local workflow.
+A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: create, browse, retrieve and progress synthetic cases through a tested HTTP API backed by a retained local SQLite file. Domain rules, unit/integration tests, CI and architecture decisions support this local workflow.
 
 [Review the implementation](#current-implemented-scope) · [Read the architecture](docs/architecture/overview.md) · [Run locally](#getting-started)
 
@@ -26,6 +26,7 @@ Enterprise case processes span legacy systems, fragmented information and manual
 | Case creation, text validation and `New → InReview → Closed` lifecycle; Domain has no HTTP/storage dependencies | [Case model](src/EnterpriseCaseIntelligence.Domain/Cases/Case.cs) · [Statuses](src/EnterpriseCaseIntelligence.Domain/Cases/CaseStatus.cs) |
 | Domain unit tests cover normalization, length boundaries, all status transitions and case isolation | [Domain tests](tests/EnterpriseCaseIntelligence.Domain.Tests) |
 | `POST /cases`, `GET /cases/{id}`, `PUT /cases/{id}/status`: strict JSON validation and problem responses | [Case endpoints](src/EnterpriseCaseIntelligence.Api/Cases/CaseEndpoints.cs) |
+| `GET /cases`: optional status filtering, bounded pages and canonical-ID continuation | [List acceptance tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseListPaginationTests.cs) |
 | SQLite transactions, synchronized operations, commit-before-success and immutable snapshots | [Store](src/EnterpriseCaseIntelligence.Api/Cases/SqliteCaseStore.cs) |
 | Explicit initialization, schema validation and safe startup refusal | [Database lifecycle](src/EnterpriseCaseIntelligence.Api/Cases/CaseDatabase.cs) |
 | Real SQLite integration tests and child-process tests cover the workflow, failures, host isolation and restart recovery | [API tests](tests/EnterpriseCaseIntelligence.Api.Tests) |
@@ -92,7 +93,7 @@ curl http://localhost:5080/health
 
 Both return HTTP 200. The root returns `{"service":"Enterprise Case Intelligence","status":"foundation"}`; health returns `Healthy`.
 
-Follow the [local case workflow walkthrough](docs/usage/local-case-workflow.md) to create a case, retrieve it and progress its status using curl.
+Follow the [local case workflow walkthrough](docs/usage/local-case-workflow.md) to create a case, browse saved work, retrieve it and progress its status using curl.
 
 ## Build and Test
 
@@ -120,8 +121,8 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 
 ## Roadmap
 
-- **Now:** the case HTTP contract plus [durability acceptance coverage](docs/requirements/phase-2-durable-case-workflow.md), local initialization and recovery tests.
-- **Next (proposed):** [browse saved cases with bounded pages and an optional status filter](docs/requirements/phase-3-case-list.md), so users can resume work without remembering IDs. Review the requirements before implementation; listing is not implemented.
+- **Now:** [case browsing acceptance coverage](docs/requirements/phase-3-case-list.md), the existing workflow and [durability checks](docs/requirements/phase-2-durable-case-workflow.md), local initialization and recovery tests.
+- **Next:** review the browsing workflow and define the next concrete requirement before expanding deployment, storage or architecture.
 - **Later:** evaluate the planned capabilities against concrete needs and operational tradeoffs.
 
 ## Security and Privacy

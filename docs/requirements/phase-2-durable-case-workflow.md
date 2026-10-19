@@ -16,7 +16,7 @@ This is a reference-project assumption for review, not a validated enterprise re
 - Only synthetic cases are allowed. This adds no authentication, authorization or permission boundary for real records.
 - Storage remains available and intact across application shutdown or process termination. Surviving machine power loss, hardware failure, storage deletion/corruption or loss of the storage service is outside the recovery guarantee.
 - Existing cases in the Phase 1 in-memory store are disposable. There is no import or migration of that live memory into the new store.
-- The three case routes and domain rules remain the user workflow. Listing, search, text editing, deletion, audit history, timestamps, assignment and new lifecycle states remain deferred.
+- This Phase 2 slice preserves the original three case routes and domain rules. [Phase 3](phase-3-case-list.md) now adds bounded listing separately. Search, text editing, deletion, audit history, timestamps, assignment and new lifecycle states remain deferred.
 
 ADR 0004 selects SQLite with Microsoft.Data.Sqlite in the existing Api project, without an ORM or provider interface. SQL Server / Azure SQL remain candidates for future server-storage requirements. Azure resources, containers, messaging, Python/AI, frontend, observability integrations, backups, high availability and multi-instance operation are outside this slice.
 
