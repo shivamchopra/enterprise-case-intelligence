@@ -55,6 +55,8 @@ Tests cover domain rules/restoration, the complete HTTP contract, actual SQLite 
 
 Add architecture when requirements justify deployment independence, scaling, reliability, ownership, security or operational isolation. This local persistence choice does not establish an enterprise database or promise a drop-in SQL Server replacement. Revisit for shared/server storage, multi-instance hosting, measured load, audit, backups or real records.
 
+The [proposed Phase 3 case-list requirements](../requirements/phase-3-case-list.md) address finding saved cases without known IDs. They define bounded pages, optional status filtering and consistency limits; the list endpoint is not implemented. No new storage technology, schema change or architecture boundary is selected by that proposal.
+
 ## Conceptual future direction — not implemented
 
 ```mermaid

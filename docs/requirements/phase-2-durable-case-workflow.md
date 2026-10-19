@@ -6,7 +6,7 @@ The [Phase 1 workflow](phase-1-case-workflow.md) originally used temporary host-
 
 ## Purpose and scenario
 
-A fictional service-desk staff member creates a case, starts reviewing it, stops the local API and returns later. Restarting the API against the same retained store must preserve the case's identifier, normalized text and latest committed status. Today, the restart loses that work.
+A fictional service-desk staff member creates a case, starts reviewing it, stops the local API and returns later. Restarting the API against the same retained store must preserve the case's identifier, normalized text and latest committed status. The former Phase 1 store lost that work; Phase 2 now preserves it.
 
 This is a reference-project assumption for review, not a validated enterprise requirement. Restart recovery is the reason to evaluate persistence; it does not establish a need for cloud hosting or independent services.
 

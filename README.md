@@ -121,7 +121,7 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 ## Roadmap
 
 - **Now:** the case HTTP contract plus [durability acceptance coverage](docs/requirements/phase-2-durable-case-workflow.md), local initialization and recovery tests.
-- **Next:** review the durable workflow and define the next concrete requirement before expanding storage, deployment or architecture.
+- **Next (proposed):** [browse saved cases with bounded pages and an optional status filter](docs/requirements/phase-3-case-list.md), so users can resume work without remembering IDs. Review the requirements before implementation; listing is not implemented.
 - **Later:** evaluate the planned capabilities against concrete needs and operational tradeoffs.
 
 ## Security and Privacy
