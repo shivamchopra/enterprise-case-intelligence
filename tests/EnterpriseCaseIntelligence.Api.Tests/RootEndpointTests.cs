@@ -1,18 +1,15 @@
 using System.Net;
 using System.Text.Json;
-using Microsoft.AspNetCore.Mvc.Testing;
+using EnterpriseCaseIntelligence.Api.Tests.Cases;
 
 namespace EnterpriseCaseIntelligence.Api.Tests;
 
-public class RootEndpointTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
+public class RootEndpointTests : CaseApiTest
 {
     [Fact]
     public async Task GetRootReturnsOnlyFoundationMetadata()
     {
-        using var client = factory.CreateClient();
-
-        using var response = await client.GetAsync("/");
+        using var response = await Client.GetAsync("/");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);

@@ -11,6 +11,8 @@ dotnet build EnterpriseCaseIntelligence.slnx --configuration Release --no-restor
 dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 ```
 
+API tests create disposable SQLite stores and launch API child processes on loopback ports; no manually initialized store or external service is needed.
+
 Add tests when behavior changes. Update documentation when behavior or design changes, and add or update ADRs for meaningful architecture decisions. Keep planned functionality clearly distinguished from implemented functionality.
 
 Never contribute credentials, secrets, proprietary code or real employer/customer data. Use synthetic concepts only. Report security concerns through the process in [SECURITY.md](SECURITY.md).
