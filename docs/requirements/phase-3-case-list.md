@@ -1,10 +1,10 @@
 # Phase 3 requirements: browse saved synthetic cases
 
-**Status: Proposed — for review; not implemented.**
+**Status: Reviewed requirements — local list workflow implemented.** Requirements reviewed in PR #13; this document records the implemented contract and acceptance coverage.
 
-The [durable local workflow](phase-2-durable-case-workflow.md) can reopen saved cases, but callers must already know each ID. This proposal adds a bounded, optionally status-filtered list so a fictional service-desk staff member can find saved work and resume the existing retrieve/status workflow. It is a reference-project assumption, not a validated enterprise requirement.
+The [durable local workflow](phase-2-durable-case-workflow.md) originally required a known ID to reopen each case. Phase 3 adds a bounded, optionally status-filtered list so a fictional service-desk staff member can find saved work and resume the existing retrieve/status workflow. It is a reference-project assumption, not a validated enterprise requirement.
 
-The API still implements only creation, retrieval by ID and status changes. This document does not claim a list endpoint exists today. [ADR 0004](../adr/0004-use-sqlite-for-the-durable-local-workflow.md) remains the accepted storage decision.
+The API implements creation, listing, retrieval by ID and status changes. [ADR 0004](../adr/0004-use-sqlite-for-the-durable-local-workflow.md) remains the accepted storage decision.
 
 ## Scope and operating assumptions
 
@@ -14,7 +14,7 @@ The API still implements only creation, retrieval by ID and status changes. This
 - Do not add text search, totals/counts, timestamps, sort choices, offset/page-number pagination, new case fields, audit, deletion, a frontend or authentication.
 - Server-managed databases, cloud deployment, messaging and AI remain outside this slice. No package, schema, index, layer or service change is selected by these requirements.
 
-## Proposed HTTP contract
+## HTTP contract
 
 `GET /cases` returns `200 OK` with `application/json`. It accepts only these case-sensitive query names, each at most once:
 
@@ -69,9 +69,9 @@ Use the existing problem format: `application/problem+json`, `about:blank`, HTTP
 
 The list must not mutate cases, lifecycle state, schema version or initialization state. It must not create missing storage. Existing `POST /cases`, `GET /cases/{id}`, `PUT /cases/{id}/status`, `/` and `/health` retain their contracts. In particular, liveness remains independent of runtime storage readiness.
 
-## Acceptance criteria for a future implementation
+## Acceptance criteria
 
-**P3-01–12 are proposed and not implemented.**
+**P3-01–12 describe the implemented local list workflow.** The coverage table below links the automated evidence.
 
 | ID | Given / when | Required result |
 | --- | --- | --- |
@@ -90,10 +90,24 @@ The list must not mutate cases, lifecycle state, schema version or initializatio
 
 ## Verification and implementation sequence
 
-1. Review this scenario, query contract, defaults, ordering and consistency limits before implementing it.
-2. Check the smallest implementation against the existing Api/Domain boundary and ADR 0004. Prefer a focused read operation in the concrete SQLite store, parameterized queries and the existing immutable case snapshots. A new ADR is needed only if a meaningful architecture/storage decision changes; this proposal does not justify an additional layer or generic query framework.
-3. Test against actual disposable SQLite files and real HTTP requests. Use deliberately chosen fixture IDs whose canonical string order differs from insertion order, mixed statuses and enough cases to cross page boundaries. Test default/max limits, the exclusive boundary, exact final-page behavior, failures and restart isolation without relying on random ID order or sleeps.
-4. Keep domain tests independent of HTTP/storage and retain format verification, warnings-as-errors, Release build and the full existing test suite. Review that only page-sized results are materialized; response counts alone cannot prove this implementation property.
-5. Update the local walkthrough and public evidence only when the endpoint and acceptance checks are implemented. Keep cloud, identity, server-database and AI capabilities clearly deferred.
+1. **Reviewed in PR #13:** the scenario, query contract, defaults, ordering and consistency limits form this slice's baseline.
+2. **Implemented within existing boundaries:** check the smallest implementation against the existing Api/Domain boundary and ADR 0004. Prefer a focused read operation in the concrete SQLite store, parameterized queries and the existing immutable case snapshots. A new ADR is needed only if a meaningful architecture/storage decision changes; this proposal does not justify an additional layer or generic query framework.
+3. **Covered by automated tests:** test against actual disposable SQLite files and real HTTP requests. Use deliberately chosen fixture IDs whose canonical string order differs from insertion order, mixed statuses and enough cases to cross page boundaries. Test default/max limits, the exclusive boundary, exact final-page behavior, failures and restart isolation without relying on random ID order or sleeps.
+4. **Existing gates retained:** keep domain tests independent of HTTP/storage and retain format verification, warnings-as-errors, Release build and the full existing test suite. Review that only page-sized results are materialized; response counts alone cannot prove this implementation property.
+5. **Updated public evidence:** the local walkthrough demonstrates browse → retrieve → change status and pagination/restart behavior. Keep cloud, identity, server-database and AI capabilities clearly deferred.
 
-Until implementation is reviewed and merged, the current API remains the Phase 2 create/read-by-ID/status workflow. This document changes no runtime behavior or storage decision.
+The local browsing workflow is implemented without changing the existing case routes, storage schema or ADR 0004. New deployment, identity, search or integration capabilities still require separate requirements.
+
+## Current implementation coverage
+
+| Criteria | Evidence |
+| --- | --- |
+| P3-01–06 | [Pagination tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseListPaginationTests.cs): empty/default pages, exact status membership, decoded inputs, limits 1/20/100, final-page boundaries, complete traversals, uppercase/nonexistent boundaries and changed page sizes. |
+| P3-07 | [Validation tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseListValidationTests.cs): strict values/names, duplicates, mixed casing and safe field errors while the database file is unavailable, proving validation precedes storage access. |
+| P3-08–09 | [Consistency tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseListConsistencyTests.cs): immutable earlier snapshots, deterministic membership changes between pages, restart continuity and independent files. |
+| P3-10 | [Failure tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseListFailureTests.cs): missing storage, invalid stored fields/IDs, no repair/partial success and a damaged row moving into the lookahead window. |
+| P3-11–12 | Consistency tests round-trip quoted/SQL-looking text, Unicode and embedded NULs, then retrieve and progress a listed case. Existing domain, HTTP, SQLite/process-recovery checks remain in the full suite. |
+
+[SqliteCaseStore.List](../../src/EnterpriseCaseIntelligence.Api/Cases/SqliteCaseStore.cs) applies filtering, canonical ordering and the parameterized `limit + 1` in one SELECT. Only those rows are restored/materialized before the response is constructed. The failure fixture places corruption beyond lookahead and then inside it; this supplements source review of the SQL bound, without claiming bounded scan cost. [Case endpoints](../../src/EnterpriseCaseIntelligence.Api/Cases/CaseEndpoints.cs) validate queries and project the exact two-field response.
+
+The [walkthrough](../usage/local-case-workflow.md) gives runnable browse/pagination examples. No new layer, provider abstraction, index, schema migration or domain capability was introduced.

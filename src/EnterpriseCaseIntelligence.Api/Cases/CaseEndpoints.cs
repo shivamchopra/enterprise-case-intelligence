@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using EnterpriseCaseIntelligence.Domain.Cases;
@@ -9,9 +10,68 @@ internal static class CaseEndpoints
     public static void MapCaseEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapPost("/cases", CreateCase);
+        endpoints.MapGet("/cases", ListCases);
         endpoints.MapGet("/cases/{id}", GetCase);
         endpoints.MapPut("/cases/{id}/status", ChangeStatus);
     }
+
+    private static IResult ListCases(HttpRequest request, SqliteCaseStore store)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        CaseStatus? status = null;
+        Guid? after = null;
+        var limit = 20;
+        foreach (var (name, values) in request.Query)
+        {
+            if (name is not ("status" or "limit" or "after"))
+            {
+                errors["query"] = ["The query contains an unsupported parameter."];
+                continue;
+            }
+
+            if (values.Count != 1)
+            {
+                errors[name] = ["Supply each parameter once."];
+                continue;
+            }
+
+            var value = values[0];
+            switch (name)
+            {
+                case "status":
+                    status = ReadStatus(value);
+                    if (status is null) errors[name] = ["Use New, InReview or Closed."];
+                    break;
+                case "limit":
+                    if (!TryReadLimit(value, out limit)) errors[name] = ["Use an integer from 1 to 100 without padding."];
+                    break;
+                case "after":
+                    if (value is not null && TryReadId(value, out var id)) after = id;
+                    else errors[name] = ["Use a non-empty hyphenated UUID."];
+                    break;
+            }
+        }
+
+        if (errors.Count > 0) return Validation(errors);
+
+        var page = store.List(limit, status, after);
+        return Results.Ok(new { items = page.Items.Select(Representation).ToArray(), nextAfter = page.NextAfter });
+    }
+
+    private static bool TryReadLimit(string? value, out int limit)
+    {
+        limit = 0;
+        return value is { Length: >= 1 and <= 3 } && value[0] != '0' && value.All(char.IsAsciiDigit) &&
+            int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out limit) && limit is >= 1 and <= 100;
+    }
+
+    private static CaseStatus? ReadStatus(string? value) => value switch
+    {
+        "New" => CaseStatus.New,
+        "InReview" => CaseStatus.InReview,
+        "Closed" => CaseStatus.Closed,
+        _ => null
+    };
 
     private static async Task<IResult> CreateCase(HttpRequest request, SqliteCaseStore store, CancellationToken cancellationToken)
     {
@@ -69,13 +129,7 @@ internal static class CaseEndpoints
             return Validation(errors);
         }
 
-        CaseStatus? status = values["status"] switch
-        {
-            "New" => CaseStatus.New,
-            "InReview" => CaseStatus.InReview,
-            "Closed" => CaseStatus.Closed,
-            _ => null
-        };
+        var status = ReadStatus(values["status"]);
 
         if (status is null)
         {

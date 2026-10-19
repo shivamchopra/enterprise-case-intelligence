@@ -41,6 +41,56 @@ public sealed class SqliteCaseStore(CaseDatabase database)
         }
     }
 
+    public CasePage List(int limit, CaseStatus? status = null, Guid? after = null)
+    {
+        if (limit is < 1 or > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit));
+        }
+
+        if (status is { } requested && !Enum.IsDefined(requested))
+        {
+            throw new ArgumentOutOfRangeException(nameof(status));
+        }
+
+        if (after == Guid.Empty)
+        {
+            throw new ArgumentException("Use a non-empty identifier boundary.", nameof(after));
+        }
+
+        lock (_gate)
+        {
+            using var connection = database.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT id, title, description, status FROM cases
+                WHERE ($status IS NULL OR status=$status)
+                    AND ($after IS NULL OR id COLLATE BINARY > $after)
+                ORDER BY id COLLATE BINARY
+                LIMIT $take
+                """;
+            command.Parameters.AddWithValue("$status", (object?)status?.ToString() ?? DBNull.Value);
+            command.Parameters.AddWithValue("$after", (object?)after?.ToString("D") ?? DBNull.Value);
+            command.Parameters.AddWithValue("$take", limit + 1);
+            using var reader = command.ExecuteReader();
+            var items = new List<CaseSnapshot>(limit + 1);
+            while (reader.Read())
+            {
+                // Validate the lookahead too; malformed stored rows cannot become partial success.
+                items.Add(Snapshot(Restore(reader)));
+            }
+
+            Guid? nextAfter = null;
+            if (items.Count > limit)
+            {
+                items.RemoveAt(items.Count - 1);
+                nextAfter = items[^1].Id;
+            }
+
+            return new(items.AsReadOnly(), nextAfter);
+        }
+    }
+
     public CaseStatusChange ChangeStatus(Guid id, CaseStatus status)
     {
         lock (_gate)
@@ -88,11 +138,11 @@ public sealed class SqliteCaseStore(CaseDatabase database)
         command.CommandText = "SELECT id, title, description, status FROM cases WHERE id=$id";
         command.Parameters.AddWithValue("$id", id.ToString("D"));
         using var reader = command.ExecuteReader();
-        if (!reader.Read())
-        {
-            return null;
-        }
+        return reader.Read() ? Restore(reader) : null;
+    }
 
+    private static Case Restore(SqliteDataReader reader)
+    {
         try
         {
             var rawId = reader.GetString(0);

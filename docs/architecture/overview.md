@@ -6,7 +6,7 @@ This reference project explores enterprise case modernization using generic synt
 
 ## Current architecture
 
-One ASP.NET Core .NET 10 Minimal API is the only deployable application. It exposes `/`, `/health` and three case operations. The Api project also owns SQLite setup and access; Domain owns case rules and restoration. No separate persistence service or project exists.
+One ASP.NET Core .NET 10 Minimal API is the only deployable application. It exposes `/`, `/health` and four case operations, including bounded case browsing. The Api project also owns SQLite setup and access; Domain owns case rules and restoration. No separate persistence service or project exists.
 
 ```mermaid
 flowchart LR
@@ -55,7 +55,11 @@ Tests cover domain rules/restoration, the complete HTTP contract, actual SQLite 
 
 Add architecture when requirements justify deployment independence, scaling, reliability, ownership, security or operational isolation. This local persistence choice does not establish an enterprise database or promise a drop-in SQL Server replacement. Revisit for shared/server storage, multi-instance hosting, measured load, audit, backups or real records.
 
-The [proposed Phase 3 case-list requirements](../requirements/phase-3-case-list.md) address finding saved cases without known IDs. They define bounded pages, optional status filtering and consistency limits; the list endpoint is not implemented. No new storage technology, schema change or architecture boundary is selected by that proposal.
+The [implemented Phase 3 case-list requirements](../requirements/phase-3-case-list.md) add `GET /cases` to find saved work without known IDs. Query validation happens before storage access. The existing concrete store uses one parameterized SELECT under its gate, with an optional exact status filter, an exclusive canonical-ID boundary, explicit BINARY ID ordering and a `limit + 1` row bound. The existing restoration path validates every materialized row, including lookahead; the endpoint returns immutable case values and `nextAfter`, or a safe problem response.
+
+Default pages contain up to 20 cases, with a maximum of 100. ID order is not chronological order. Each page has one consistent read view, but a traversal across requests is not a snapshot: creates/status changes can alter later membership. The continuation is a plain comparison ID, without a retained paging session or permission meaning. This bounds application materialization, not database scan work or latency.
+
+No domain, package, schema/index/version or architecture boundary changed. ADR 0004 remains the storage decision; no further ADR was needed for this focused read operation. List tests cover deterministic fixture ordering, query validation, failures/lookahead, changes between pages, file isolation and retained continuations after restart.
 
 ## Conceptual future direction — not implemented
 
