@@ -1,8 +1,8 @@
 # Phase 2 requirements: durable local case workflow
 
-**Status: Reviewed requirements — not implemented.** Reviewed in PR #10. Storage selection is proposed separately in [ADR 0004](../adr/0004-use-sqlite-for-the-durable-local-workflow.md).
+**Status: Reviewed requirements — durable local workflow implemented.** Reviewed in PR #10; the storage decision was reviewed in PR #11. [ADR 0004](../adr/0004-use-sqlite-for-the-durable-local-workflow.md) is accepted and implemented.
 
-The [Phase 1 workflow](phase-1-case-workflow.md) is implemented with temporary host-owned memory. These requirements add one capability: resume the same synthetic case workflow after restarting the application. They define required behavior before accepting a storage technology or changing code. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) remains the accepted, implemented storage decision.
+The [Phase 1 workflow](phase-1-case-workflow.md) originally used temporary host-owned memory; Phase 2 now uses a retained SQLite file. These requirements add one capability: resume the same synthetic case workflow after restarting the application. They preserve the case contract while adding restart continuity. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) is the superseded historical decision.
 
 ## Purpose and scenario
 
@@ -18,7 +18,7 @@ This is a reference-project assumption for review, not a validated enterprise re
 - Existing cases in the Phase 1 in-memory store are disposable. There is no import or migration of that live memory into the new store.
 - The three case routes and domain rules remain the user workflow. Listing, search, text editing, deletion, audit history, timestamps, assignment and new lifecycle states remain deferred.
 
-No database product, ORM, schema, repository interface, additional production project or deployment topology is selected here. SQL Server / Azure SQL and other options remain candidates for a subsequent ADR. Azure resources, containers, messaging, Python/AI, frontend, observability integrations, backups, high availability and multi-instance operation are outside this proposal.
+ADR 0004 selects SQLite with Microsoft.Data.Sqlite in the existing Api project, without an ORM or provider interface. SQL Server / Azure SQL remain candidates for future server-storage requirements. Azure resources, containers, messaging, Python/AI, frontend, observability integrations, backups, high availability and multi-instance operation are outside this slice.
 
 ## Behavioral requirements
 
@@ -54,9 +54,9 @@ Keep `GET /` and `GET /health` behavior unchanged when the host is running. `/he
 
 Document local setup, configuration, initialization, restart and deliberate disposal of synthetic data. Keep runtime data and machine-specific configuration out of Git; never commit credentials. Technology-specific setup and supported storage versions belong to the later implementation and ADR.
 
-## Acceptance criteria for the future implementation
+## Acceptance criteria
 
-These are reviewed verification requirements, not claims of passing tests. **P2-01–12 are not implemented.**
+These criteria describe the implemented local workflow; the coverage table below links the automated evidence and limitations.
 
 | ID | Given / when | Required evidence |
 | --- | --- | --- |
@@ -84,8 +84,23 @@ The later implementation must define reproducible local and CI storage setup. Ex
 ## Decision and implementation sequence
 
 1. **Reviewed in PR #10:** restart continuity and the operating/failure assumptions form the requirements baseline for this slice.
-2. **Proposed in ADR 0004:** evaluate options against these criteria, including setup cost, durability limits, transaction/concurrency behavior, initialization/schema compatibility, safe failures and actual-engine testability. Explain configuration, domain rehydration and any necessary boundary changes. Supersede ADR 0003 only when the replacement decision is accepted; document implementation status accurately.
-3. **Implement the accepted decision:** introduce only the storage, domain-loading support and test/configuration changes that decision needs, preserving the case HTTP contract.
-4. **Verify and update public evidence:** run the acceptance checks and update the walkthrough, architecture and README with implemented behavior and remaining limits.
+2. **Accepted and implemented in ADR 0004:** evaluate options against these criteria, including setup cost, durability limits, transaction/concurrency behavior, initialization/schema compatibility, safe failures and actual-engine testability. Explain configuration, domain rehydration and any necessary boundary changes. Supersede ADR 0003 only when the replacement decision is accepted; document implementation status accurately.
+3. **Implemented:** introduce only the storage, domain-loading support and test/configuration changes that decision needs, preserving the case HTTP contract.
+4. **Verified with automated tests and documented commands:** run the acceptance checks and update the walkthrough, architecture and README with implemented behavior and remaining limits.
 
-Until the storage decision is accepted and implemented, the API remains the Phase 1 temporary-memory demonstration. These requirements do not authorize a production deployment or select infrastructure.
+The durable local workflow is implemented. The recovery guarantee excludes machine power/storage loss, backups and multi-instance operation. Production deployment and handling real records remain outside scope.
+
+## Current implementation coverage
+
+| Criteria | Automated evidence |
+| --- | --- |
+| P2-01, P2-04 | Existing [creation](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseCreationEndpointTests.cs), [status](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseStatusEndpointTests.cs) and [lookup](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseLookupAndIsolationTests.cs) HTTP tests now run against real SQLite files. |
+| P2-02, P2-07–09 | [Durability tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseDurabilityTests.cs): every retained status, identity/text, snapshots, duplicate independence, concurrent transitions and creation after restart; lookup tests isolate separate files. |
+| P2-03 | [Process recovery test](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseProcessRecoveryTests.cs): explicit initialization, three acknowledged statuses, forced API termination and retrieval in a fresh process using the retained file. |
+| P2-05 | [Storage failure tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseStorageFailureTests.cs): aborting triggers with side effects, unexpected update counts, lock timeout and missing runtime storage; no partial writes or misleading conflicts. |
+| P2-06 | [Response loss tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseResponseLossTests.cs): suppress successful create/status responses, independently reopen committed state and reconcile/retry a known ID. This does not simulate every native commit-error timing. |
+| P2-10 | [Lifecycle tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseStoreLifecycleTests.cs): initialization refusal, missing configuration/files, corrupt/empty files, unsupported versions/schema/constraints, WAL and a blocked journal path that deterministically prevents writes. |
+| P2-11 | [Domain restoration tests](../../tests/EnterpriseCaseIntelligence.Domain.Tests/Cases/CaseRestorationTests.cs) and storage failure tests validate loaded values and reject damaged state without repair/defaults. |
+| P2-12 | [Walkthrough](../usage/local-case-workflow.md), existing root/health tests, [CI](../../.github/workflows/ci.yml) and runtime-file ignore rules; no external service or secret required. |
+
+The package and native engine versions are recorded in ADR 0004 and lifecycle-test output. Unit tests remain independent of SQLite. Real-engine tests prove the specified local application-process behavior, not power-loss certification, backup recovery or production readiness.

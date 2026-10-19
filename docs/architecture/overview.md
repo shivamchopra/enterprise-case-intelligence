@@ -1,95 +1,70 @@
 # Architecture overview
 
-## Context
+## Context and objectives
 
-Enterprise case modernization can involve fragmented legacy processes, information boundaries and manual coordination. This reference project uses generic synthetic concepts. It does not reproduce any employer's or client's system.
+This reference project explores enterprise case modernization using generic synthetic concepts, without reproducing an employer or client system. Maintainability, evolvability, reliability, testability and explicit tradeoffs guide current choices. Production security, cloud readiness and structured observability require future work.
 
-## Architecture Objectives
+## Current architecture
 
-Maintainability, evolvability, security, reliability and testability guide current choices. Cloud readiness and structured observability are future objectives. Decisions should expose their tradeoffs rather than assume theoretical scale.
-
-## Current Architecture
-
-One ASP.NET Core .NET 10 Minimal API is the only deployable application. It exposes the foundation `/` and `/health` routes plus case creation, retrieval and status changes. Integration tests run the real application in isolated in-memory hosts.
-
-The Domain library implements case creation, text validation and the `New → InReview → Closed` lifecycle. Focused unit tests exercise these rules directly. The API owns a singleton in-memory case store, scoped to its host. One private gate protects collection access and domain mutations; callers receive immutable snapshots.
+One ASP.NET Core .NET 10 Minimal API is the only deployable application. It exposes `/`, `/health` and three case operations. The Api project also owns SQLite setup and access; Domain owns case rules and restoration. No separate persistence service or project exists.
 
 ```mermaid
 flowchart LR
-    ApiTests[Api.Tests] -->|WebApplicationFactory| Api[Api: HTTP endpoints]
-    Api --> Store[Api: host-owned in-memory store]
-    Store -->|project reference| Domain[Domain: case rules]
-    DomainTests[Domain.Tests] -->|unit tests| Domain
+    ApiTests[Api.Tests: HTTP and child-process tests] --> Api[Api: HTTP endpoints]
+    Api --> Store[Api: SQLite case store]
+    Store --> Domain[Domain: case rules and restoration]
+    Store --> Database[(Local SQLite file)]
+    DomainTests[Domain.Tests] --> Domain
 ```
 
-## Current Boundaries
+## Boundaries and dependency direction
 
-- **Api:** composition root, dependency injection, foundation/case endpoints and a concrete host-owned store. Input validation, HTTP error mapping and serialization remain here. No stored mutable entity escapes the store.
-- **Domain:** a `Case` model and `CaseStatus` enum. Creation generates an identifier, trims and validates required text and starts the case in `New`. Identifier and text are immutable. Status can move forward or remain unchanged; invalid values/transitions are rejected before mutation.
+- **Api:** composition root, HTTP parsing/error mapping, SQLite configuration/initialization, schema checks and one concrete store per host. Provider failures remain generic `500 internal_error`; a rejected domain transition has an explicit store outcome mapped to `409 invalid_transition`.
+- **Domain:** immutable ID/text, creation validation, `New → InReview → Closed` lifecycle and validated restoration of existing cases. It references no web, provider or infrastructure code. Restoration rejects damaged/unnormalized text, empty IDs and undefined statuses without defaulting or replaying transitions.
+- **Tests:** Api.Tests references Api and exercises actual SQLite files, in-process HTTP hosts and real API child processes. Domain.Tests references Domain directly and needs no database.
 
-The domain uses standard argument exceptions for invalid input and `InvalidOperationException` for a disallowed transition. These contain no submitted case text. The API maps these outcomes to the reviewed HTTP contract; the domain does not know HTTP status codes or problem details. A fallback exception handler emits a generic problem response for unexpected failures.
+Api references Domain. No generic repository, provider interface, ORM or additional production project is introduced. Stored mutable entities never escape for HTTP serialization; callers receive immutable four-field snapshots.
 
-## Dependency Direction
+## Storage lifecycle and concurrency
 
-Api references Domain. Api.Tests references Api. Domain.Tests references Domain directly. Domain references neither Api nor tests and has no web, storage or infrastructure dependencies. Additional boundaries will be introduced only when actual implementation needs them.
+An explicit `CaseStorage:DatabasePath` selects an existing local file. The separate `init-store` command exclusively reserves a new file, initializes one STRICT case table and schema version, and exits without hosting HTTP. Any existing file is refused. Normal startup validates schema, integrity, journaling and write access; it does not create, seed, migrate, reset or repair a store.
 
-## Storage lifetime and concurrency
+The supported workflow is one API process per store at a time. Each operation owns a connection with pooling disabled, private cache, a finite five-second provider timeout and FULL synchronization; rollback journaling uses DELETE mode. The local directory must permit SQLite journal creation. Do not use network shares or synchronization-managed folders. See [ADR 0004](../adr/0004-use-sqlite-for-the-durable-local-workflow.md).
 
-The store starts empty for each host, retains cases in memory until that host ends and shares no state between instances. Reads and lookup/transition/snapshot operations use one synchronous gate. Snapshots preserve an operation's values even if a later request changes the case. Independent test hosts have independent stores.
+One synchronous host gate orders operations. Creation uses an insert transaction; status changes begin a non-deferred write transaction before lookup/domain validation/update. Success is returned only after commit. Reads restore and validate the row; all operations return snapshots. Request arrival order is not promised, and synchronous I/O/serialization limit concurrency.
 
-This local demo has no durable recovery, capacity limit, expiration or stale-client/version-token protection. Concurrent request arrival order is not guaranteed. It is for small synthetic demonstrations, with no production persistence or authorization capability. See [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md).
+Committed cases survive API restarts against the same intact file. Independent files isolate tests and demonstrations. Data has no expiration or enforced disk quota. There are no stale-client tokens, creation idempotency keys, multi-instance guarantees, backups or machine power/storage-loss guarantees. A response can be lost after commit; clients can reconcile a known ID by reading it, while retrying an unacknowledged create can duplicate cases. There is no fallback to memory or application transaction-retry policy.
 
-## Constraints
+## Configuration, operability and security
 
-The local case workflow uses no external infrastructure, secrets or real business data. The SDK is pinned to an installed stable .NET 10 baseline, with stable feature-band roll-forward within .NET 10.0. SLNX is created through normal CLI tooling. One CI workflow enforces formatting, warnings-as-errors, Release compilation and tests.
+The [walkthrough](../usage/local-case-workflow.md) covers initialization, normal startup, restart and disposal. The main Microsoft.Data.Sqlite package supplies the native engine through NuGet. No database server, SQLite CLI, cloud account or secret is required. Runtime files and local settings are ignored by Git; the repository contains initialization code, not a generated database.
 
-## Assumptions
+`GET /` preserves foundation metadata; `/health` remains host liveness without storage readiness. If storage fails after startup, affected case operations fail safely. Initialization/startup storage failures produce a concise diagnostic and nonzero exit rather than dumping provider messages or configuration. There are no setup/reset/test HTTP endpoints.
 
-These are working assumptions, not proven requirements:
+All data must be synthetic. No authentication, authorization, encryption, secret-management service or production deployment is implemented. Local file access is not an application permission boundary. Future handling of sensitive records requires explicit identity, access-control, retention and data-protection requirements.
 
-- A case-centric use case will be small enough to begin in one application.
-- Relational persistence may suit future transactional requirements.
-- Integration and AI capabilities may eventually justify specialized components.
+## Verification and constraints
 
-Each assumption will be revisited with concrete requirements and evidence.
+A stable .NET 10 SDK is pinned in `global.json`, with stable feature-band roll-forward within .NET 10.0. One CI workflow enforces restore, format verification, warnings-as-errors, Release compilation and tests.
 
-## Non-goals
+Tests cover domain rules/restoration, the complete HTTP contract, actual SQLite commits/rollback, host/file isolation, schema/startup failures and concurrent operations. A child-process test initializes storage, waits for acknowledged writes, force-kills the API and verifies state in a fresh process. Trigger/lock failures and lost-response controls live only in test fixtures. Tests use disposable directories, loopback ports assigned by the OS and bounded readiness waits; they need no machine-specific configuration or external service.
 
-This slice does not implement durable persistence, cloud resources, containers, messaging, identity, authorization, a frontend, Python services, AI, production deployment or telemetry integration. It does not define a distributed system or promise a final modular-monolith topology.
+## Evolution and non-goals
 
-## Security Principles
+[ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) is retained as the superseded historical memory-store decision. [ADR 0004](../adr/0004-use-sqlite-for-the-durable-local-workflow.md) implements the [Phase 2 requirements](../requirements/phase-2-durable-case-workflow.md), preserving the [Phase 1 HTTP/domain contract](../requirements/phase-1-case-workflow.md).
 
-- No secrets, real case records, personal information or confidential material in source or contributions.
-- Minimize exposed metadata; no environment, machine, build or host identifiers.
-- Prefer secure defaults and least privilege; CI has read-only repository permissions.
-- Future authorization and data-access boundaries must be designed before handling sensitive information.
+Add architecture when requirements justify deployment independence, scaling, reliability, ownership, security or operational isolation. This local persistence choice does not establish an enterprise database or promise a drop-in SQL Server replacement. Revisit for shared/server storage, multi-instance hosting, measured load, audit, backups or real records.
 
-The present API is a local synthetic workflow without authentication. These principles do not constitute implemented production security controls.
-
-## Operability Principles
-
-Framework health checks and automated build/test gates exist now. The health endpoint checks no external dependencies and reports host health only. Structured observability, dependency readiness checks and reproducible deployment are future work, to be defined alongside real infrastructure.
-
-## Evolution Philosophy
-
-Start with one small deployable application and explicit internal boundaries. Add abstractions, processes or independent services when requirements justify deployment independence, scaling differences, reliability, ownership, security or operational isolation. Avoid optimizing for hypothetical scale. Record meaningful decisions in [ADRs](../adr/README.md).
-
-The [reviewed Phase 1 requirements](../requirements/phase-1-case-workflow.md) are implemented for the local workflow. [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) records the current temporary storage choice. Further persistence, consistency or deployment requirements must be evaluated before replacing this small local demonstration.
-
-The [reviewed Phase 2 requirements](../requirements/phase-2-durable-case-workflow.md) define restart continuity, atomic writes and safe storage failures for a single local API process. [Proposed ADR 0004](../adr/0004-use-sqlite-for-the-durable-local-workflow.md) evaluates SQLite with Microsoft.Data.Sqlite for that scope. Neither is implemented; ADR 0003 and the current architecture remain in effect until a replacement decision is accepted and implemented.
-
-## Conceptual Future Direction — Not Yet Implemented
-
-The following relationships are possibilities, not selected services or deployed components:
+## Conceptual future direction — not implemented
 
 ```mermaid
 flowchart TD
-    App[Future .NET application/API]
-    App -.-> Persistence[Potential relational persistence]
-    App -.-> Integration[Potential asynchronous/event-driven integration]
-    App -.-> Hosting[Potential Azure hosting/services]
+    App[Future application capabilities]
+    App -.-> Persistence[Potential server-managed relational storage]
+    App -.-> Integration[Potential asynchronous integration]
+    App -.-> Hosting[Potential Azure hosting]
     App -.-> Python[Potential Python AI capability]
-    Python -.-> Evaluation[Potential retrieval/model/evaluation capabilities]
+    Python -.-> Evaluation[Potential retrieval and evaluation]
 ```
 
-No cloud service, database product, broker or model provider is committed by this diagram. SQL Server / Azure SQL may be evaluated for future persistence. Infrastructure as Code, identity, observability, AI evaluation and human approval boundaries require future requirements and decisions.
+SQL Server / Azure SQL, Azure deployment, messaging, containers, Infrastructure as Code, identity, structured telemetry, a frontend and Python/AI remain future possibilities. No cloud service, broker or model provider is selected by this diagram; each requires concrete requirements and decisions.
