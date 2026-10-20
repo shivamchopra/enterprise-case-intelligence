@@ -1,6 +1,6 @@
 # Phase 4 proposal: durable case status history
 
-**Status: Proposed requirements — not implemented.** Phase 3 remains the current runnable scope. This document proposes the next slice for review; it does not select a new schema or authorize automatic upgrades.
+**Status: Reviewed requirements — not implemented.** Reviewed in PR #15. Phase 3 remains the current runnable scope. The [proposed storage/compatibility ADR](../adr/0005-add-status-history-with-an-explicit-store-upgrade.md) still requires review before implementation; normal startup must not upgrade stores automatically.
 
 ## Workflow assessment and proposed outcome
 
@@ -97,7 +97,7 @@ Existing retrieval and list operations keep their case representation and valida
 
 ## Acceptance criteria
 
-These criteria are proposed verification obligations, not claims about current code or test coverage.
+These criteria are reviewed verification obligations, not claims about current code or test coverage.
 
 | ID | Given / when | Required result |
 | --- | --- | --- |
@@ -116,8 +116,8 @@ These criteria are proposed verification obligations, not claims about current c
 
 ## Review and implementation sequence
 
-1. Review this proposed scope, entry contract, baseline meaning and acceptance criteria. Amend assumptions before implementation if the desired next capability differs.
-2. Propose and review the compatibility/storage ADR required by the schema change. Choose exact schema/version checks and the explicit offline upgrade path; retain existing local storage and safety limits.
+1. **Reviewed in PR #15:** scope, entry contract, baseline meaning and acceptance criteria. Amend these assumptions explicitly if the desired capability changes.
+2. **Proposed:** review [ADR 0005](../adr/0005-add-status-history-with-an-explicit-store-upgrade.md) for exact schema/version checks and the explicit offline upgrade path; retain existing local storage and safety limits.
 3. Implement the smallest history operation, atomic writes and upgrade within the existing boundaries. Keep Domain independent of HTTP, SQLite and wall-clock access. Use a controllable time source without a new test framework or generic event infrastructure.
 4. Verify with disposable real SQLite stores, isolated HTTP hosts and API child processes. Coordinate concurrency and failure controls deterministically; do not use arbitrary sleeps or mocked storage as the only atomicity/recovery evidence. Keep format verification, warnings-as-errors, Release build and tests.
 5. Update the local walkthrough and public implemented-scope evidence only after the capability exists. Keep proposed requirements separate from current behavior until then.

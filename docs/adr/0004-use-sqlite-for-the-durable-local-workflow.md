@@ -4,6 +4,8 @@
 
 **Accepted — implemented for the durable local Phase 2 workflow.** Reviewed in PR #11 following the requirements review in PR #10. Supersedes [ADR 0003](0003-use-process-memory-for-the-phase-1-local-workflow.md) for Phase 2. The HTTP contract remains unchanged; storage now uses a retained local SQLite file.
 
+[ADR 0005](0005-add-status-history-with-an-explicit-store-upgrade.md) proposes a Phase 4 amendment for a history table and explicit version-1 → version-2 upgrade. It is not implemented; this record still describes the current version-1 store.
+
 ## Context
 
 At decision time, the API created, retrieved and progressed synthetic cases but lost all data when its host stopped. Phase 2 requires acknowledged writes to survive application restart and abrupt API-process termination, assuming retained, intact storage. It also requires atomic status operations, deliberate store initialization, unchanged HTTP/domain behavior and safe storage failures.
