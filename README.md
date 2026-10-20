@@ -122,7 +122,7 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 ## Roadmap
 
 - **Now:** [case browsing acceptance coverage](docs/requirements/phase-3-case-list.md), the existing workflow and [durability checks](docs/requirements/phase-2-durable-case-workflow.md), local initialization and recovery tests.
-- **Next — proposed, not implemented:** review [durable case status history requirements](docs/requirements/phase-4-status-history.md), including honest baselines for existing cases and an explicit store-upgrade decision before implementation.
+- **Next — not implemented:** [case status history requirements](docs/requirements/phase-4-status-history.md) are reviewed; review [proposed ADR 0005](docs/adr/0005-add-status-history-with-an-explicit-store-upgrade.md) for atomic history storage and an explicit store upgrade before implementation.
 - **Later:** evaluate the planned capabilities against concrete needs and operational tradeoffs.
 
 ## Security and Privacy
