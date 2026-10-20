@@ -37,7 +37,7 @@ public class CaseListFailureTests : CaseListApiTest
     public async Task InvalidRowsFailWithoutPartialSuccessOrRepair(string column, string value)
     {
         SeedMany(3);
-        Database.Execute($"PRAGMA ignore_check_constraints=ON; UPDATE cases SET {column}=$value WHERE id=$id",
+        Database.Execute($"PRAGMA foreign_keys=OFF; PRAGMA ignore_check_constraints=ON; UPDATE cases SET {column}=$value WHERE id=$id",
             ("$value", value), ("$id", FixtureId(2).ToString("D")));
         var original = File.ReadAllBytes(Database.Path);
         using var response = await Client.GetAsync("/cases?limit=100");

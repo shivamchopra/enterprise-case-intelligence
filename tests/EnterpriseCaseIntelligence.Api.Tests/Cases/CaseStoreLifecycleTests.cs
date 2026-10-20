@@ -65,7 +65,7 @@ public class CaseStoreLifecycleTests(ITestOutputHelper output)
         {
             case "empty": File.WriteAllBytes(fixture.Path, []); break;
             case "corrupt": File.WriteAllText(fixture.Path, "SYNTHETIC_SENSITIVE_MARKER"); break;
-            case "version": fixture.Database.Initialize(); fixture.Execute("PRAGMA user_version=2"); break;
+            case "version": fixture.Database.Initialize(); fixture.Execute("PRAGMA user_version=99"); break;
             case "schema": fixture.Database.Initialize(); fixture.Execute("ALTER TABLE cases ADD COLUMN extra TEXT"); break;
             case "constraints":
                 fixture.Database.Initialize();
@@ -96,7 +96,7 @@ public class CaseStoreLifecycleTests(ITestOutputHelper output)
         var before = File.ReadAllBytes(fixture.Path);
         fixture.Database.ValidateStartup();
         Assert.Equal(before, File.ReadAllBytes(fixture.Path));
-        Assert.Equal(1L, fixture.Scalar("PRAGMA user_version"));
+        Assert.Equal(2L, fixture.Scalar("PRAGMA user_version"));
         Assert.Equal("delete", fixture.Scalar("PRAGMA journal_mode"));
         Assert.Equal(2L, fixture.Scalar("PRAGMA synchronous"));
         var version = Version.Parse((string)fixture.Scalar("SELECT sqlite_version()")!);

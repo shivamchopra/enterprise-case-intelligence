@@ -16,4 +16,4 @@ Future meaningful choices should receive ADRs when they are evaluated and select
 | [0002: Start with a modular application boundary](0002-start-with-a-modular-application-boundary.md) | Accepted |
 | [0003: Use process memory for the Phase 1 local workflow](0003-use-process-memory-for-the-phase-1-local-workflow.md) | Superseded by 0004 |
 | [0004: Use SQLite for the durable local workflow](0004-use-sqlite-for-the-durable-local-workflow.md) | Accepted — implemented |
-| [0005: Add status history with an explicit store upgrade](0005-add-status-history-with-an-explicit-store-upgrade.md) | Proposed — not implemented |
+| [0005: Add status history with an explicit store upgrade](0005-add-status-history-with-an-explicit-store-upgrade.md) | Accepted — implemented |

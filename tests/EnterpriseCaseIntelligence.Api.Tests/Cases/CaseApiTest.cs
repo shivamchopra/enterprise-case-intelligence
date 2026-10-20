@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using EnterpriseCaseIntelligence.Api.Cases;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace EnterpriseCaseIntelligence.Api.Tests.Cases;
@@ -14,9 +15,9 @@ public abstract class CaseApiTest : IDisposable
     protected WebApplicationFactory<Program> Factory { get; }
     protected HttpClient Client { get; }
 
-    protected CaseApiTest()
+    protected CaseApiTest(TimeProvider? clock = null)
     {
-        Factory = Database.CreateFactory();
+        Factory = Database.CreateFactory(clock);
         Client = Factory.CreateClient();
     }
 
@@ -53,6 +54,8 @@ public abstract class CaseApiTest : IDisposable
     }
 
     protected static string PathFor(Guid id) => $"/cases/{id:D}";
+
+    protected CaseHistoryEntry[] StoredHistory(Guid id) => new SqliteCaseStore(Database.Database).History(id)!.ToArray();
 
     protected static async Task<CaseRepresentation> ReadCaseAsync(HttpResponseMessage response)
     {

@@ -2,6 +2,7 @@ using EnterpriseCaseIntelligence.Api.Cases;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EnterpriseCaseIntelligence.Api.Tests;
 
@@ -19,9 +20,13 @@ public sealed class TemporaryCaseDatabase : IDisposable
         }
     }
 
-    public WebApplicationFactory<Program> CreateFactory() => new WebApplicationFactory<Program>()
-        .WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, configuration) =>
-            configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["CaseStorage:DatabasePath"] = Path })));
+    public WebApplicationFactory<Program> CreateFactory(TimeProvider? clock = null) => new WebApplicationFactory<Program>()
+        .WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
+                new Dictionary<string, string?> { ["CaseStorage:DatabasePath"] = Path }));
+            if (clock is not null) builder.ConfigureServices(services => services.AddSingleton(clock));
+        });
 
     public void Execute(string sql, params (string Name, object Value)[] parameters)
     {

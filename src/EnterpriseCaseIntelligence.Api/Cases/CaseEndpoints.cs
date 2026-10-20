@@ -12,6 +12,7 @@ internal static class CaseEndpoints
         endpoints.MapPost("/cases", CreateCase);
         endpoints.MapGet("/cases", ListCases);
         endpoints.MapGet("/cases/{id}", GetCase);
+        endpoints.MapGet("/cases/{id}/history", GetHistory);
         endpoints.MapPut("/cases/{id}/status", ChangeStatus);
     }
 
@@ -108,6 +109,24 @@ internal static class CaseEndpoints
 
         var snapshot = store.Find(caseId);
         return snapshot is null ? MissingCase() : Results.Ok(Representation(snapshot));
+    }
+
+    private static IResult GetHistory(string id, HttpRequest request, SqliteCaseStore store)
+    {
+        if (!TryReadId(id, out var caseId)) return Validation("id", "Use a non-empty hyphenated UUID.");
+        if (request.Query.Count > 0) return Validation("query", "The query contains an unsupported parameter.");
+        var entries = store.History(caseId);
+        return entries is null ? MissingCase() : Results.Ok(new
+        {
+            items = entries.Select(entry => new
+            {
+                sequence = entry.Sequence,
+                kind = entry.Kind,
+                fromStatus = entry.FromStatus?.ToString(),
+                toStatus = entry.ToStatus.ToString(),
+                recordedAtUtc = entry.RecordedAtUtc
+            }).ToArray()
+        });
     }
 
     private static async Task<IResult> ChangeStatus(string id, HttpRequest request, SqliteCaseStore store, CancellationToken cancellationToken)

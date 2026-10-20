@@ -13,6 +13,7 @@ public class CaseProcessRecoveryTests
         var initialized = await ApiProcess.RunAsync("init-store", "--CaseStorage:DatabasePath", database.Path);
         Assert.Equal(0, initialized.ExitCode);
         var cases = new List<(Guid Id, string Title, string Description, string Status)>();
+        var histories = new Dictionary<Guid, CaseHistoryApiTests.HistoryValue[]>();
         using (var process = await ApiProcess.StartAsync(database.Path))
         using (var client = new HttpClient { BaseAddress = process.Address, Timeout = TimeSpan.FromSeconds(10) })
         {
@@ -37,6 +38,7 @@ public class CaseProcessRecoveryTests
                 }
 
                 cases.Add((id, title, description, status));
+                histories[id] = await CaseHistoryApiTests.ReadHistoryAsync(client, id);
             }
 
             await process.KillAsync();
@@ -54,6 +56,10 @@ public class CaseProcessRecoveryTests
             Assert.Equal(expected.Description, body.RootElement.GetProperty("description").GetString());
             Assert.Equal(expected.Status, body.RootElement.GetProperty("status").GetString());
             Assert.Equal(4, body.RootElement.EnumerateObject().Count());
+            Assert.Equal(histories[expected.Id], await CaseHistoryApiTests.ReadHistoryAsync(reader, expected.Id));
+            using var retry = await reader.PutAsJsonAsync($"/cases/{expected.Id:D}/status", new { status = expected.Status });
+            Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
+            Assert.Equal(histories[expected.Id], await CaseHistoryApiTests.ReadHistoryAsync(reader, expected.Id));
         }
     }
 }

@@ -11,7 +11,10 @@ public abstract class CaseListApiTest : CaseApiTest
         string description = ValidDescription, TemporaryCaseDatabase? database = null)
     {
         var id = FixtureId(key);
-        (database ?? Database).Execute("INSERT INTO cases (id, title, description, status) VALUES ($id, $title, $description, $status)",
+        (database ?? Database).Execute("""
+            INSERT INTO cases (id, title, description, status) VALUES ($id, $title, $description, $status);
+            INSERT INTO case_status_history VALUES ($id, 1, 'Baseline', NULL, $status, '2026-10-20T12:00:00.0000000Z');
+            """,
             ("$id", id.ToString("D")), ("$title", title), ("$description", description), ("$status", status));
         return new(id, title, description, status);
     }

@@ -29,6 +29,7 @@ public class CaseStatusEndpointTests : CaseApiTest
         }
 
         var before = await ReadAsync(created.Id);
+        var history = StoredHistory(created.Id);
         using var response = await Client.PutAsJsonAsync(PathFor(created.Id) + "/status", new { status = requested });
 
         if (isAllowed)
@@ -43,6 +44,10 @@ public class CaseStatusEndpointTests : CaseApiTest
             await AssertProblemAsync(response, HttpStatusCode.Conflict, "invalid_transition");
             Assert.Equal(before, await ReadAsync(created.Id));
         }
+
+        var after = StoredHistory(created.Id);
+        Assert.Equal(history, after.Take(history.Length));
+        Assert.Equal(history.Length + (isAllowed && initial != requested ? 1 : 0), after.Length);
     }
 
     [Theory]
@@ -66,6 +71,7 @@ public class CaseStatusEndpointTests : CaseApiTest
 
         await AssertProblemAsync(response, HttpStatusCode.BadRequest, "validation_failed", "status");
         Assert.Equal(created, await ReadAsync(created.Id));
+        Assert.Single(StoredHistory(created.Id));
     }
 
     [Theory]
@@ -79,6 +85,7 @@ public class CaseStatusEndpointTests : CaseApiTest
 
         await AssertProblemAsync(response, HttpStatusCode.BadRequest, "validation_failed", field);
         Assert.Equal(created, await ReadAsync(created.Id));
+        Assert.Single(StoredHistory(created.Id));
     }
 
     [Theory]
@@ -94,6 +101,7 @@ public class CaseStatusEndpointTests : CaseApiTest
 
         await AssertProblemAsync(response, HttpStatusCode.BadRequest, "validation_failed", "body");
         Assert.Equal(created, await ReadAsync(created.Id));
+        Assert.Single(StoredHistory(created.Id));
     }
 
     [Fact]
@@ -105,6 +113,7 @@ public class CaseStatusEndpointTests : CaseApiTest
 
         await AssertProblemAsync(response, HttpStatusCode.UnsupportedMediaType, "unsupported_media_type");
         Assert.Equal(created, await ReadAsync(created.Id));
+        Assert.Single(StoredHistory(created.Id));
     }
 
     [Fact]
@@ -113,9 +122,13 @@ public class CaseStatusEndpointTests : CaseApiTest
         var created = await CreateAsync();
 
         var reviewing = await SetStatusAsync(created.Id, "InReview");
+        var reviewHistory = StoredHistory(created.Id);
         Assert.Equal(reviewing, await SetStatusAsync(created.Id, "InReview"));
+        Assert.Equal(reviewHistory, StoredHistory(created.Id));
         var closed = await SetStatusAsync(created.Id, "Closed");
+        var closedHistory = StoredHistory(created.Id);
         Assert.Equal(closed, await SetStatusAsync(created.Id, "Closed"));
+        Assert.Equal(closedHistory, StoredHistory(created.Id));
         Assert.Equal(closed, await ReadAsync(created.Id));
     }
 
@@ -138,5 +151,6 @@ public class CaseStatusEndpointTests : CaseApiTest
         var expected = created with { Status = "InReview" };
         Assert.All(results, result => Assert.Equal(expected, result));
         Assert.Equal(expected, await ReadAsync(created.Id));
+        Assert.Equal(2, StoredHistory(created.Id).Length);
     }
 }

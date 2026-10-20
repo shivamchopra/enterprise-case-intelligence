@@ -96,6 +96,9 @@ public class CaseDurabilityTests : CaseApiTest
         Factory.Dispose();
         var reopened = new SqliteCaseStore(Database.Database);
         Assert.Equal(expectedStatus, reopened.Find(first.Id)!.Status);
+        Assert.Equal(expectedStatus, reopened.History(first.Id)![^1].ToStatus);
+        Assert.Equal(expectedStatus == CaseStatus.Closed ? 3 : 2, reopened.History(first.Id)!.Count);
+        Assert.Single(reopened.History(duplicate.Id)!);
         Assert.Equal(CaseStatus.New, reopened.Find(duplicate.Id)!.Status);
         Assert.Equal(first.Title, reopened.Find(first.Id)!.Title);
         Assert.Equal(2, Database.Count());

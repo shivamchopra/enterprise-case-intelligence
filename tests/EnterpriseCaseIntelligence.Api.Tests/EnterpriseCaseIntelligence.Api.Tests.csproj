@@ -15,5 +15,6 @@
   <ItemGroup>
     <Using Include="Xunit" />
     <ProjectReference Include="../../src/EnterpriseCaseIntelligence.Api/EnterpriseCaseIntelligence.Api.csproj" />
+    <ProjectReference Include="../EnterpriseCaseIntelligence.UpgradeFixture/EnterpriseCaseIntelligence.UpgradeFixture.csproj" />
   </ItemGroup>
 </Project>
