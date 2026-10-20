@@ -6,6 +6,31 @@ Start the API using the [README commands](../../README.md#getting-started). The 
 
 Initialization is an explicit `init-store` command, not an HTTP route. It refuses any existing file, including an empty one. Normal startup refuses missing, incompatible, corrupt or unwritable storage and never creates a replacement. The directory must already exist and permit database/journal writes. Choose a local directory outside network shares or synchronization-managed folders; `CaseStorage__DatabasePath` is the equivalent environment setting.
 
+## Inspect and upgrade a version-1 store
+
+Fresh `init-store` now creates version 2 with case and history tables. Skip this upgrade section for a fresh version-2 store. For retained Phase 3 data, build the current code first and **stop the API and every other process using that store**. `CASE_DB_PATH` must be the same absolute path selected during setup; neither inspection nor upgrade creates a missing file.
+
+Inspect before deciding whether an upgrade is needed:
+
+```sh
+dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- inspect-store --CaseStorage:DatabasePath "$CASE_DB_PATH"
+```
+
+Success prints only `Case store version: 1.` or `Case store version: 2.` as the command result. The command validates schema, engine integrity and case values; version 2 also validates all history chains. It does not change committed application state, but SQLite may perform normal journal recovery. An inspection failure needs investigation, not initialization over the existing path.
+
+For **version 1 only**, explicitly upgrade while hosting remains stopped:
+
+```sh
+dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- upgrade-store --CaseStorage:DatabasePath "$CASE_DB_PATH"
+dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- inspect-store --CaseStorage:DatabasePath "$CASE_DB_PATH"
+```
+
+Expect `Case store upgraded.` and then `Case store version: 2.`. The upgrade preserves every case's ID, text and current status and records one `Baseline` entry per old case. A baseline's time is the time it was recorded during upgrade; earlier transitions and creation times remain unknown. No historical `Created` or transition entries are invented.
+
+This changes the store format in place and is one-way. Older executables refuse version 2; there is no downgrade, automatic backup or restore command. A second upgrade refuses version 2 without adding baselines. Normal startup never upgrades automatically and refuses old-format stores. After successful inspection of version 2, start the API using the normal final README command, without a command mode.
+
+If upgrade fails, is interrupted or loses its completion output, the outcome is uncertain. With all processes stopped, run **only inspection first**. A valid version 1 means the upgrade did not commit and may be retried deliberately; a valid version 2 means it committed and must not be repeated. Any unsupported/invalid result requires investigation. Never delete a journal, reset the file or force initialization to hide an error. These commands assume intact local storage, without a hardware/power-loss guarantee.
+
 ## Create a case
 
 ```sh
@@ -58,6 +83,22 @@ curl -i -X PUT http://localhost:5080/cases/CASE_ID/status \
 
 Each successful request returns `200 OK` and the complete case. Immediately repeating its current status also succeeds without changing the case. `Closed` is terminal; skipping review or moving backward returns `409 Conflict` and leaves the case unchanged.
 
+## Inspect recorded status history
+
+```sh
+curl -i http://localhost:5080/cases/CASE_ID/history
+```
+
+Expect `200 OK` with exactly `items`, containing one to three entries ordered by case-local `sequence`. Each entry has exactly `sequence`, `kind`, `fromStatus`, `toStatus` and `recordedAtUtc`.
+
+A fresh case starts with `Created`, sequence 1, `fromStatus: null`, `toStatus: "New"`. Following the two changes above adds `StatusChanged` entries for `New → InReview` and `InReview → Closed`. Repeating the current status adds no entry and preserves recorded times. Creation/status updates and their history commit together; failures cannot leave one committed without the other.
+
+Upgraded cases instead start with `Baseline` at their retained status; they can have fewer entries even when closed. Earlier history is unknown. Timestamps use UTC with seven fractional digits, such as `2026-10-20T12:00:00.0000000Z`. They record application time, not transaction commit time; the clock may repeat or move backward, so display by sequence rather than timestamp.
+
+The route accepts a non-empty hyphenated UUID and no query parameters. Invalid IDs/queries return safe `400` problems before storage access; valid unknown cases return `404`. Missing/invalid history for an existing case or unavailable storage returns generic `500`, without a partial list, invented baseline or repair. History reads do not reserve a case or provide stale-client protection.
+
+This is workflow history, without actor identity, access control or tamper evidence. It is not a compliance audit trail. The three-entry bound follows the current lifecycle and would require review before adding states or reopening.
+
 ## Validation and limits
 
 - Title: required, 1–120 .NET string characters after trimming. Description: required, 1–2,000.
@@ -79,7 +120,7 @@ Stop the API with Ctrl+C. In the same terminal, keep `CASE_DB_PATH` from the REA
 dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- --CaseStorage:DatabasePath "$CASE_DB_PATH" --urls http://localhost:5080
 ```
 
-List saved cases again, or retrieve the original `CASE_ID`. Plain ID continuations can also be reused against the same retained store after restart. Its ID, text and latest committed status are retained. The automated process-recovery test also verifies acknowledged writes after force-killing the API. This does not establish hardware/power-loss recovery, backups, encryption or multi-instance operation.
+List saved cases again, retrieve the original `CASE_ID` or read its `/history`. Plain ID continuations can also be reused against the same retained store after restart. Its ID, text, latest committed status and recorded history are retained. The automated process-recovery test also verifies acknowledged paired writes after force-killing the API. This does not establish hardware/power-loss recovery, backups, encryption or multi-instance operation.
 
 If startup fails, check the configured path, directory permissions and compatibility. Use `init-store` only for an intentionally new path. Do not delete SQLite recovery journals or reset an existing store to hide an error. Recovery after a runtime storage failure may require restarting against the same intact store.
 
@@ -90,3 +131,5 @@ Stop the API before discarding the synthetic store. Remove only the file/directo
 See [durability acceptance coverage](../requirements/phase-2-durable-case-workflow.md#current-implementation-coverage) for the automated evidence and its limits.
 
 See [case browsing acceptance coverage](../requirements/phase-3-case-list.md#current-implementation-coverage) for ordering, page/failure boundaries and changes between requests.
+
+See [history and upgrade acceptance coverage](../requirements/phase-4-status-history.md#current-implementation-coverage) and [ADR 0005](../adr/0005-add-status-history-with-an-explicit-store-upgrade.md) for the schema, transaction and compatibility decisions.

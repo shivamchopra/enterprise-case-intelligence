@@ -1,19 +1,19 @@
-# Phase 4 proposal: durable case status history
+# Phase 4 requirements: durable case status history
 
-**Status: Reviewed requirements — not implemented.** Reviewed in PR #15. Phase 3 remains the current runnable scope. The [proposed storage/compatibility ADR](../adr/0005-add-status-history-with-an-explicit-store-upgrade.md) still requires review before implementation; normal startup must not upgrade stores automatically.
+**Status: Reviewed requirements — implemented for the local workflow.** Reviewed in PR #15; [ADR 0005](../adr/0005-add-status-history-with-an-explicit-store-upgrade.md) was reviewed in PR #16 and is accepted and implemented. Normal startup never upgrades stores automatically.
 
-## Workflow assessment and proposed outcome
+## Workflow assessment and outcome
 
-The [current workflow](../usage/local-case-workflow.md) supports create → browse → retrieve → change status → restart and resume. The [case store](../../src/EnterpriseCaseIntelligence.Api/Cases/SqliteCaseStore.cs) retains only the latest status. After reopening a case, a fictional service-desk staff member cannot inspect its earlier status changes or distinguish recorded transitions from an inherited starting state.
+Before Phase 4, the workflow supported create → browse → retrieve → change status → restart and resume, but the store retained only the latest status. After reopening a case, a fictional service-desk staff member could not inspect its earlier status changes or distinguish recorded transitions from an inherited starting state. The [current walkthrough](../usage/local-case-workflow.md) now includes status history and explicit store upgrades.
 
-Propose a read-only status history for each synthetic case, retained with its current state. This adds evidence about the existing lifecycle without expanding its states or requiring a new deployment. These are reference-project assumptions, not validated enterprise requirements.
+A read-only status history for each synthetic case is retained with its current state. This adds evidence about the existing lifecycle without expanding its states or requiring a new deployment. These are reference-project assumptions, not validated enterprise requirements.
 
 The current lifecycle allows at most two actual transitions. A starting entry plus those transitions gives a maximum of three entries per case. A bounded history therefore needs no pagination, search or generic event framework. Revisit this limit if reopening or additional states are proposed later.
 
 ## Scope and limits
 
 - Keep `New → InReview → Closed`, including successful same-status no-ops and the complete existing transition matrix.
-- Preserve the existing four-field case representation, case routes, browsing contract, `/` and `/health`. Add only the proposed history read route below.
+- Preserve the existing four-field case representation, case routes, browsing contract, `/` and `/health`. Add only the history read route below.
 - Persist history atomically with case creation and actual status changes. History is application-owned; clients cannot submit, edit or delete entries.
 - Keep one API process per local SQLite store, synthetic data only, and the existing process-recovery limits.
 - Record state changes, not request attempts. Failed requests, reads and successful no-ops create no entries.
@@ -24,7 +24,7 @@ The current lifecycle allows at most two actual transitions. A starting entry pl
 
 Each entry has exactly these fields:
 
-| Field | Proposed rule |
+| Field | Rule |
 | --- | --- |
 | `sequence` | Server-owned integer, starting at 1 for each case and increasing contiguously by 1 for each added entry. It determines display order within that case. |
 | `kind` | Exact string `Created`, `Baseline` or `StatusChanged`. |
@@ -38,7 +38,7 @@ Timestamps describe when the application recorded an entry. They are not client-
 
 A newly created case starts with one `Created` entry: sequence 1, `fromStatus: null`, `toStatus: "New"`. Creation of the case and this entry must commit together before returning `201`. All subsequent entries are `StatusChanged` entries matching actual allowed transitions. There is no later `Created` or `Baseline` entry.
 
-For example, a new case progressed to `InReview` would have this proposed history:
+For example, a new case progressed to `InReview` has this history:
 
 ```json
 {
@@ -63,7 +63,7 @@ For example, a new case progressed to `InReview` would have this proposed histor
 
 ### Existing cases and compatibility
 
-The currently supported store is version 1 and contains no history. Its earlier transitions and creation times cannot be recovered. Preserve each existing case's ID, title, description and current status through an explicit, offline store upgrade; never fabricate those earlier events.
+The Phase 3 store is version 1 and contains no history. Its earlier transitions and creation times cannot be recovered. The current executable initializes/hosts version 2 and explicitly upgrades version 1. Preserve each existing case's ID, title, description and current status through that offline upgrade; never fabricate those earlier events.
 
 At upgrade, each existing case receives exactly one `Baseline` entry: sequence 1, `fromStatus: null`, `toStatus` equal to its retained current status, and the time the upgrade records that baseline. A baseline for `Closed` does not imply that the application observed its earlier `New` or `InReview` transitions. Future real transitions append normally; earlier history remains unknown.
 
@@ -71,9 +71,9 @@ The upgrade must be an explicit command against an existing supported version-1 
 
 Normal startup must not upgrade, reset, repair or manufacture history. New initialization must create the selected history-capable format and keep refusing every existing path. The explicit upgrade must refuse missing, empty, corrupt, unsupported or already-upgraded stores, with a concise nonzero diagnostic and no replacement file. After an uncertain outcome, inspect the supported store version before attempting another upgrade; never force a repeat or delete recovery journals. Tests use disposable copies, never user data.
 
-[ADR 0004](../adr/0004-use-sqlite-for-the-durable-local-workflow.md) currently requires exact version-1 schema validation and refusal of schema changes. A new compatibility/storage ADR is required after requirements review and before implementation. It must choose the history schema, new version, upgrade command and transaction/recovery checks, and explain the amendment to ADR 0004. No ORM, service, provider abstraction or separate persistence project is selected by this proposal.
+[ADR 0005](../adr/0005-add-status-history-with-an-explicit-store-upgrade.md) amends [ADR 0004](../adr/0004-use-sqlite-for-the-durable-local-workflow.md)'s original exact version-1 checks. It selects the version-2 schema, explicit `upgrade-store`/`inspect-store` commands and transaction/recovery checks. No ORM, service, provider abstraction or separate production persistence project was added.
 
-## Proposed HTTP read contract
+## HTTP read contract
 
 `GET /cases/{id}/history` returns `200 OK` with `application/json` and exactly one top-level field, `items`. Return the complete validated history in ascending sequence order, with one to three entries. There is no continuation, total count, filtering or client-selected ordering. Any query parameter is invalid; an absent query or bare trailing `?` is accepted.
 
@@ -97,14 +97,14 @@ Existing retrieval and list operations keep their case representation and valida
 
 ## Acceptance criteria
 
-These criteria are reviewed verification obligations, not claims about current code or test coverage.
+These criteria describe the implemented local workflow; the coverage table below links the automated evidence.
 
 | ID | Given / when | Required result |
 | --- | --- | --- |
 | P4-01 | Create a valid synthetic case in a fresh history-capable store | Existing `201`, `Location` and four-field body; history contains exactly one valid `Created` entry committed with the case. |
 | P4-02 | Progress `New` → `InReview` → `Closed`, reading after each step | Exactly one added `StatusChanged` entry per real change; contiguous sequences, correct chain/final status, unchanged ID/text; complete history has three entries. |
 | P4-03 | Repeat current-status requests in all states; exercise rejected transitions, invalid input, unsupported media types and missing cases | Existing status/problem behavior; no added entry or timestamp rewrite; rejected writes change neither state nor history. |
-| P4-04 | Read new, progressed and baseline cases, including uppercased route IDs; supply invalid IDs, unknown query parameters and valid missing IDs | Exact proposed envelope/entry fields and sequence order; `400` before storage access for invalid input, `404` for a missing case; no partial/empty success for an existing case. |
+| P4-04 | Read new, progressed and baseline cases, including uppercased route IDs; supply invalid IDs, unknown query parameters and valid missing IDs | Exact envelope/entry fields and sequence order; `400` before storage access for invalid input, `404` for a missing case; no partial/empty success for an existing case. |
 | P4-05 | Read a history, then change status; separately create/read independent cases and stores | Earlier values stay immutable; a later read sees the committed transition; sequences and data remain case/store-local. |
 | P4-06 | Coordinate concurrent same-next-status requests and a sequence of competing legal/illegal targets | Only actual permitted transitions persist; no duplicate entries, sequence gaps or broken chains. Same-status successes append nothing. |
 | P4-07 | Fail creation or status change after one side has written but before commit, using actual SQLite fixtures | Safe `500`; reopen the store and prove rollback of both case and history changes. Test both case-write and history-write failures without production test routes. |
@@ -117,9 +117,21 @@ These criteria are reviewed verification obligations, not claims about current c
 ## Review and implementation sequence
 
 1. **Reviewed in PR #15:** scope, entry contract, baseline meaning and acceptance criteria. Amend these assumptions explicitly if the desired capability changes.
-2. **Proposed:** review [ADR 0005](../adr/0005-add-status-history-with-an-explicit-store-upgrade.md) for exact schema/version checks and the explicit offline upgrade path; retain existing local storage and safety limits.
-3. Implement the smallest history operation, atomic writes and upgrade within the existing boundaries. Keep Domain independent of HTTP, SQLite and wall-clock access. Use a controllable time source without a new test framework or generic event infrastructure.
-4. Verify with disposable real SQLite stores, isolated HTTP hosts and API child processes. Coordinate concurrency and failure controls deterministically; do not use arbitrary sleeps or mocked storage as the only atomicity/recovery evidence. Keep format verification, warnings-as-errors, Release build and tests.
-5. Update the local walkthrough and public implemented-scope evidence only after the capability exists. Keep proposed requirements separate from current behavior until then.
+2. **Reviewed in PR #16 and implemented:** [ADR 0005](../adr/0005-add-status-history-with-an-explicit-store-upgrade.md) selects exact schema/version checks and the explicit offline upgrade path, retaining local storage and safety limits.
+3. **Implemented:** history, atomic writes and upgrade within existing production boundaries. Domain remains independent of HTTP, SQLite and wall-clock access. Framework `TimeProvider` supplies controllable time without a new package or generic event infrastructure.
+4. **Verified:** disposable real SQLite stores, isolated HTTP hosts and API child processes. Concurrency, exceptions, locks and process interruption are coordinated without arbitrary sleeps. Format verification, warnings-as-errors, Release build and tests remain required.
+5. **Updated:** the walkthrough, architecture and README describe the implemented capability and its limits.
 
-This proposal adds no runtime code, schema, migration, package or infrastructure. Approval of these requirements alone does not establish that history is implemented or that the storage design has been selected.
+## Current implementation coverage
+
+| Criteria | Evidence |
+| --- | --- |
+| P4-01–05 | [History API tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseHistoryApiTests.cs): exact fields, full lifecycle, uppercased IDs, validation before I/O, immutable prior views, restart and case/file isolation. [Status tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseStatusEndpointTests.cs) verify the nine-cell matrix and history preservation for invalid/no-op requests. |
+| P4-06 | Status tests coordinate same-next-state requests and assert one entry; [durability tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseDurabilityTests.cs) exercise competing targets and verify final state/history agreement. |
+| P4-07, P4-11 | [History failure tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseHistoryFailureTests.cs): real-engine failures at case/history writes, unexpected inserted-row counts and malformed/missing/overlong chains; safe failures without partial success or repair. Existing storage tests retain trigger, lock and case-value failures. |
+| P4-08 | [Response-loss tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseResponseLossTests.cs) inspect committed history after suppressed responses; [process recovery](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseProcessRecoveryTests.cs) force-kills the API after acknowledged writes and compares history after restart/no-op retries. |
+| P4-09–10 | [Upgrade tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseStoreUpgradeTests.cs): frozen version-1 inputs in all statuses, empty/205-case stores, preserved text/IDs, honest baselines, later transitions, repeated-upgrade refusal, invalid inputs, source validation, controlled recording failures and a real commit lock failure after the version write. |
+| P4-10 | [Upgrade process tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseUpgradeProcessTests.cs): kill a child at a named-pipe barrier after DDL/partial baselines, inspect recovered version 1 and retry deliberately; separately suppress completion after a real commit and inspect version 2 without duplicating baselines. Controls live in a [test-only executable](../../tests/EnterpriseCaseIntelligence.UpgradeFixture/UpgradeFixtureProgram.cs). |
+| P4-12 | History tests inject equal/backward UTC readings through `TimeProvider`, including the real HTTP host; [walkthrough](../usage/local-case-workflow.md) covers setup, history, upgrade, inspection and recovery. Existing domain/case/list/root/health tests remain in the full suite. |
+
+The production implementation remains in Api; no Domain, package or production-project change was needed. Tests add one isolated executable for deterministic upgrade interruption, without production fault switches. The evidence covers retained intact storage and process termination, without claiming power-loss recovery, actor identification or tamper evidence.

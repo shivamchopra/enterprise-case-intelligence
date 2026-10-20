@@ -3,9 +3,10 @@ using Microsoft.Data.Sqlite;
 
 namespace EnterpriseCaseIntelligence.Api.Cases;
 
-public sealed class SqliteCaseStore(CaseDatabase database)
+public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timeProvider = null)
 {
     private readonly Lock _gate = new();
+    private readonly TimeProvider _clock = timeProvider ?? TimeProvider.System;
 
     public CaseSnapshot Create(string title, string description)
     {
@@ -26,6 +27,7 @@ public sealed class SqliteCaseStore(CaseDatabase database)
                 throw new InvalidDataException("Case insert did not affect exactly one record.");
             }
 
+            CaseHistory.Insert(connection, transaction, record.Id, CaseHistory.Record(1, "Created", null, record.Status, _clock));
             transaction.Commit();
             return Snapshot(record);
         }
@@ -91,6 +93,20 @@ public sealed class SqliteCaseStore(CaseDatabase database)
         }
     }
 
+    public IReadOnlyList<CaseHistoryEntry>? History(Guid id)
+    {
+        lock (_gate)
+        {
+            using var connection = database.Open();
+            using var transaction = connection.BeginTransaction(deferred: true);
+            var record = Read(connection, id, transaction);
+            if (record is null) return null;
+            var entries = CaseHistory.Read(connection, transaction, record);
+            transaction.Commit();
+            return entries;
+        }
+    }
+
     public CaseStatusChange ChangeStatus(Guid id, CaseStatus status)
     {
         lock (_gate)
@@ -103,6 +119,7 @@ public sealed class SqliteCaseStore(CaseDatabase database)
                 return new(null, false);
             }
 
+            var history = CaseHistory.Read(connection, transaction, record);
             var previous = record.Status;
             try
             {
@@ -124,6 +141,9 @@ public sealed class SqliteCaseStore(CaseDatabase database)
                 {
                     throw new InvalidDataException("Case update did not affect exactly one record.");
                 }
+
+                CaseHistory.Insert(connection, transaction, id,
+                    CaseHistory.Record(history.Count + 1, "StatusChanged", previous, record.Status, _clock));
             }
 
             transaction.Commit();
@@ -141,7 +161,7 @@ public sealed class SqliteCaseStore(CaseDatabase database)
         return reader.Read() ? Restore(reader) : null;
     }
 
-    private static Case Restore(SqliteDataReader reader)
+    internal static Case Restore(SqliteDataReader reader)
     {
         try
         {

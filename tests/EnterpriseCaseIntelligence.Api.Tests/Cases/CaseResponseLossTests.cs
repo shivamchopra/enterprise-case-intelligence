@@ -38,15 +38,20 @@ public class CaseResponseLossTests : CaseApiTest
             // The fixture can inspect the store; an unacknowledged-create client does not know this ID.
             Assert.Equal(2, Database.Count());
             Assert.Equal(2L, Database.Scalar("SELECT count(DISTINCT id) FROM cases WHERE status='New'"));
+            Assert.Equal(2L, Database.Scalar("SELECT count(*) FROM case_status_history WHERE sequence=1 AND kind='Created'"));
+            Assert.Equal(2, Database.Database.Inspect());
         }
         else
         {
             using var response = await reader.GetAsync(PathFor(existing.Id));
             var committed = await ReadCaseAsync(response);
             Assert.Equal(existing with { Status = "InReview" }, committed);
+            var history = StoredHistory(existing.Id);
+            Assert.Equal(2, history.Length);
             using var retry = await reader.PutAsJsonAsync(PathFor(existing.Id) + "/status", new { status = "InReview" });
             Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
             Assert.Equal(committed, await ReadCaseAsync(retry));
+            Assert.Equal(history, StoredHistory(existing.Id));
             Assert.Equal(1, Database.Count());
         }
     }

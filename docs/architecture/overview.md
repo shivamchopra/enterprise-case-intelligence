@@ -6,7 +6,7 @@ This reference project explores enterprise case modernization using generic synt
 
 ## Current architecture
 
-One ASP.NET Core .NET 10 Minimal API is the only deployable application. It exposes `/`, `/health` and four case operations, including bounded case browsing. The Api project also owns SQLite setup and access; Domain owns case rules and restoration. No separate persistence service or project exists.
+One ASP.NET Core .NET 10 Minimal API is the only deployable application. It exposes `/`, `/health` and five case operations, including bounded case browsing and status history. The Api project also owns SQLite setup, access and explicit offline upgrade/inspection; Domain owns case rules and restoration. No separate persistence service or project exists.
 
 ```mermaid
 flowchart LR
@@ -21,17 +21,21 @@ flowchart LR
 
 - **Api:** composition root, HTTP parsing/error mapping, SQLite configuration/initialization, schema checks and one concrete store per host. Provider failures remain generic `500 internal_error`; a rejected domain transition has an explicit store outcome mapped to `409 invalid_transition`.
 - **Domain:** immutable ID/text, creation validation, `New → InReview → Closed` lifecycle and validated restoration of existing cases. It references no web, provider or infrastructure code. Restoration rejects damaged/unnormalized text, empty IDs and undefined statuses without defaulting or replaying transitions.
-- **Tests:** Api.Tests references Api and exercises actual SQLite files, in-process HTTP hosts and real API child processes. Domain.Tests references Domain directly and needs no database.
+- **Tests:** Api.Tests references Api and exercises actual SQLite files, in-process HTTP hosts and real API child processes. A separate UpgradeFixture executable under `tests/` supplies a controlled clock/barrier for interruption tests, without production test switches. Domain.Tests references Domain directly and needs no database.
 
 Api references Domain. No generic repository, provider interface, ORM or additional production project is introduced. Stored mutable entities never escape for HTTP serialization; callers receive immutable four-field snapshots.
 
 ## Storage lifecycle and concurrency
 
-An explicit `CaseStorage:DatabasePath` selects an existing local file. The separate `init-store` command exclusively reserves a new file, initializes one STRICT case table and schema version, and exits without hosting HTTP. Any existing file is refused. Normal startup validates schema, integrity, journaling and write access; it does not create, seed, migrate, reset or repair a store.
+An explicit `CaseStorage:DatabasePath` selects an existing local file. The separate `init-store` command exclusively reserves a new file, initializes STRICT case/history tables and schema version 2, and exits without hosting HTTP. Any existing file is refused. Normal startup validates the exact version-2 schema, integrity, foreign keys, journaling and write access; it does not create, seed, migrate, reset or repair a store.
 
-The supported workflow is one API process per store at a time. Each operation owns a connection with pooling disabled, private cache, a finite five-second provider timeout and FULL synchronization; rollback journaling uses DELETE mode. The local directory must permit SQLite journal creation. Do not use network shares or synchronization-managed folders. See [ADR 0004](../adr/0004-use-sqlite-for-the-durable-local-workflow.md).
+With hosting stopped, `upgrade-store` validates an exact version-1 store and every case before adding baseline entries and version 2 in one transaction. Cases retain their original values. `inspect-store` validates either supported format, including all case values and version-2 history chains, without changing committed application state. SQLite may perform normal journal recovery. An uncertain upgrade outcome must be inspected before another mutation; a repeated upgrade refuses version 2. No downgrade or automatic backup is supplied. See [ADR 0005](../adr/0005-add-status-history-with-an-explicit-store-upgrade.md).
+
+The supported workflow is one API process per store at a time. Each operation owns a connection with pooling disabled, private cache, a finite five-second provider timeout, verified foreign-key enforcement and FULL synchronization; rollback journaling uses DELETE mode. The local directory must permit SQLite journal creation. Do not use network shares or synchronization-managed folders. See [ADR 0004](../adr/0004-use-sqlite-for-the-durable-local-workflow.md) and its Phase 4 amendment in ADR 0005.
 
 One synchronous host gate orders operations. Creation uses an insert transaction; status changes begin a non-deferred write transaction before lookup/domain validation/update. Success is returned only after commit. Reads restore and validate the row; all operations return snapshots. Request arrival order is not promised, and synchronous I/O/serialization limit concurrency.
+
+Creation writes a `Created` entry in the same transaction as the case. Status changes validate the existing history chain, update the current status and append one `StatusChanged` entry atomically. Same-status successes add nothing and do not read the clock. Api uses framework `TimeProvider`; Domain has no clock dependency. History reads use one deferred transaction for current case and entries, ordered by case-local sequence with `LIMIT 4`: three valid entries plus a corruption sentinel. The shared validator rejects missing/invalid chains, timestamps and final-state disagreement. History is never silently truncated or repaired. Case retrieval/browsing keep their four-field representation and do not load history on every read.
 
 Committed cases survive API restarts against the same intact file. Independent files isolate tests and demonstrations. Data has no expiration or enforced disk quota. There are no stale-client tokens, creation idempotency keys, multi-instance guarantees, backups or machine power/storage-loss guarantees. A response can be lost after commit; clients can reconcile a known ID by reading it, while retrying an unacknowledged create can duplicate cases. There is no fallback to memory or application transaction-retry policy.
 
@@ -59,7 +63,9 @@ The [implemented Phase 3 case-list requirements](../requirements/phase-3-case-li
 
 Default pages contain up to 20 cases, with a maximum of 100. ID order is not chronological order. Each page has one consistent read view, but a traversal across requests is not a snapshot: creates/status changes can alter later membership. The continuation is a plain comparison ID, without a retained paging session or permission meaning. This bounds application materialization, not database scan work or latency.
 
-No domain, package, schema/index/version or architecture boundary changed. ADR 0004 remains the storage decision; no further ADR was needed for this focused read operation. List tests cover deterministic fixture ordering, query validation, failures/lookahead, changes between pages, file isolation and retained continuations after restart.
+Phase 3 changed no domain, package, schema/index/version or architecture boundary. Its list tests cover deterministic fixture ordering, query validation, failures/lookahead, changes between pages, file isolation and retained continuations after restart. Phase 4 now amends the storage format through ADR 0005, preserving that list contract and the domain model.
+
+History tests cover all lifecycle cells, safe failures, immutable prior views, controlled equal/backward clock values, rollback at both write boundaries and retained history after force-killing the API. Upgrade tests use frozen version-1 fixtures, cross batch boundaries, fail after DDL/partial baselines, and force a commit lock failure. The test-only child executable blocks on a named pipe during a real upgrade; killing it verifies old-format recovery. A separate control suppresses completion after a real commit and reconciles version 2 through inspection. These checks establish local process behavior, without power-loss or production audit guarantees.
 
 ## Conceptual future direction — not implemented
 

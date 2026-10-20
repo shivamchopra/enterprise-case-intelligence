@@ -2,17 +2,17 @@
 
 ## Status
 
-**Proposed — not implemented.** Follows the [Phase 4 requirements](../requirements/phase-4-status-history.md), reviewed in PR #15. Phase 3 and the version-1 store remain the runnable implementation.
+**Accepted — implemented for the local Phase 4 workflow.** Reviewed in PR #16 following the [Phase 4 requirements](../requirements/phase-4-status-history.md), reviewed in PR #15. The current executable initializes/hosts version 2 and explicitly upgrades version 1.
 
-This proposes an amendment to [ADR 0004](0004-use-sqlite-for-the-durable-local-workflow.md): introduce history and an explicit version-1 → version-2 upgrade. Retain SQLite, the current application boundaries, connection ownership, synchronization, journaling and recovery limits. It does not supersede the whole storage decision.
+This amends [ADR 0004](0004-use-sqlite-for-the-durable-local-workflow.md): introduce history and an explicit version-1 → version-2 upgrade. Retain SQLite, the current application boundaries, connection ownership, synchronization, journaling and recovery limits. It does not supersede the whole storage decision.
 
 ## Context
 
-The current `cases` table stores only the latest status. Phase 4 requires durable history, atomic case/history writes, an honest baseline for older cases and a bounded history read. Earlier transitions cannot be reconstructed from version-1 data.
+At decision time, the `cases` table stored only the latest status. Phase 4 requires durable history, atomic case/history writes, an honest baseline for older cases and a bounded history read. Earlier transitions cannot be reconstructed from version-1 data.
 
 The lifecycle remains `New → InReview → Closed`, so each case needs at most three entries. A single API process still owns one local store. These requirements do not establish a need for a database server, ORM, event broker, event sourcing or a separate persistence service.
 
-## Proposed decision
+## Decision
 
 ### Schema and connection settings
 
@@ -42,7 +42,7 @@ The composite primary key supplies case-local uniqueness and the history lookup 
 
 Enable `PRAGMA foreign_keys=ON` on every connection before any transaction, and verify it reads back as `1`. Do not rely on a provider/native default or attempt to enable it inside a transaction. SQLite documents this [per-connection requirement](https://www.sqlite.org/foreignkeys.html#fk_enable). Retain ReadWrite mode without file creation, private cache, disabled pooling, DELETE journaling, FULL synchronization and the finite provider timeout.
 
-Recognize supported formats through both version and exact expected non-internal schema objects/definitions, not the version number alone. Version 1 has only the existing case table; version 2 has exactly both tables, with their constraints. Continue ignoring SQLite-owned internal objects. Normal startup accepts version 2 only after implementation, with integrity checking, an empty `foreign_key_check` result and the existing rolled-back write probe. It must not create missing entries or rewrite stored values. These [PRAGMAs](https://www.sqlite.org/pragma.html) provide format metadata and integrity checks; they do not prove an application history chain is valid.
+Recognize supported formats through both version and exact expected non-internal schema objects/definitions, not the version number alone. Version 1 has only the existing case table; version 2 has exactly both tables, with their constraints. Continue ignoring SQLite-owned internal objects. Normal startup accepts version 2 only, with integrity checking, an empty `foreign_key_check` result and the existing rolled-back write probe. It must not create missing entries or rewrite stored values. These [PRAGMAs](https://www.sqlite.org/pragma.html) provide format metadata and integrity checks; they do not prove an application history chain is valid.
 
 ### Ownership, time and validation
 
@@ -68,7 +68,7 @@ Do not truncate an overlong chain or return a partial successful history. Existi
 
 Extend the existing Api executable, using the same `CaseStorage:DatabasePath` configuration and no HTTP hosting in command modes:
 
-| Mode after implementation | Input and outcome |
+| Implemented mode | Input and outcome |
 | --- | --- |
 | `init-store` | Exclusively reserve a new path; create both tables and version 2 in one transaction. Continue refusing every existing file. |
 | `upgrade-store` | Open an existing exact version-1 store while hosting is stopped; validate and atomically upgrade it. Refuse version 2, unknown formats and invalid sources. |
@@ -77,7 +77,7 @@ Extend the existing Api executable, using the same `CaseStorage:DatabasePath` co
 
 `inspect-store` resolves an uncertain upgrade result without guessing from a failed command or attempting a second mutation. Use one deferred read transaction to validate exact schema, engine integrity, all case values and, for version 2, foreign keys and every history chain before reporting success. Stream validation one case at a time, retaining at most four entries per case and closing batch readers before further queries on the connection. This offline scan has no promised duration. Open through the normal existing-file connection settings; SQLite may perform its own journal recovery. Inspection is not a promise of zero filesystem writes, but it does not initialize, upgrade, repair or change committed cases/history/version.
 
-Missing, empty, corrupt, unsupported or inaccessible files produce a concise diagnostic and nonzero exit in inspection/upgrade modes. Do not print paths, SQL, records or stack traces. Do not start a listener, auto-create a replacement or delete journals. These are proposed command names, not commands available in the current walkthrough.
+Missing, empty, corrupt, unsupported or inaccessible files produce a concise diagnostic and nonzero exit in inspection/upgrade modes. Do not print paths, SQL, records or stack traces. Do not start a listener, auto-create a replacement or delete journals. These command modes are demonstrated in the [current walkthrough](../usage/local-case-workflow.md#inspect-and-upgrade-a-version-1-store).
 
 ### Version-1 upgrade transaction
 
@@ -89,7 +89,7 @@ Require the operator to stop the API and other processes using the file before u
 4. Check that each case has exactly one correct baseline, no orphan exists and the expected target schema is present. Set `user_version=2` in this same transaction, then commit once. Do not set the version outside the transaction or commit per batch. DDL, entries and format metadata must reach a single commit boundary.
 5. Report `Case store upgraded.` only after commit. On a known failure, dispose/roll back the transaction and return a safe nonzero result. An interrupted operation or commit error may require normal engine recovery; never infer rollback just from the exit code. Open with `inspect-store` after all processes have stopped to determine the recovered supported state. A partial/invalid format is an error requiring investigation, not an invitation to reset or repeat forcibly.
 
-Retain SQLite rollback journaling and the existing intact-file/process-recovery assumptions. No downgrade is supplied. After commit, the Phase 3 executable will refuse version 2; running old code is not a rollback strategy. Do not implement automatic backup/copy/restore or claim machine power/storage-loss recovery. The future walkthrough must explain the one-way compatibility change before giving upgrade commands.
+Retain SQLite rollback journaling and the existing intact-file/process-recovery assumptions. No downgrade is supplied. After commit, the Phase 3 executable refuses version 2; running old code is not a rollback strategy. Do not implement automatic backup/copy/restore or claim machine power/storage-loss recovery. The walkthrough explains the one-way compatibility change before giving upgrade commands.
 
 ### Error and retry semantics
 
@@ -101,7 +101,7 @@ Same-next-status requests serialize into one actual transition and one history e
 
 | Option | Judgment for these requirements |
 | --- | --- |
-| Separate SQLite history table and explicit upgrade | Proposed: preserves the current case model, bounds history reads and makes atomic writes/compatibility inspectable. Adds schema and upgrade ownership. |
+| Separate SQLite history table and explicit upgrade | Accepted: preserves the current case model, bounds history reads and makes atomic writes/compatibility inspectable. Adds schema and upgrade ownership. |
 | JSON history inside the case row | Avoids a second table but adds whole-document rewrites and moves entry keys/shape checks into application parsing. No requirement justifies that format. |
 | Derive earlier transitions from current status | Cannot recover recorded times or prove observed transitions; violates the honest-baseline requirement. |
 | Automatically upgrade during normal startup | Hides a one-way format change inside hosting and violates explicit-upgrade requirements. |
@@ -126,6 +126,12 @@ Keep restore, formatting verification, warnings-as-errors, Release build and the
 
 ## Consequences and revisit triggers
 
-The proposal adds a history table, a controlled clock dependency in Api, atomic paired writes, offline validation and one explicit one-way upgrade. The current three-entry lifecycle bound keeps reads small; schema checks do not replace chain validation. Synchronous whole-store upgrade/inspection scans can take time and have no throughput guarantee.
+The implementation adds a history table, a controlled clock dependency in Api, atomic paired writes, offline validation and one explicit one-way upgrade. The current three-entry lifecycle bound keeps reads small; schema checks do not replace chain validation. Synchronous whole-store upgrade/inspection scans can take time and have no throughput guarantee.
 
 Revisit before adding lifecycle states/reopening, independent writers, production records, retention, compliance audit requirements or shared/cloud hosting. This decision supplies neither identities nor an immutable audit ledger. It adds no production project, package, broker, cloud resource or deployment capability.
+
+## Implementation evidence
+
+[CaseHistory](../../src/EnterpriseCaseIntelligence.Api/Cases/CaseHistory.cs) defines the selected schema, immutable entries, UTC recording and shared bounded chain validation. [SqliteCaseStore](../../src/EnterpriseCaseIntelligence.Api/Cases/SqliteCaseStore.cs) performs atomic paired writes and history reads; [CaseDatabase](../../src/EnterpriseCaseIntelligence.Api/Cases/CaseDatabase.cs) initializes version 2, validates exact formats, upgrades version 1 in bounded batches and inspects both versions.
+
+[Requirements coverage](../requirements/phase-4-status-history.md#current-implementation-coverage) maps every P4 criterion to API, real-engine and process tests. The [test-only UpgradeFixture](../../tests/EnterpriseCaseIntelligence.UpgradeFixture/UpgradeFixtureProgram.cs) uses a controlled clock and named-pipe barrier during an actual upgrade; no barrier/fault switch enters production code. Another fixture mode discards completion after commit. [Upgrade tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseStoreUpgradeTests.cs) also hold a real reader lock to fail commit after the version write, then verify whole-store rollback. These checks do not establish hardware/power-loss recovery or every possible native failure timing.

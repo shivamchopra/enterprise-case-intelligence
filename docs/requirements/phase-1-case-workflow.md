@@ -165,4 +165,4 @@ The Domain.Tests project uses the same xUnit/VSTest tooling as the API tests. No
 3. **Historical, superseded by ADR 0004:** [ADR 0003](../adr/0003-use-process-memory-for-the-phase-1-local-workflow.md) records the local storage approach, lifetime/isolation limits and mutation semantics.
 4. **Implemented:** the three case operations and their acceptance tests, with existing foundation endpoints preserved.
 
-The local workflow is implemented. Phase 2 and ADR 0004 now add durable local persistence while retaining this HTTP/domain contract. External integrations and production deployment still require separate requirements and decisions.
+The local workflow is implemented. Phase 2 and ADR 0004 add durable local persistence while retaining this HTTP/domain contract. [Phase 4](phase-4-status-history.md) and ADR 0005 now add status history and an explicit version-1 → version-2 upgrade; case representations and lifecycle rules remain unchanged. External integrations and production deployment still require separate requirements and decisions.

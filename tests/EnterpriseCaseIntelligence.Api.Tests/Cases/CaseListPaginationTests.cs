@@ -42,7 +42,7 @@ public class CaseListPaginationTests : CaseListApiTest
         Assert.Equal(records.Where(record => status is null || record.Status == status), page.Items);
         Assert.Null(page.NextAfter);
         Assert.Equal(before, File.ReadAllBytes(Database.Path));
-        Assert.Equal(1L, Database.Scalar("PRAGMA user_version"));
+        Assert.Equal(2L, Database.Scalar("PRAGMA user_version"));
         Database.Database.ValidateStartup();
     }
 

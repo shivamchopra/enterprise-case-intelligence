@@ -16,6 +16,7 @@ public class CaseStorageFailureTests : CaseApiTest
         var operation = creating ? "INSERT" : "UPDATE";
         Database.Execute($"""
             CREATE TRIGGER ignore_write BEFORE {operation} ON cases BEGIN
+                DELETE FROM case_status_history WHERE case_id='{existing.Id:D}';
                 DELETE FROM cases WHERE id='{existing.Id:D}';
                 SELECT RAISE(IGNORE);
             END

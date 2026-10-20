@@ -1,12 +1,13 @@
 using EnterpriseCaseIntelligence.Api.Cases;
 using Microsoft.Data.Sqlite;
 
-var initializing = args.FirstOrDefault() == "init-store";
-var builder = WebApplication.CreateBuilder(initializing ? args[1..] : args);
+var mode = args.FirstOrDefault() is "init-store" or "upgrade-store" or "inspect-store" ? args[0] : null;
+var builder = WebApplication.CreateBuilder(mode is not null ? args[1..] : args);
 
 builder.Services.AddHealthChecks();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(services => new CaseDatabase(
-    services.GetRequiredService<IConfiguration>()["CaseStorage:DatabasePath"]));
+    services.GetRequiredService<IConfiguration>()["CaseStorage:DatabasePath"], services.GetRequiredService<TimeProvider>()));
 builder.Services.AddSingleton<SqliteCaseStore>();
 
 await using var app = builder.Build();
@@ -14,10 +15,14 @@ await using var app = builder.Build();
 try
 {
     var database = app.Services.GetRequiredService<CaseDatabase>();
-    if (initializing)
+    if (mode is not null)
     {
-        database.Initialize();
-        Console.WriteLine("Case store initialized.");
+        switch (mode)
+        {
+            case "init-store": database.Initialize(); Console.WriteLine("Case store initialized."); break;
+            case "upgrade-store": database.Upgrade(); Console.WriteLine("Case store upgraded."); break;
+            case "inspect-store": Console.WriteLine($"Case store version: {database.Inspect()}."); break;
+        }
         return 0;
     }
 
@@ -25,7 +30,7 @@ try
 }
 catch (Exception exception) when (exception is ArgumentException or IOException or InvalidDataException or UnauthorizedAccessException or SqliteException)
 {
-    Console.Error.WriteLine("Case store unavailable or incompatible. Check CaseStorage:DatabasePath and permissions; use init-store only for a new file.");
+    Console.Error.WriteLine("Case store unavailable or incompatible. Check CaseStorage:DatabasePath and permissions. Stop hosting before inspect-store or upgrade-store; use init-store only for a new file.");
     return 1;
 }
 
