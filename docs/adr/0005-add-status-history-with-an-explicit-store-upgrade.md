@@ -6,6 +6,8 @@
 
 This amends [ADR 0004](0004-use-sqlite-for-the-durable-local-workflow.md): introduce history and an explicit version-1 → version-2 upgrade. Retain SQLite, the current application boundaries, connection ownership, synchronization, journaling and recovery limits. It does not supersede the whole storage decision.
 
+[ADR 0006](0006-bind-creation-keys-in-the-local-case-store.md) proposes a Phase 5 amendment for creation-key bindings and direct version-1/version-2 → version-3 upgrades. It is not implemented; this record still describes the current version-2 workflow.
+
 ## Context
 
 At decision time, the `cases` table stored only the latest status. Phase 4 requires durable history, atomic case/history writes, an honest baseline for older cases and a bounded history read. Earlier transitions cannot be reconstructed from version-1 data.

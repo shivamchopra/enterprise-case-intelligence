@@ -130,7 +130,7 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 ## Roadmap
 
 - **Now:** [status history and upgrade coverage](docs/requirements/phase-4-status-history.md#current-implementation-coverage), case browsing, durable state and process-recovery checks.
-- **Next — proposed, not implemented:** review [retry-safe case creation requirements](docs/requirements/phase-5-retry-safe-creation.md): an optional durable request key to reconcile lost create responses without duplicate cases.
+- **Next — not implemented:** [retry-safe creation requirements](docs/requirements/phase-5-retry-safe-creation.md) are reviewed; review [proposed ADR 0006](docs/adr/0006-bind-creation-keys-in-the-local-case-store.md) for durable key bindings, original-result replay and explicit store upgrades before implementation.
 - **Later:** evaluate the planned capabilities against concrete needs and operational tradeoffs.
 
 ## Security and Privacy
