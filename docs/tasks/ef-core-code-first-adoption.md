@@ -1,12 +1,12 @@
-# Next task: adopt EF Core Code First
+# Adopt EF Core Code First
 
-**Status: Planned implementation — next task.** The owner selected EF Core Code First for persistence and schema evolution wherever supported. The shipped Phase 5 runtime remains direct `Microsoft.Data.Sqlite` access with application schema version 3; this task records the conversion, not a completed ORM migration.
+**Status: Implemented.** The owner selected EF Core Code First in PR #21. [ADR 0007](../adr/0007-adopt-ef-core-code-first.md) documents the conversion and format 4, including validated adoption of retained versions 1–3. The current runtime uses EF models, LINQ/tracked writes and scaffolded migrations.
 
 ## Outcome
 
 Make the C# EF Core model and its migration history the source of truth for application tables and schema changes. Use EF APIs for ordinary queries and writes. Retain the current SQLite provider scope, synthetic workflow and application boundaries while preserving cases, histories and creation-key bindings already stored by previous versions.
 
-This task takes priority over another feature slice. Follow [AGENTS.md](../../AGENTS.md) and [contribution guidance](../../CONTRIBUTING.md). The owner's EF-first direction replaces direct SQL as the default for new persistence code; historical SQL is evidence of the shipped format, not a pattern to repeat.
+This task was prioritized ahead of another feature slice. Follow [AGENTS.md](../../AGENTS.md) and [contribution guidance](../../CONTRIBUTING.md). The owner's EF-first direction replaces direct SQL as the default for new persistence code; historical SQL is evidence of the shipped format, not a pattern to repeat.
 
 ## Implementation work
 
@@ -29,11 +29,18 @@ This task takes priority over another feature slice. Follow [AGENTS.md](../../AG
 | EF-05 | Each remaining hand-written SQL use has a concrete EF/provider limitation or historical/test-fixture reason and relevant validation. EF-generated SQL itself is expected and needs no exception. |
 | EF-06 | Restore, format verification, zero-warning Release build, all existing 391 tests (adapted where necessary) and new EF compatibility tests pass locally and in Linux CI. Documentation accurately distinguishes the EF implementation from earlier direct-SQL formats. |
 
-## Provider details to resolve during implementation
+## Current implementation coverage
 
-EF migration metadata is additional schema: the current exact-schema validator would reject unrecognized tables. Define its compatibility behavior deliberately. SQLite migration rebuilds and abandoned migration locks also need explicit inspection/recovery handling; do not assume every migration operation can share the old single-transaction behavior. Prove the required recovery properties or record a concrete amendment before claiming equivalence.
+| Criteria | Evidence |
+| --- | --- |
+| EF-01 | [Context/model](../../src/EnterpriseCaseIntelligence.Api/Cases/CaseDbContext.cs), scaffolded [migration and snapshot](../../src/EnterpriseCaseIntelligence.Api/Cases/Migrations), pinned local EF tooling and CI model-change verification. |
+| EF-02 | [Concrete store](../../src/EnterpriseCaseIntelligence.Api/Cases/SqliteCaseStore.cs), EF history/key queries and existing list/lifecycle/retry tests preserve bounded reads, restoration and ordinal comparisons. Context lifetime follows each operation. |
+| EF-03 | [EF adoption tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseEfAdoptionTests.cs) cover frozen version 3 with retained keys, UTF-8/UTF-16 and multiple batches. Existing upgrade suites cover frozen versions 1/2, exact histories and honest baselines. |
+| EF-04 | All existing write-boundary, concurrency, unknown-ID response-loss, process-recovery and controlled upgrade interruption tests run against EF. Adoption tests fail commit after metadata writes for each old source and verify no metadata/lock artifact remains; lost-completion tests cover all sources. |
+| EF-05 | ADR 0007 lists each remaining provider/compatibility/test SQL exception, including actual SQLite affected-row verification after a single-entity EF save and the small STRICT generator extension. |
+| EF-06 | All 415 tests (42 domain and 373 API/storage/process) include the previous 391 cases with current-format expectations and new EF metadata/compatibility checks. The required gates now include pinned tool restore and model/snapshot agreement. The README, walkthrough and architecture describe format 4. |
 
-Limited hand-written SQL may remain for provider-only integrity/PRAGMA checks, an unavoidable legacy adoption operation, a check-constraint expression or frozen/fault-injection fixtures. First use an EF model/API/generated operation when it can express the requirement. Keep each exception small, parameterized where it uses runtime values, and explained alongside its tests.
+EF metadata is validated as part of format 4. Explicit caller-owned offline transactions keep metadata/application changes atomic, with no persistent migration lock or automatic uncertain-transaction retry. Exact frozen application definitions are accepted for validated legacy adoption; only missing tables are generated. Provider diagnostics and history-repository-generated SQL remain narrowly documented exceptions rather than a parallel schema implementation.
 
 ## References
 

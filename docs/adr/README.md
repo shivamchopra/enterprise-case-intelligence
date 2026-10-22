@@ -18,3 +18,4 @@ Future meaningful choices should receive ADRs when they are evaluated and select
 | [0004: Use SQLite for the durable local workflow](0004-use-sqlite-for-the-durable-local-workflow.md) | Accepted — implemented |
 | [0005: Add status history with an explicit store upgrade](0005-add-status-history-with-an-explicit-store-upgrade.md) | Accepted — implemented |
 | [0006: Bind creation keys in the local case store](0006-bind-creation-keys-in-the-local-case-store.md) | Accepted — implemented |
+| [0007: Adopt EF Core Code First](0007-adopt-ef-core-code-first.md) | Accepted — implemented |

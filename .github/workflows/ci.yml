@@ -24,9 +24,13 @@ jobs:
           global-json-file: global.json
       - name: Restore
         run: dotnet restore EnterpriseCaseIntelligence.slnx
+      - name: Restore EF tooling
+        run: dotnet tool restore
       - name: Verify formatting
         run: dotnet format EnterpriseCaseIntelligence.slnx --verify-no-changes --no-restore
       - name: Build
         run: dotnet build EnterpriseCaseIntelligence.slnx --configuration Release --no-restore
+      - name: Verify EF model snapshot
+        run: dotnet ef migrations has-pending-model-changes --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build
       - name: Test
         run: dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build

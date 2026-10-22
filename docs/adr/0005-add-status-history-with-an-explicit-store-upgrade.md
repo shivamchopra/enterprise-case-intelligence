@@ -4,6 +4,8 @@
 
 **Accepted — implemented for the local Phase 4 workflow.** Reviewed in PR #16 following the [Phase 4 requirements](../requirements/phase-4-status-history.md), reviewed in PR #15. At Phase 4, the executable initialized/hosted version 2 and explicitly upgraded version 1.
 
+[ADR 0007](0007-adopt-ef-core-code-first.md) now implements EF Core Code First and format 4 with validated adoption of versions 1–3. This record preserves the historical format and direct-access decision; use the current walkthrough for executable commands.
+
 This amends [ADR 0004](0004-use-sqlite-for-the-durable-local-workflow.md): introduce history and an explicit version-1 → version-2 upgrade. Retain SQLite, the current application boundaries, connection ownership, synchronization, journaling and recovery limits. It does not supersede the whole storage decision.
 
 [ADR 0006](0006-bind-creation-keys-in-the-local-case-store.md) is the implemented Phase 5 amendment for creation-key bindings and direct version-1/version-2 → version-3 upgrades. This record retains the historical version-2 decision; current commands are documented in the walkthrough.

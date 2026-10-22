@@ -1,6 +1,8 @@
 # Phase 5 requirements: retry-safe case creation
 
-**Status: Reviewed and implemented.** Requirements were reviewed in PR #18 and [ADR 0006](../adr/0006-bind-creation-keys-in-the-local-case-store.md) in PR #19. The API supports optional durable creation keys and version-3 storage; see [current implementation coverage](#current-implementation-coverage).
+**Status: Reviewed and implemented.** Requirements were reviewed in PR #18 and [ADR 0006](../adr/0006-bind-creation-keys-in-the-local-case-store.md) in PR #19. The API supports optional durable creation keys, now with EF-managed format 4; see [current implementation coverage](#current-implementation-coverage).
+
+[EF Core adoption / ADR 0007](../adr/0007-adopt-ef-core-code-first.md) now provides format 4 and direct adoption of retained versions 1–3 while preserving this workflow contract. Historical format references below describe their original phase.
 
 ## Workflow assessment and outcome
 
@@ -90,7 +92,7 @@ Deleting/replacing/losing a store, unsupported concurrent processes, different s
 
 Phase 4 initialized/hosted version 2 and explicitly upgraded version 1. [ADR 0006](../adr/0006-bind-creation-keys-in-the-local-case-store.md), reviewed in PR #19, selects version 3 with atomic bindings and direct offline upgrades from both source formats. Every original case value and version-2 history value is preserved. Version 1 retains the honest-baseline rule, without inventing earlier transitions. All old cases start without bindings; keys are never inferred from IDs, titles or history.
 
-Normal startup accepts only version 3 and never upgrades, repairs or resets a store. Initialization refuses every existing file. `inspect-store` validates supported versions 1/2/3; `upgrade-store` upgrades a valid 1/2 source to 3 in one transaction and refuses version 3. Stop all store users first. After an uncertain outcome, inspect before another mutation: valid 1/2 is an uncommitted source, valid 3 is committed. See the [current walkthrough](../usage/local-case-workflow.md#inspect-and-upgrade-an-older-store).
+The original ADR 0006 selected format 3. The current EF implementation in ADR 0007 hosts only format 4 and never upgrades, repairs or resets during normal startup. Initialization refuses every existing file. `inspect-store` validates versions 1/2/3/4; `upgrade-store` adopts a valid 1/2/3 source into 4 in one transaction and refuses version 4. Stop all store users first. After an uncertain outcome, inspect before another mutation: valid 1/2/3 is an uncommitted source, valid 4 is committed. See the [current walkthrough](../usage/local-case-workflow.md#inspect-and-upgrade-an-older-store).
 
 ## Acceptance criteria
 

@@ -8,7 +8,7 @@ Initialization is an explicit `init-store` command, not an HTTP route. It refuse
 
 ## Inspect and upgrade an older store
 
-Fresh `init-store` creates version 3 with case, history and creation-key tables. Skip this upgrade section for a fresh version-3 store. For retained version-1 or version-2 data, build the current code first and **stop the API and every other process using that store**. `CASE_DB_PATH` must be the same absolute path selected during setup; neither inspection nor upgrade creates a missing file.
+Fresh `init-store` applies the checked-in EF Core migration and creates format 4 with case, history, creation-key and EF migration-history tables. Skip this upgrade section for a fresh version-4 store. For retained version-1, version-2 or version-3 data, build the current code first and **stop the API and every other process using that store**. `CASE_DB_PATH` must be the same absolute path selected during setup; neither inspection nor upgrade creates a missing file.
 
 Inspect before deciding whether an upgrade is needed:
 
@@ -16,20 +16,20 @@ Inspect before deciding whether an upgrade is needed:
 dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- inspect-store --CaseStorage:DatabasePath "$CASE_DB_PATH"
 ```
 
-Success prints only `Case store version: 1.`, `Case store version: 2.` or `Case store version: 3.` as the command result. The command validates schema, engine integrity and case values; versions 2/3 also validate all history chains, and version 3 validates every binding and its creation provenance. It does not change committed application state, but SQLite may perform normal journal recovery. An inspection failure needs investigation, not initialization over the existing path.
+Success prints only `Case store version: 1.`, `Case store version: 2.`, `Case store version: 3.` or `Case store version: 4.` as the command result. The command validates schema, engine integrity and case values; versions 2–4 also validate all history chains, versions 3/4 validate every binding and its creation provenance, and version 4 validates EF migration metadata and model/snapshot agreement. It does not change committed application state, but SQLite may perform normal journal recovery. An inspection failure needs investigation, not initialization over the existing path.
 
-For **version 1 or 2**, explicitly upgrade while hosting remains stopped:
+For **version 1, 2 or 3**, explicitly upgrade while hosting remains stopped:
 
 ```sh
 dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- upgrade-store --CaseStorage:DatabasePath "$CASE_DB_PATH"
 dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- inspect-store --CaseStorage:DatabasePath "$CASE_DB_PATH"
 ```
 
-Expect `Case store upgraded.` and then `Case store version: 3.`. Both source formats upgrade directly in one transaction and preserve every case’s ID, text and status. Version 2 retains every existing history value and timestamp. Version 1 receives one honest `Baseline` per old case, with its recording time during upgrade; earlier transitions and creation times remain unknown. No historical `Created` or transition entries are invented. All old cases remain without keys; keys are never inferred from IDs or text.
+Expect `Case store upgraded.` and then `Case store version: 4.`. All three source formats upgrade directly in one transaction and preserve every case’s ID, text and status. Versions 2/3 retain every existing history value and timestamp; version 3 also retains all creation-key bindings. Version 1 receives one honest `Baseline` per old case, with its recording time during upgrade; earlier transitions and creation times remain unknown. No historical `Created` or transition entries are invented. Previously unbound cases remain unbound; keys are never inferred from IDs or text. The application validates the old schema and all data before recording its EF migration baseline. Existing application tables/values are retained; missing tables come from EF-generated migration operations.
 
-This changes the store format in place and is one-way. Older executables refuse version 3; there is no downgrade, automatic backup or restore command. A second upgrade refuses version 3 without adding baselines or bindings. Normal startup never upgrades automatically and refuses old-format stores. After successful inspection of version 3, start the API using the normal final README command, without a command mode.
+This changes the store format in place and is one-way. Older executables refuse version 4; there is no downgrade, automatic backup or restore command. A second upgrade refuses version 4 without adding baselines or bindings. Normal startup never upgrades automatically and refuses old-format stores. After successful inspection of version 4, start the API using the normal final README command, without a command mode.
 
-If upgrade fails, is interrupted or loses its completion output, the outcome is uncertain. With all processes stopped, run **only inspection first**. A valid version 1 or 2 means the upgrade did not commit and may be retried deliberately; a valid version 3 means it committed and must not be repeated. Any unsupported/invalid result requires investigation. Never delete a journal, reset the file or force initialization to hide an error. These commands assume intact local storage, without a hardware/power-loss guarantee.
+If upgrade fails, is interrupted or loses its completion output, the outcome is uncertain. With all processes stopped, run **only inspection first**. A valid version 1, 2 or 3 means the upgrade did not commit and may be retried deliberately; a valid version 4 means it committed and must not be repeated. Any unsupported/invalid result requires investigation. Never delete a journal, reset the file or force initialization to hide an error. These commands assume intact local storage, without a hardware/power-loss guarantee. The explicit transaction includes EF migration metadata; these commands do not create a persistent EF migration-lock table. Unexpected metadata or a lock table is refused for investigation, without automatic deletion. See [ADR 0007](../adr/0007-adopt-ef-core-code-first.md).
 
 ## Create a case
 

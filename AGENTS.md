@@ -13,7 +13,7 @@ The repository owner's preferred persistence approach is **Entity Framework Core
 - Preserve explicit offline initialization/upgrade, no-overwrite setup, validation before I/O, commit-before-success, atomic case/history/key writes and retained-key replay. Do not introduce automatic startup migrations, reset storage or weaken compatibility to simplify EF adoption.
 - Give each operation/request an appropriate `DbContext` lifetime; never share one context across concurrent operations. Preserve serialization and transaction semantics required by the current local workflow.
 
-Current runtime code uses direct `Microsoft.Data.Sqlite` access. That historical implementation is not the default pattern for new work. [The next persistence task](docs/tasks/ef-core-code-first-adoption.md) tracks its conversion. Preserve historical ADRs and frozen legacy fixtures; document the compatibility amendment when implementing the conversion.
+Current runtime code uses EF Core Code First. [The completed adoption task](docs/tasks/ef-core-code-first-adoption.md) and [ADR 0007](docs/adr/0007-adopt-ef-core-code-first.md) document format 4, validated legacy baselines and the remaining provider-specific SQL exceptions. Preserve historical ADRs and frozen legacy fixtures; document the compatibility amendment when implementing the conversion.
 
 ## Scope and documentation
 

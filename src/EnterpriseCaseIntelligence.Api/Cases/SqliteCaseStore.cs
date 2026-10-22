@@ -1,5 +1,5 @@
 using EnterpriseCaseIntelligence.Domain.Cases;
-using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 
 namespace EnterpriseCaseIntelligence.Api.Cases;
 
@@ -8,11 +8,9 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
     private readonly Lock _gate = new();
     private readonly TimeProvider _clock = timeProvider ?? TimeProvider.System;
 
-    public CaseSnapshot Create(string title, string description)
-        => Create(title, description, null).Case!;
+    public CaseSnapshot Create(string title, string description) => Create(title, description, null).Case!;
 
-    public CaseCreation Create(string title, string description, Guid? key)
-        => Create(new Case(title, description), key);
+    public CaseCreation Create(string title, string description, Guid? key) => Create(new Case(title, description), key);
 
     internal CaseCreation Create(Case record, Guid? key)
     {
@@ -21,7 +19,8 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
         {
             using var connection = database.Open();
             using var transaction = connection.BeginTransaction(deferred: false);
-            if (key is { } requested && CaseCreationKeys.Find(connection, transaction, requested) is { } original)
+            using var context = database.Context(connection, transaction);
+            if (key is { } requested && CaseCreationKeys.Find(context, requested) is { } original)
             {
                 if (!string.Equals(record.Title, original.Title, StringComparison.Ordinal) ||
                     !string.Equals(record.Description, original.Description, StringComparison.Ordinal)) return new(null, true);
@@ -29,20 +28,10 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
                 return new(new(original.Id, original.Title, original.Description, CaseStatus.New), false);
             }
 
-            using var command = connection.CreateCommand();
-            command.Transaction = transaction;
-            command.CommandText = "INSERT INTO cases (id, title, description, status) VALUES ($id, $title, $description, $status)";
-            command.Parameters.AddWithValue("$id", record.Id.ToString("D"));
-            command.Parameters.AddWithValue("$title", record.Title);
-            command.Parameters.AddWithValue("$description", record.Description);
-            command.Parameters.AddWithValue("$status", record.Status.ToString());
-            if (command.ExecuteNonQuery() != 1)
-            {
-                throw new InvalidDataException("Case insert did not affect exactly one record.");
-            }
-
-            CaseHistory.Insert(connection, transaction, record.Id, CaseHistory.Record(1, "Created", null, record.Status, _clock));
-            if (key is { } unbound) CaseCreationKeys.Insert(connection, transaction, unbound, record.Id);
+            context.Cases.Add(new StoredCase { Id = record.Id.ToString("D"), Title = record.Title, Description = record.Description, Status = "New" });
+            context.SaveSingleChange();
+            CaseHistory.Insert(context, record.Id, CaseHistory.Record(1, "Created", null, record.Status, _clock));
+            if (key is { } unbound) CaseCreationKeys.Insert(context, unbound, record.Id);
             transaction.Commit();
             return new(Snapshot(record), false);
         }
@@ -53,57 +42,35 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
         lock (_gate)
         {
             using var connection = database.Open();
-            var record = Read(connection, id);
+            using var context = database.Context(connection);
+            var record = Read(context, id);
             return record is null ? null : Snapshot(record);
         }
     }
 
     public CasePage List(int limit, CaseStatus? status = null, Guid? after = null)
     {
-        if (limit is < 1 or > 100)
-        {
-            throw new ArgumentOutOfRangeException(nameof(limit));
-        }
-
-        if (status is { } requested && !Enum.IsDefined(requested))
-        {
-            throw new ArgumentOutOfRangeException(nameof(status));
-        }
-
-        if (after == Guid.Empty)
-        {
-            throw new ArgumentException("Use a non-empty identifier boundary.", nameof(after));
-        }
-
+        if (limit is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(limit));
+        if (status is { } requested && !Enum.IsDefined(requested)) throw new ArgumentOutOfRangeException(nameof(status));
+        if (after == Guid.Empty) throw new ArgumentException("Use a non-empty identifier boundary.", nameof(after));
+        var statusText = status?.ToString();
+        var boundary = after?.ToString("D");
         lock (_gate)
         {
             using var connection = database.Open();
-            using var command = connection.CreateCommand();
-            command.CommandText = """
-                SELECT id, title, description, status FROM cases
-                WHERE ($status IS NULL OR status=$status)
-                    AND ($after IS NULL OR id COLLATE BINARY > $after)
-                ORDER BY id COLLATE BINARY
-                LIMIT $take
-                """;
-            command.Parameters.AddWithValue("$status", (object?)status?.ToString() ?? DBNull.Value);
-            command.Parameters.AddWithValue("$after", (object?)after?.ToString("D") ?? DBNull.Value);
-            command.Parameters.AddWithValue("$take", limit + 1);
-            using var reader = command.ExecuteReader();
-            var items = new List<CaseSnapshot>(limit + 1);
-            while (reader.Read())
-            {
-                // Validate the lookahead too; malformed stored rows cannot become partial success.
-                items.Add(Snapshot(Restore(reader)));
-            }
-
+            using var context = database.Context(connection);
+            var rows = context.Cases.AsNoTracking()
+                .Where(row => (statusText == null || row.Status == statusText) &&
+                    (boundary == null || string.Compare(EF.Functions.Collate(row.Id, "BINARY"), boundary) > 0))
+                .OrderBy(row => EF.Functions.Collate(row.Id, "BINARY")).Take(limit + 1).ToArray();
+            // Validate lookahead as well; materialized damaged rows cannot become partial success.
+            var items = rows.Select(row => Snapshot(Restore(row))).ToList();
             Guid? nextAfter = null;
             if (items.Count > limit)
             {
                 items.RemoveAt(items.Count - 1);
                 nextAfter = items[^1].Id;
             }
-
             return new(items.AsReadOnly(), nextAfter);
         }
     }
@@ -114,9 +81,10 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
         {
             using var connection = database.Open();
             using var transaction = connection.BeginTransaction(deferred: true);
-            var record = Read(connection, id, transaction);
+            using var context = database.Context(connection, transaction);
+            var record = Read(context, id);
             if (record is null) return null;
-            var entries = CaseHistory.Read(connection, transaction, record);
+            var entries = CaseHistory.Read(context, record);
             transaction.Commit();
             return entries;
         }
@@ -128,82 +96,53 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
         {
             using var connection = database.Open();
             using var transaction = connection.BeginTransaction(deferred: false);
-            var record = Read(connection, id, transaction);
-            if (record is null)
-            {
-                return new(null, false);
-            }
-
-            var history = CaseHistory.Read(connection, transaction, record);
+            using var context = database.Context(connection, transaction);
+            var canonical = id.ToString("D");
+            var row = context.Cases.SingleOrDefault(row => row.Id == canonical);
+            if (row is null) return new(null, false);
+            var record = Restore(row);
+            var history = CaseHistory.Read(context, record);
             var previous = record.Status;
-            try
-            {
-                record.ChangeStatus(status);
-            }
-            catch (InvalidOperationException)
-            {
-                return new(null, true);
-            }
-
+            try { record.ChangeStatus(status); }
+            catch (InvalidOperationException) { return new(null, true); }
             if (record.Status != previous)
             {
-                using var command = connection.CreateCommand();
-                command.Transaction = transaction;
-                command.CommandText = "UPDATE cases SET status=$status WHERE id=$id";
-                command.Parameters.AddWithValue("$status", record.Status.ToString());
-                command.Parameters.AddWithValue("$id", id.ToString("D"));
-                if (command.ExecuteNonQuery() != 1)
-                {
-                    throw new InvalidDataException("Case update did not affect exactly one record.");
-                }
-
-                CaseHistory.Insert(connection, transaction, id,
-                    CaseHistory.Record(history.Count + 1, "StatusChanged", previous, record.Status, _clock));
+                row.Status = record.Status.ToString();
+                context.SaveSingleChange();
+                CaseHistory.Insert(context, id, CaseHistory.Record(history.Count + 1, "StatusChanged", previous, record.Status, _clock));
             }
-
             transaction.Commit();
             return new(Snapshot(record), false);
         }
     }
 
-    internal static Case? Read(SqliteConnection connection, Guid id, SqliteTransaction? transaction = null)
+    internal static Case? Read(CaseDbContext context, Guid id)
     {
-        using var command = connection.CreateCommand();
-        command.Transaction = transaction;
-        command.CommandText = "SELECT id, title, description, status FROM cases WHERE id=$id";
-        command.Parameters.AddWithValue("$id", id.ToString("D"));
-        using var reader = command.ExecuteReader();
-        return reader.Read() ? Restore(reader) : null;
+        var canonical = id.ToString("D");
+        var row = context.Cases.AsNoTracking().SingleOrDefault(row => row.Id == canonical);
+        return row is null ? null : Restore(row);
     }
 
-    internal static Case Restore(SqliteDataReader reader)
+    internal static Case Restore(StoredCase row)
     {
         try
         {
-            var rawId = reader.GetString(0);
-            var status = reader.GetString(3) switch
+            var status = row.Status switch
             {
                 "New" => CaseStatus.New,
                 "InReview" => CaseStatus.InReview,
                 "Closed" => CaseStatus.Closed,
                 _ => throw new InvalidDataException("Invalid stored status.")
             };
-            if (!Guid.TryParseExact(rawId, "D", out var storedId) || rawId != storedId.ToString("D"))
-            {
+            if (!Guid.TryParseExact(row.Id, "D", out var id) || row.Id != id.ToString("D"))
                 throw new InvalidDataException("Invalid stored identifier.");
-            }
-
-            return Case.Restore(storedId, reader.GetString(1), reader.GetString(2), status);
+            return Case.Restore(id, row.Title, row.Description, status);
         }
-        catch (ArgumentException)
-        {
-            throw new InvalidDataException("Invalid stored case values.");
-        }
+        catch (ArgumentException) { throw new InvalidDataException("Invalid stored case values."); }
     }
 
     private static CaseSnapshot Snapshot(Case record) => new(record.Id, record.Title, record.Description, record.Status);
 }
 
 public sealed record CaseStatusChange(CaseSnapshot? Case, bool IsConflict);
-
 public sealed record CaseCreation(CaseSnapshot? Case, bool IsKeyReused);

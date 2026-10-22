@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml/badge.svg)](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml)
 
-**Phase 5: retry-safe creation with durable case history**
+**Phase 5: retry-safe creation with EF Core Code First persistence**
 
-A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: create synthetic cases with optional durable retry keys, browse/retrieve them, progress their status and inspect recorded history through a tested HTTP API backed by a retained local SQLite file. Domain rules, unit/integration tests, CI and architecture decisions support this local workflow.
+A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: create synthetic cases with optional durable retry keys, browse/retrieve them, progress their status and inspect recorded history through a tested HTTP API backed by EF Core Code First and a retained local SQLite file. Domain rules, unit/integration tests, CI and architecture decisions support this local workflow.
 
 [Review the implementation](#current-implemented-scope) · [Read the architecture](docs/architecture/overview.md) · [Run locally](#getting-started)
 
@@ -16,7 +16,7 @@ Enterprise case processes span legacy systems, fragmented information and manual
 
 - Demonstrate .NET engineering through runnable code, tests and documented tradeoffs.
 - Add architecture when requirements justify it.
-- Use EF Core Code First as the persistence direction; [adoption is the next task](docs/tasks/ef-core-code-first-adoption.md).
+- Use EF Core Code First models, LINQ and migrations for persistence.
 - Evolve toward secure cloud deployment, asynchronous integration and trustworthy AI in later phases.
 
 ## Current Implemented Scope
@@ -30,12 +30,13 @@ Enterprise case processes span legacy systems, fragmented information and manual
 | `GET /cases`: optional status filtering, bounded pages and canonical-ID continuation | [List acceptance tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseListPaginationTests.cs) |
 | `GET /cases/{id}/history`: bounded status history; creation and actual transitions commit with their entries; same-status retries add nothing | [History API tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseHistoryApiTests.cs) · [Paired-write failure tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseHistoryFailureTests.cs) |
 | Optional quoted `Idempotency-Key` on creation: atomic binding, original-result replay and safe `422` on changed fields | [Retry API tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseKeyApiTests.cs) · [Atomic failure tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseKeyFailureTests.cs) |
-| SQLite transactions, synchronized operations, commit-before-success and immutable snapshots | [Store](src/EnterpriseCaseIntelligence.Api/Cases/SqliteCaseStore.cs) |
+| EF Core LINQ/tracked writes, explicit SQLite transactions, commit-before-success and immutable snapshots | [Store](src/EnterpriseCaseIntelligence.Api/Cases/SqliteCaseStore.cs) |
+| C# model, Fluent API and scaffolded EF migrations/snapshot own new schema; initialization and startup validate format 4 | [EF context](src/EnterpriseCaseIntelligence.Api/Cases/CaseDbContext.cs) · [Migrations](src/EnterpriseCaseIntelligence.Api/Cases/Migrations) |
 | Explicit initialization, schema validation and safe startup refusal | [Database lifecycle](src/EnterpriseCaseIntelligence.Api/Cases/CaseDatabase.cs) |
-| Explicit offline version-1/version-2 → version-3 upgrades, preserved histories and inspection after uncertain outcomes | [Upgrade tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseKeyUpgradeTests.cs) · [Upgrade interruption tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseUpgradeProcessTests.cs) |
+| Explicit offline version-1/version-2/version-3 → version-4 upgrades, preserved histories and inspection after uncertain outcomes | [EF adoption tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseEfAdoptionTests.cs) · [Upgrade interruption tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseUpgradeProcessTests.cs) |
 | Real SQLite integration tests and child-process tests cover the workflow, failures, host isolation and restart recovery | [API tests](tests/EnterpriseCaseIntelligence.Api.Tests) |
 | Restore, format verification, Release build and tests in CI; warnings treated as errors | [CI workflow](.github/workflows/ci.yml) · [Build configuration](Directory.Build.props) |
-| Architecture overview and five current accepted decisions; historical memory decision retained | [Architecture overview](docs/architecture/overview.md) · [ADR index](docs/adr/README.md) |
+| Architecture overview and six current accepted decisions; historical memory decision retained | [Architecture overview](docs/architecture/overview.md) · [ADR index](docs/adr/README.md) |
 
 **Local demonstration limits:** one API process uses one local store at a time. Committed data survives API restart with the same intact file; power/storage loss, backup, multi-instance operation, authentication/authorization and enforced disk quotas are outside scope. Use synthetic data only.
 
@@ -93,7 +94,7 @@ dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release 
 
 Normal startup requires the configured existing file; it does not create or repair one. Initialization refuses any existing file. To resume later, rerun only the final command against the same path. `CaseStorage__DatabasePath` is the equivalent environment setting.
 
-Fresh initialization creates schema version 3. A retained version-1 or version-2 store requires a deliberate offline upgrade; see [inspection, upgrade and recovery commands](docs/usage/local-case-workflow.md#inspect-and-upgrade-an-older-store). The upgrade is one-way: older executables cannot open version 3. Normal startup never upgrades automatically.
+Fresh initialization creates schema version 4 through EF migrations. A retained version-1, version-2 or version-3 store requires a deliberate offline upgrade; see [inspection, upgrade and recovery commands](docs/usage/local-case-workflow.md#inspect-and-upgrade-an-older-store). The upgrade is one-way: older executables cannot open version 4. Normal startup never upgrades automatically.
 
 In another terminal:
 
@@ -112,8 +113,10 @@ Run the same quality gates as CI from the repository root:
 
 ```sh
 dotnet restore EnterpriseCaseIntelligence.slnx
+dotnet tool restore
 dotnet format EnterpriseCaseIntelligence.slnx --verify-no-changes --no-restore
 dotnet build EnterpriseCaseIntelligence.slnx --configuration Release --no-restore
+dotnet ef migrations has-pending-model-changes --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build
 dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 ```
 
@@ -127,6 +130,7 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 - [ADR 0004](docs/adr/0004-use-sqlite-for-the-durable-local-workflow.md): accepted and implemented SQLite storage for the durable local Phase 2 workflow.
 - [ADR 0005](docs/adr/0005-add-status-history-with-an-explicit-store-upgrade.md): accepted and implemented amendment for atomic status history and an explicit store upgrade.
 - [ADR 0006](docs/adr/0006-bind-creation-keys-in-the-local-case-store.md): accepted and implemented creation-key bindings, original-result replay and direct upgrades to version 3.
+- [ADR 0007](docs/adr/0007-adopt-ef-core-code-first.md): implemented EF Core Code First models, generated migrations and validated adoption of retained stores.
 
 ## Planned Evolution
 
@@ -135,7 +139,8 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 ## Roadmap
 
 - **Now:** [retry-safe creation and upgrade coverage](docs/requirements/phase-5-retry-safe-creation.md#current-implementation-coverage), durable status history, case browsing and process-recovery checks.
-- **Next — planned:** [adopt EF Core Code First](docs/tasks/ef-core-code-first-adoption.md) for the existing persistence, initialization and upgrades. Use model-driven migrations and EF queries wherever supported; the current runtime still uses direct SQLite access.
+- **Completed:** [EF Core Code First adoption](docs/tasks/ef-core-code-first-adoption.md) with retained-data and migration-recovery coverage.
+- **Next:** assess the next concrete workflow or operational need before selecting another implementation slice.
 - **Later:** evaluate the planned capabilities against concrete needs and operational tradeoffs.
 
 ## Security and Privacy

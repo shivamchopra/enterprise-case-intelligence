@@ -39,7 +39,7 @@ public class CaseResponseLossTests : CaseApiTest
             Assert.Equal(2, Database.Count());
             Assert.Equal(2L, Database.Scalar("SELECT count(DISTINCT id) FROM cases WHERE status='New'"));
             Assert.Equal(2L, Database.Scalar("SELECT count(*) FROM case_status_history WHERE sequence=1 AND kind='Created'"));
-            Assert.Equal(3, Database.Database.Inspect());
+            Assert.Equal(4, Database.Database.Inspect());
         }
         else
         {

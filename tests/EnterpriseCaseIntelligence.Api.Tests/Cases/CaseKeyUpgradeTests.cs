@@ -31,7 +31,7 @@ public class CaseKeyUpgradeTests
         Assert.Throws<InvalidDataException>(() => fixture.Database.ValidateStartup());
         var database = new CaseDatabase(fixture.Path, new UpgradeClock(version == 2));
         database.Upgrade();
-        Assert.Equal(3, database.Inspect());
+        Assert.Equal(4, database.Inspect());
         database.ValidateStartup();
         Assert.Equal(0L, fixture.Scalar("SELECT count(*) FROM case_creation_keys"));
         var store = new SqliteCaseStore(database);
@@ -49,7 +49,7 @@ public class CaseKeyUpgradeTests
         Assert.Equal(count + 2, fixture.Count());
         Assert.Equal(1L, fixture.Scalar("SELECT count(*) FROM case_creation_keys"));
         Assert.Throws<InvalidDataException>(() => database.Upgrade());
-        Assert.Equal(3, database.Inspect());
+        Assert.Equal(4, database.Inspect());
         // Both accepted text encodings enforce the hidden-NUL exclusion.
         var error = Assert.Throws<SqliteException>(() => fixture.Execute("INSERT INTO case_creation_keys VALUES ($key,$id)",
             ("$key", Guid.NewGuid().ToString("D") + "\0tail"), ("$id", keyless.Id.ToString("D"))));
@@ -82,7 +82,7 @@ public class CaseKeyUpgradeTests
         if (version == 2) AssertHistory(history, VersionTwoCaseStore.HistoryFields(fixture));
         else Assert.Equal(0L, fixture.Scalar("SELECT count(*) FROM sqlite_schema WHERE name='case_status_history'"));
         fixture.Database.Upgrade();
-        Assert.Equal(3, fixture.Database.Inspect());
+        Assert.Equal(4, fixture.Database.Inspect());
     }
 
     [Theory]
@@ -120,7 +120,7 @@ public class CaseKeyUpgradeTests
         var upgraded = await ApiProcess.RunAsync("upgrade-store", "--CaseStorage:DatabasePath", fixture.Path);
         Assert.Equal(0, upgraded.ExitCode);
         Assert.Contains("Case store upgraded.", upgraded.Output);
-        Assert.Equal(3, fixture.Database.Inspect());
+        Assert.Equal(4, fixture.Database.Inspect());
     }
 
     private static void AssertHistory(string[][] expected, string[][] actual)

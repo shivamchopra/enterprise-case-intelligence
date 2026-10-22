@@ -33,7 +33,7 @@ public class CaseKeyFailureTests : CaseApiTest
         Assert.Equal(HttpStatusCode.Created, retry.StatusCode);
         var created = await ReadCaseAsync(retry);
         Assert.Single(new SqliteCaseStore(new CaseDatabase(Database.Path)).History(created.Id)!);
-        Assert.Equal(3, new CaseDatabase(Database.Path).Inspect());
+        Assert.Equal(4, new CaseDatabase(Database.Path).Inspect());
         foreach (var name in new[] { "cases", "case_status_history", "case_creation_keys" })
             Assert.Equal(1L, Database.Scalar($"SELECT count(*) FROM {name}"));
     }
@@ -147,7 +147,7 @@ public class CaseKeyFailureTests : CaseApiTest
             var key = Guid.Parse($"{index + 1:x8}-aaaa-4bbb-8ccc-dddddddddddd");
             last = store.Create("Synthetic batch", "Synthetic inspection", key).Case;
         }
-        Assert.Equal(3, Database.Database.Inspect());
+        Assert.Equal(4, Database.Database.Inspect());
         // This remains a valid case/history chain; only its binding provenance is invalid.
         Database.Execute("UPDATE case_status_history SET kind='Baseline' WHERE case_id=$id", ("$id", last!.Id.ToString("D")));
         Assert.Throws<InvalidDataException>(() => Database.Database.Inspect());
