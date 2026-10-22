@@ -1,6 +1,6 @@
 # Phase 5 proposal: retry-safe case creation
 
-**Status: Proposed requirements — not implemented.** Phase 4 remains the runnable scope. The current API does not deduplicate creates using a request key; repeating a create can produce another case.
+**Status: Reviewed requirements — not implemented.** Reviewed in PR #18. Phase 4 remains the runnable scope. [ADR 0006](../adr/0006-bind-creation-keys-in-the-local-case-store.md) proposes the storage/compatibility design and requires review before implementation. The current API does not deduplicate creates using a request key; repeating a create can produce another case.
 
 ## Workflow assessment and proposed outcome
 
@@ -70,6 +70,8 @@ The new `422` response uses the existing `application/problem+json` shape: `type
 
 Before treating a committed binding as a replay or a payload mismatch, validate its stored values and associated case/history. A missing target case, invalid binding, invalid original result or broken history must return generic `500 internal_error`. Do not treat it as an unused key, return a misleading `422` or create a replacement. A bound case must have valid creation provenance; never retrofit a binding to a legacy baseline case based on matching text.
 
+Request-time validation applies to the selected binding and target; offline inspection validates all bindings. A deleted binding or external edit that changes its lookup identity cannot be distinguished from an unused key by a bounded lookup. This does not add tamper evidence or promise detection of arbitrary file edits; the retry guarantee assumes intact application-owned retained state. ADR 0006 makes this corruption boundary explicit.
+
 Do not persist validation, conflict or transient error responses as the key's result. A known pre-commit failure leaves no binding or partial case/history. An uncertain commit or lost response does not prove rollback; retry the same key and equivalent request to reconcile. Provider failures remain generic `500`; there is no successful fallback to memory or automatic replay of a whole uncertain transaction.
 
 ## Atomicity, concurrency and lifetime
@@ -94,7 +96,7 @@ Normal startup must never silently add bindings or reset a store. New inspection
 
 ## Acceptance criteria
 
-These are proposed obligations, without new runtime behavior or test coverage claimed today.
+These are reviewed obligations, without new runtime behavior or test coverage claimed today.
 
 | ID | Given / when | Required result |
 | --- | --- | --- |
@@ -113,10 +115,10 @@ These are proposed obligations, without new runtime behavior or test coverage cl
 
 ## Review and implementation sequence
 
-1. Review optional-key behavior, syntax, normalized equality, `422`, original-result replay and retained-binding lifetime. Amend assumptions before implementation if the desired capability differs.
-2. Propose/review the required compatibility/storage ADR, including atomic binding ownership, supported old-format upgrades, inspection and uncertain-outcome recovery. Keep the existing production boundaries unless concrete requirements justify a change.
+1. **Reviewed in PR #18:** optional-key behavior, syntax, normalized equality, `422`, original-result replay and retained-binding lifetime. Review the bounded corruption clarification with the storage design; amend assumptions explicitly if needed.
+2. **Proposed:** review [ADR 0006](../adr/0006-bind-creation-keys-in-the-local-case-store.md), including atomic binding ownership, supported old-format upgrades, inspection and uncertain-outcome recovery. Keep the existing production boundaries unless concrete requirements justify a change.
 3. Implement the focused create extension and actual-engine coverage, retaining existing keyless contracts. Use deterministic concurrency, response-loss and process-interruption controls, disposable stores and no arbitrary sleeps or production fault switches.
 4. Run restore, format verification, warnings-as-errors, Release build and the full suite; demonstrate key reuse after a lost response/restart and replay after later status changes.
 5. Update the walkthrough, architecture and implemented-scope README evidence only after the feature exists. Keep the profile on implemented Phase 4 until then.
 
-This PR proposes requirements only. It adds no runtime behavior, schema, upgrade, dependency, infrastructure or test framework.
+Requirements are reviewed; the storage design remains proposed. No runtime behavior, schema, upgrade, dependency, infrastructure or test framework is added by these documents.
