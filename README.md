@@ -130,7 +130,7 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 ## Roadmap
 
 - **Now:** [status history and upgrade coverage](docs/requirements/phase-4-status-history.md#current-implementation-coverage), case browsing, durable state and process-recovery checks.
-- **Next:** review the history/upgrade workflow and define the next concrete requirement before expanding deployment, storage or architecture.
+- **Next — proposed, not implemented:** review [retry-safe case creation requirements](docs/requirements/phase-5-retry-safe-creation.md): an optional durable request key to reconcile lost create responses without duplicate cases.
 - **Later:** evaluate the planned capabilities against concrete needs and operational tradeoffs.
 
 ## Security and Privacy
