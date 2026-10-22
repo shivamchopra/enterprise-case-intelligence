@@ -2,6 +2,14 @@
 
 Keep changes focused and consistent with the current phase. Use a branch or fork as appropriate and explain the behavior or design change when submitting it.
 
+## Persistence approach
+
+Use **EF Core Code First** for persistence wherever supported: C# entities, `DbContext`/Fluent API configuration, LINQ queries, tracked writes and EF-generated migrations with a checked-in model snapshot. This is the owner's chosen direction for new work and the [next task to convert the current store](docs/tasks/ef-core-code-first-adoption.md).
+
+Prefer EF APIs and generated migration operations over hand-written SQL/DDL. EF-generated SQL is normal. Keep hand-written SQL only for a demonstrated provider limitation, required integrity/compatibility operation or historical/fault-injection fixture that EF cannot express. Explain each exception and its validation; parameterize runtime values. Preserve explicit offline upgrades and existing data/transaction contracts. See [AGENTS.md](AGENTS.md) for the complete repository instructions.
+
+## Validation
+
 Before submitting, run from the repository root:
 
 ```sh

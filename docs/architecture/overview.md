@@ -25,6 +25,12 @@ flowchart LR
 
 Api references Domain. No generic repository, provider interface, ORM or additional production project is introduced. Stored mutable entities never escape for HTTP serialization; callers receive immutable four-field snapshots.
 
+## Next persistence task: EF Core Code First
+
+The owner has selected EF Core Code First as the preferred approach for future persistence work and conversion of the existing store. Use C# entities, `DbContext`/Fluent API configuration, LINQ/tracked writes and model-generated migrations wherever supported. The current Phase 5 runtime still uses direct `Microsoft.Data.Sqlite` access; EF adoption is [the next task](../tasks/ef-core-code-first-adoption.md), not an implemented capability.
+
+The conversion must preserve the HTTP/domain contract, atomic history/key semantics and existing-store data while explicitly reconciling application format versions, exact schema validation and EF migration metadata. Historical ADRs describe the shipped implementation; a new compatibility amendment will document the EF transition. [Repository instructions](../../AGENTS.md) define the EF-first rule and limited SQL exceptions.
+
 ## Storage lifecycle and concurrency
 
 An explicit `CaseStorage:DatabasePath` selects an existing local file. The separate `init-store` command exclusively reserves a new file, initializes STRICT case/history/creation-key tables and schema version 3, and exits without hosting HTTP. Any existing file is refused. Normal startup validates the exact version-3 schema, integrity, foreign keys, journaling and write access; it does not create, seed, migrate, reset or repair a store.
