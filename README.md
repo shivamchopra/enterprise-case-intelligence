@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml/badge.svg)](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml)
 
-**Phase 4: durable synthetic cases with status history**
+**Phase 5: retry-safe creation with durable case history**
 
-A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: create, browse, retrieve and progress synthetic cases, then inspect their recorded status history through a tested HTTP API backed by a retained local SQLite file. Domain rules, unit/integration tests, CI and architecture decisions support this local workflow.
+A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: create synthetic cases with optional durable retry keys, browse/retrieve them, progress their status and inspect recorded history through a tested HTTP API backed by a retained local SQLite file. Domain rules, unit/integration tests, CI and architecture decisions support this local workflow.
 
 [Review the implementation](#current-implemented-scope) · [Read the architecture](docs/architecture/overview.md) · [Run locally](#getting-started)
 
@@ -28,14 +28,17 @@ Enterprise case processes span legacy systems, fragmented information and manual
 | `POST /cases`, `GET /cases/{id}`, `PUT /cases/{id}/status`: strict JSON validation and problem responses | [Case endpoints](src/EnterpriseCaseIntelligence.Api/Cases/CaseEndpoints.cs) |
 | `GET /cases`: optional status filtering, bounded pages and canonical-ID continuation | [List acceptance tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseListPaginationTests.cs) |
 | `GET /cases/{id}/history`: bounded status history; creation and actual transitions commit with their entries; same-status retries add nothing | [History API tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseHistoryApiTests.cs) · [Paired-write failure tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseHistoryFailureTests.cs) |
+| Optional quoted `Idempotency-Key` on creation: atomic binding, original-result replay and safe `422` on changed fields | [Retry API tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseKeyApiTests.cs) · [Atomic failure tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseKeyFailureTests.cs) |
 | SQLite transactions, synchronized operations, commit-before-success and immutable snapshots | [Store](src/EnterpriseCaseIntelligence.Api/Cases/SqliteCaseStore.cs) |
 | Explicit initialization, schema validation and safe startup refusal | [Database lifecycle](src/EnterpriseCaseIntelligence.Api/Cases/CaseDatabase.cs) |
-| Explicit offline version-1 → version-2 upgrade, honest baselines and format inspection after uncertain outcomes | [Upgrade tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseStoreUpgradeTests.cs) · [Upgrade interruption tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseUpgradeProcessTests.cs) |
+| Explicit offline version-1/version-2 → version-3 upgrades, preserved histories and inspection after uncertain outcomes | [Upgrade tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseKeyUpgradeTests.cs) · [Upgrade interruption tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseUpgradeProcessTests.cs) |
 | Real SQLite integration tests and child-process tests cover the workflow, failures, host isolation and restart recovery | [API tests](tests/EnterpriseCaseIntelligence.Api.Tests) |
 | Restore, format verification, Release build and tests in CI; warnings treated as errors | [CI workflow](.github/workflows/ci.yml) · [Build configuration](Directory.Build.props) |
-| Architecture overview and four current accepted decisions; historical memory decision retained | [Architecture overview](docs/architecture/overview.md) · [ADR index](docs/adr/README.md) |
+| Architecture overview and five current accepted decisions; historical memory decision retained | [Architecture overview](docs/architecture/overview.md) · [ADR index](docs/adr/README.md) |
 
 **Local demonstration limits:** one API process uses one local store at a time. Committed data survives API restart with the same intact file; power/storage loss, backup, multi-instance operation, authentication/authorization and enforced disk quotas are outside scope. Use synthetic data only.
+
+Creation keys remain bound for the store’s lifetime, without expiry or release. Retry with the same key and equivalent normalized fields; a new or omitted key can create another case. Replay returns the original `New` result; retrieve its `Location` for current state.
 
 Health checks confirm host liveness, without checking storage readiness. Tests use disposable SQLite files and loopback HTTP child processes; no separately installed database server, cloud account or secret is required.
 
@@ -89,7 +92,7 @@ dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release 
 
 Normal startup requires the configured existing file; it does not create or repair one. Initialization refuses any existing file. To resume later, rerun only the final command against the same path. `CaseStorage__DatabasePath` is the equivalent environment setting.
 
-Fresh initialization creates schema version 2. A retained Phase 3/version-1 store requires a deliberate offline upgrade; see [inspection, upgrade and recovery commands](docs/usage/local-case-workflow.md#inspect-and-upgrade-a-version-1-store). The upgrade is one-way: older executables cannot open version 2. Normal startup never upgrades automatically.
+Fresh initialization creates schema version 3. A retained version-1 or version-2 store requires a deliberate offline upgrade; see [inspection, upgrade and recovery commands](docs/usage/local-case-workflow.md#inspect-and-upgrade-an-older-store). The upgrade is one-way: older executables cannot open version 3. Normal startup never upgrades automatically.
 
 In another terminal:
 
@@ -100,7 +103,7 @@ curl http://localhost:5080/health
 
 Both return HTTP 200. The root returns `{"service":"Enterprise Case Intelligence","status":"foundation"}`; health returns `Healthy`.
 
-Follow the [local case workflow walkthrough](docs/usage/local-case-workflow.md) to create a case, browse saved work, retrieve it, progress its status and inspect its history using curl.
+Follow the [local case workflow walkthrough](docs/usage/local-case-workflow.md) to create a case, browse saved work, retrieve it, progress its status and inspect its history using curl. The [retry example](docs/usage/local-case-workflow.md#retry-a-creation-with-a-retained-key) shows how to reconcile a lost creation response.
 
 ## Build and Test
 
@@ -122,6 +125,7 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 - [ADR 0003](docs/adr/0003-use-process-memory-for-the-phase-1-local-workflow.md): historical Phase 1 process-memory decision, superseded by ADR 0004.
 - [ADR 0004](docs/adr/0004-use-sqlite-for-the-durable-local-workflow.md): accepted and implemented SQLite storage for the durable local Phase 2 workflow.
 - [ADR 0005](docs/adr/0005-add-status-history-with-an-explicit-store-upgrade.md): accepted and implemented amendment for atomic status history and an explicit store upgrade.
+- [ADR 0006](docs/adr/0006-bind-creation-keys-in-the-local-case-store.md): accepted and implemented creation-key bindings, original-result replay and direct upgrades to version 3.
 
 ## Planned Evolution
 
@@ -129,8 +133,8 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 
 ## Roadmap
 
-- **Now:** [status history and upgrade coverage](docs/requirements/phase-4-status-history.md#current-implementation-coverage), case browsing, durable state and process-recovery checks.
-- **Next — not implemented:** [retry-safe creation requirements](docs/requirements/phase-5-retry-safe-creation.md) are reviewed; review [proposed ADR 0006](docs/adr/0006-bind-creation-keys-in-the-local-case-store.md) for durable key bindings, original-result replay and explicit store upgrades before implementation.
+- **Now:** [retry-safe creation and upgrade coverage](docs/requirements/phase-5-retry-safe-creation.md#current-implementation-coverage), durable status history, case browsing and process-recovery checks.
+- **Next:** assess the next concrete workflow or operational need before selecting another implementation slice.
 - **Later:** evaluate the planned capabilities against concrete needs and operational tradeoffs.
 
 ## Security and Privacy

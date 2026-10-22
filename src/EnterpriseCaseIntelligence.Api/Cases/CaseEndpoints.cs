@@ -90,7 +90,21 @@ internal static class CaseEndpoints
 
         try
         {
-            var snapshot = store.Create(values["title"], values["description"]);
+            var record = new Case(values["title"], values["description"]);
+            Guid? key = null;
+            if (request.Headers.ContainsKey("Idempotency-Key"))
+            {
+                var keys = request.Headers["Idempotency-Key"];
+                var value = keys.Count == 1 ? keys[0]?.Trim(' ', '\t') : null;
+                if (value is not { Length: 38 } || value[0] != '"' || value[^1] != '"' ||
+                    !TryReadId(value[1..^1], out var parsed))
+                    return Validation("idempotencyKey", "Supply one quoted non-empty hyphenated UUID.");
+                key = parsed;
+            }
+
+            var result = store.Create(record, key);
+            if (result.IsKeyReused) return Problem(422, "Unprocessable Content", "idempotency_key_reused");
+            var snapshot = result.Case!;
             return Results.Created($"/cases/{snapshot.Id:D}", Representation(snapshot));
         }
         catch (ArgumentException exception) when (exception.ParamName is "title" or "description")

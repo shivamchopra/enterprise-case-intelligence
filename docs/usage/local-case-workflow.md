@@ -6,9 +6,9 @@ Start the API using the [README commands](../../README.md#getting-started). The 
 
 Initialization is an explicit `init-store` command, not an HTTP route. It refuses any existing file, including an empty one. Normal startup refuses missing, incompatible, corrupt or unwritable storage and never creates a replacement. The directory must already exist and permit database/journal writes. Choose a local directory outside network shares or synchronization-managed folders; `CaseStorage__DatabasePath` is the equivalent environment setting.
 
-## Inspect and upgrade a version-1 store
+## Inspect and upgrade an older store
 
-Fresh `init-store` now creates version 2 with case and history tables. Skip this upgrade section for a fresh version-2 store. For retained Phase 3 data, build the current code first and **stop the API and every other process using that store**. `CASE_DB_PATH` must be the same absolute path selected during setup; neither inspection nor upgrade creates a missing file.
+Fresh `init-store` creates version 3 with case, history and creation-key tables. Skip this upgrade section for a fresh version-3 store. For retained version-1 or version-2 data, build the current code first and **stop the API and every other process using that store**. `CASE_DB_PATH` must be the same absolute path selected during setup; neither inspection nor upgrade creates a missing file.
 
 Inspect before deciding whether an upgrade is needed:
 
@@ -16,20 +16,20 @@ Inspect before deciding whether an upgrade is needed:
 dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- inspect-store --CaseStorage:DatabasePath "$CASE_DB_PATH"
 ```
 
-Success prints only `Case store version: 1.` or `Case store version: 2.` as the command result. The command validates schema, engine integrity and case values; version 2 also validates all history chains. It does not change committed application state, but SQLite may perform normal journal recovery. An inspection failure needs investigation, not initialization over the existing path.
+Success prints only `Case store version: 1.`, `Case store version: 2.` or `Case store version: 3.` as the command result. The command validates schema, engine integrity and case values; versions 2/3 also validate all history chains, and version 3 validates every binding and its creation provenance. It does not change committed application state, but SQLite may perform normal journal recovery. An inspection failure needs investigation, not initialization over the existing path.
 
-For **version 1 only**, explicitly upgrade while hosting remains stopped:
+For **version 1 or 2**, explicitly upgrade while hosting remains stopped:
 
 ```sh
 dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- upgrade-store --CaseStorage:DatabasePath "$CASE_DB_PATH"
 dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- inspect-store --CaseStorage:DatabasePath "$CASE_DB_PATH"
 ```
 
-Expect `Case store upgraded.` and then `Case store version: 2.`. The upgrade preserves every case's ID, text and current status and records one `Baseline` entry per old case. A baseline's time is the time it was recorded during upgrade; earlier transitions and creation times remain unknown. No historical `Created` or transition entries are invented.
+Expect `Case store upgraded.` and then `Case store version: 3.`. Both source formats upgrade directly in one transaction and preserve every case’s ID, text and status. Version 2 retains every existing history value and timestamp. Version 1 receives one honest `Baseline` per old case, with its recording time during upgrade; earlier transitions and creation times remain unknown. No historical `Created` or transition entries are invented. All old cases remain without keys; keys are never inferred from IDs or text.
 
-This changes the store format in place and is one-way. Older executables refuse version 2; there is no downgrade, automatic backup or restore command. A second upgrade refuses version 2 without adding baselines. Normal startup never upgrades automatically and refuses old-format stores. After successful inspection of version 2, start the API using the normal final README command, without a command mode.
+This changes the store format in place and is one-way. Older executables refuse version 3; there is no downgrade, automatic backup or restore command. A second upgrade refuses version 3 without adding baselines or bindings. Normal startup never upgrades automatically and refuses old-format stores. After successful inspection of version 3, start the API using the normal final README command, without a command mode.
 
-If upgrade fails, is interrupted or loses its completion output, the outcome is uncertain. With all processes stopped, run **only inspection first**. A valid version 1 means the upgrade did not commit and may be retried deliberately; a valid version 2 means it committed and must not be repeated. Any unsupported/invalid result requires investigation. Never delete a journal, reset the file or force initialization to hide an error. These commands assume intact local storage, without a hardware/power-loss guarantee.
+If upgrade fails, is interrupted or loses its completion output, the outcome is uncertain. With all processes stopped, run **only inspection first**. A valid version 1 or 2 means the upgrade did not commit and may be retried deliberately; a valid version 3 means it committed and must not be repeated. Any unsupported/invalid result requires investigation. Never delete a journal, reset the file or force initialization to hide an error. These commands assume intact local storage, without a hardware/power-loss guarantee.
 
 ## Create a case
 
@@ -40,6 +40,23 @@ curl -i -X POST http://localhost:5080/cases \
 ```
 
 Expect `201 Created`, a `Location: /cases/<generated-id>` header and exactly four JSON fields: `id`, `title`, `description`, `status`. Status starts at `New`. Surrounding title/description whitespace is trimmed.
+
+## Retry a creation with a retained key
+
+Choose a fresh UUID for each intended new case and retain it with the request until the outcome is resolved. This synthetic example uses a fixed key so the command can be repeated:
+
+```sh
+curl -i -X POST http://localhost:5080/cases \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: "b6ab3cd4-87cf-4bdd-ae55-103ea9978018"' \
+  -d '{"title":"Correct the sample guide","description":"Update the fictional example section."}'
+```
+
+The double quotes around the UUID are required header characters. Repeat this command after a lost response or restart to get `201` with the same `Location` and four original creation values, including status `New`. Following that location shows the current status, which may now be `InReview` or `Closed`. Replay never rewinds status, appends history or rewrites timestamps. Try the same command again after progressing the keyed case to see the difference.
+
+Equivalent JSON escapes/property order, surrounding trimmed text and uppercase UUID hex replay the same result. Changed normalized title/description returns `422 Unprocessable Content`, code `idempotency_key_reused`, without original values or a `Location`. Text comparison is ordinal; case, internal spaces and distinct Unicode sequences matter. Bad key/body input returns `400` before accessing storage; unsupported media types retain `415`, including for known keys.
+
+Omitting the header always creates independently. Different keys with identical text also create independently. After response loss, keep the same key/request: choosing a new key can create a duplicate. Bindings remain for the intact store’s lifetime, without expiry, release or cleanup. One store has one namespace; keys provide no identity or authorization. A selected damaged binding/target/history returns safe `500` rather than replay, mismatch or replacement. Lookup validates only the selected target; offline inspection validates the whole store. Arbitrary deletion/rekeying outside the application is not detectable as a previous use.
 
 ## Browse, retrieve and resume saved work
 
@@ -108,7 +125,7 @@ This is workflow history, without actor identity, access control or tamper evide
 - Malformed or all-zero UUIDs return `400`; valid unknown IDs on single-case routes return `404`. A valid list boundary is not a lookup and never produces `404`. Unsupported write media types/charsets return `415`.
 - Expected failures return `application/problem+json` with `type`, `title`, `status`, stable `code` and field errors where applicable. Unexpected failures return a generic `500` problem without exception details.
 - State is retained in SQLite without expiration, version tokens or enforced disk quotas. Operations are serialized and use committed transactions; arrival order is not promised.
-- A storage failure returns generic `500 internal_error`, not `404`, `409` or a success in memory. If the response is lost after commit, a known ID can be retrieved to reconcile state. Retrying an unacknowledged create can produce another case.
+- A storage failure returns generic `500 internal_error`, not `404`, `409`, `422` or a success in memory. If the response is lost after commit, a known ID can be retrieved to reconcile state. Retrying an unacknowledged keyless create can produce another case; retain and reuse an optional creation key to reconcile without the generated ID.
 
 The existing `/` and `/health` endpoints retain their foundation behavior. See the [requirements and acceptance coverage](../requirements/phase-1-case-workflow.md) and [storage ADR](../adr/0004-use-sqlite-for-the-durable-local-workflow.md) for the exact contract and tradeoffs.
 
@@ -133,3 +150,5 @@ See [durability acceptance coverage](../requirements/phase-2-durable-case-workfl
 See [case browsing acceptance coverage](../requirements/phase-3-case-list.md#current-implementation-coverage) for ordering, page/failure boundaries and changes between requests.
 
 See [history and upgrade acceptance coverage](../requirements/phase-4-status-history.md#current-implementation-coverage) and [ADR 0005](../adr/0005-add-status-history-with-an-explicit-store-upgrade.md) for the schema, transaction and compatibility decisions.
+
+See [retry-safe creation coverage](../requirements/phase-5-retry-safe-creation.md#current-implementation-coverage) and [ADR 0006](../adr/0006-bind-creation-keys-in-the-local-case-store.md) for atomic binding, replay and direct-upgrade decisions.

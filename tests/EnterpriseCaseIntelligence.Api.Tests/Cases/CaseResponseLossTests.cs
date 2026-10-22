@@ -39,7 +39,7 @@ public class CaseResponseLossTests : CaseApiTest
             Assert.Equal(2, Database.Count());
             Assert.Equal(2L, Database.Scalar("SELECT count(DISTINCT id) FROM cases WHERE status='New'"));
             Assert.Equal(2L, Database.Scalar("SELECT count(*) FROM case_status_history WHERE sequence=1 AND kind='Created'"));
-            Assert.Equal(2, Database.Database.Inspect());
+            Assert.Equal(3, Database.Database.Inspect());
         }
         else
         {
@@ -54,6 +54,39 @@ public class CaseResponseLossTests : CaseApiTest
             Assert.Equal(history, StoredHistory(existing.Id));
             Assert.Equal(1, Database.Count());
         }
+    }
+
+    [Fact]
+    public async Task LostKeyedCreateResponseCanBeReconciledWithoutKnowingCaseId()
+    {
+        var key = Guid.NewGuid();
+        const string json = "{\"title\":\"Synthetic lost create\",\"description\":\"Synthetic retry\"}";
+        Factory.Dispose();
+        var filter = new LoseResponseFilter();
+        using (var factory = Database.CreateFactory().WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services => services.AddSingleton<IStartupFilter>(filter))))
+        using (var client = factory.CreateClient())
+        {
+            var failure = await Assert.ThrowsAnyAsync<Exception>(async () =>
+            {
+                using var ignored = await CaseKeyApiTests.SendAsync(client, json, [$"\"{key:D}\""]);
+            });
+            Assert.Contains("SIMULATED_RESPONSE_LOSS", failure.ToString());
+            Assert.True(filter.SuppressedSuccess);
+        }
+        using var reopened = Database.CreateFactory();
+        using var reader = reopened.CreateClient();
+        // The client has only its retained key and body, not the unacknowledged generated ID.
+        using var retry = await CaseKeyApiTests.SendAsync(reader, json, [$"\"{key:D}\""]);
+        Assert.Equal(HttpStatusCode.Created, retry.StatusCode);
+        var original = await ReadCaseAsync(retry);
+        Assert.Equal(PathFor(original.Id), retry.Headers.Location?.OriginalString);
+        Assert.Equal("New", original.Status);
+        Assert.Equal(1, Database.Count());
+        Assert.Equal(1L, Database.Scalar("SELECT count(*) FROM case_creation_keys"));
+        Assert.Single(new SqliteCaseStore(Database.Database).History(original.Id)!);
+        using var repeat = await CaseKeyApiTests.SendAsync(reader, json, [$"\"{key:D}\""]);
+        Assert.Equal(original, await ReadCaseAsync(repeat));
     }
 
     private sealed class LoseResponseFilter : IStartupFilter

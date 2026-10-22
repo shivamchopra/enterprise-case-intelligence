@@ -34,7 +34,7 @@ The existing domain boundary remains independent of HTTP and storage technology.
 - A successful status response means the requested status has committed, or the committed case already has that status. A later read or restart observes that status unless a subsequent valid request changed it.
 - Creation and each status operation are atomic for one case. Lookup, transition validation and update must prevent concurrent requests from bypassing domain rules or overwriting a later status with an earlier one. An in-memory lock alone is not evidence that a storage commit succeeded.
 - Validation failures, missing cases and rejected transitions leave committed state unchanged. A storage failure known to occur before commit leaves the previous committed state intact and creates no partial case.
-- Same-status requests remain successful no-ops, including after restart. Distinct successful creates with identical text remain separate cases. There is no creation idempotency key or stale-client/version-token feature.
+- Same-status requests remain successful no-ops, including after restart. Distinct successful creates with identical text remain separate cases. Phase 2 added no creation key or stale-client/version-token feature. [Phase 5](phase-5-retry-safe-creation.md) now adds optional creation keys while keeping keyless creates independent.
 
 Operations have a valid serialized order within the supported single application process; request arrival order is not promised. For example, two concurrent `InReview` requests for one new case both succeed, with the second observing an allowed no-op. Responses are snapshots of their own operation and cannot change during later serialization.
 

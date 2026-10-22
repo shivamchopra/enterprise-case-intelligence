@@ -1,12 +1,12 @@
-# Phase 5 proposal: retry-safe case creation
+# Phase 5 requirements: retry-safe case creation
 
-**Status: Reviewed requirements — not implemented.** Reviewed in PR #18. Phase 4 remains the runnable scope. [ADR 0006](../adr/0006-bind-creation-keys-in-the-local-case-store.md) proposes the storage/compatibility design and requires review before implementation. The current API does not deduplicate creates using a request key; repeating a create can produce another case.
+**Status: Reviewed and implemented.** Requirements were reviewed in PR #18 and [ADR 0006](../adr/0006-bind-creation-keys-in-the-local-case-store.md) in PR #19. The API supports optional durable creation keys and version-3 storage; see [current implementation coverage](#current-implementation-coverage).
 
-## Workflow assessment and proposed outcome
+## Workflow assessment and outcome
 
-The [current workflow](../usage/local-case-workflow.md) preserves case state and history after restart. Its [response-loss tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseResponseLossTests.cs) also show that a create can commit before the client receives its response. Without the generated ID, the client cannot reliably distinguish that case from another case with identical text. Retrying creates another independent case.
+Before Phase 5, the workflow preserved case state and history after restart. Its [response-loss tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseResponseLossTests.cs) also show that a create can commit before the client receives its response. Without the generated ID, the client cannot reliably distinguish that case from another case with identical text. Retrying creates another independent case.
 
-Propose an optional client-generated key for one logical `POST /cases` operation. A matching retry would return the original creation result without another case or history entry, including after response loss or API restart. These are local reference-project assumptions, not validated enterprise requirements.
+Use an optional client-generated key for one logical `POST /cases` operation. A matching retry returns the original creation result without another case or history entry, including after response loss or API restart. These are local reference-project assumptions, not validated enterprise requirements.
 
 This addresses a demonstrated failure boundary in the existing store. A new cloud deployment, broker or service would not by itself identify two requests as the same intended creation.
 
@@ -19,7 +19,7 @@ This addresses a demonstrated failure boundary in the existing store. A new clou
 - Do not add authentication, authorization, a generic response cache, TTL cleanup, key management endpoints, background workers, messaging, distributed locks, a server database, cloud hosting or AI.
 - The key is request metadata, not an actor identity, secret, permission, case ID or deduplication rule for every request with similar text. There is one key namespace for case creation in each configured store, without tenant/user scoping in this local demonstration.
 
-## Proposed request contract
+## Request contract
 
 Accept an optional `Idempotency-Key` HTTP request header containing **one quoted, non-empty hyphenated UUID**, for example:
 
@@ -35,7 +35,7 @@ The quotes are part of the header value. Header names follow normal case-insensi
 
 This is a project-specific restricted syntax and optional-key policy. The [IETF header draft](https://www.ietf.org/archive/id/draft-ietf-httpapi-idempotency-key-header-07.html) is a design reference, not a claim of full conformance; its [Datatracker record](https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/) identifies it as an expired Internet-Draft rather than an RFC. The contract here defines the supported behavior, including serialization of concurrent local requests instead of a separate in-progress response.
 
-Clients must choose a fresh key for each intended new case and retain it with the intended request until its outcome is resolved. Retrying the same logical creation uses the same key and equivalent normalized fields. Choosing a new key after losing a response can create a duplicate. This proposal does not change the requirement to correct malformed input before retrying.
+Clients must choose a fresh key for each intended new case and retain it with the intended request until its outcome is resolved. Retrying the same logical creation uses the same key and equivalent normalized fields. Choosing a new key after losing a response can create a duplicate. This feature does not change the requirement to correct malformed input before retrying.
 
 ### Input validation and request equality
 
@@ -47,7 +47,7 @@ An invalid request must not claim a key. A later valid request may use that stil
 
 ## Binding and replay behavior
 
-| Valid request | Proposed outcome |
+| Valid request | Outcome |
 | --- | --- |
 | No key | Existing independent create: `201`, new generated ID, one `Created` history entry and no key binding. |
 | Key has no committed binding | Atomically create the case, its `Created` entry and its durable binding to the normalized request; return the ordinary `201` result after commit. |
@@ -86,17 +86,15 @@ Request-time lookup/replay must be bounded to the matching binding and its case/
 
 Deleting/replacing/losing a store, unsupported concurrent processes, different stores and retries with new/omitted keys are outside the deduplication guarantee. This is a durable local retry contract, not a general exactly-once delivery claim or a sensitive-data permission boundary.
 
-## Existing stores and decision gate
+## Existing stores and compatibility decision
 
-Phase 4 initializes/hosts version 2 and explicitly upgrades version 1. The new design must preserve those existing cases and, for version 2, every existing history value. Older cases start without bindings; never infer keys from IDs, titles or history. Upgrading version 1 retains the reviewed honest-baseline rule, without inventing earlier transitions.
+Phase 4 initialized/hosted version 2 and explicitly upgraded version 1. [ADR 0006](../adr/0006-bind-creation-keys-in-the-local-case-store.md), reviewed in PR #19, selects version 3 with atomic bindings and direct offline upgrades from both source formats. Every original case value and version-2 history value is preserved. Version 1 retains the honest-baseline rule, without inventing earlier transitions. All old cases start without bindings; keys are never inferred from IDs, titles or history.
 
-A follow-on compatibility/storage ADR is required before implementation. It must select durable binding storage, the next format/version, exact validation, bounded lookup and explicit offline upgrade/inspection behavior for both supported older formats. Preserve the current no-overwrite initialization, no automatic startup migration, single-transaction upgrade/recovery and safe-refusal rules. Repeating an already-completed upgrade must not create bindings or duplicate baselines.
-
-Normal startup must never silently add bindings or reset a store. New inspection must validate committed bindings as well as cases/history. Existing public walkthrough commands remain Phase 4 commands until the design is reviewed and implemented; this proposal selects no new schema, package, layer or migration code.
+Normal startup accepts only version 3 and never upgrades, repairs or resets a store. Initialization refuses every existing file. `inspect-store` validates supported versions 1/2/3; `upgrade-store` upgrades a valid 1/2 source to 3 in one transaction and refuses version 3. Stop all store users first. After an uncertain outcome, inspect before another mutation: valid 1/2 is an uncommitted source, valid 3 is committed. See the [current walkthrough](../usage/local-case-workflow.md#inspect-and-upgrade-an-older-store).
 
 ## Acceptance criteria
 
-These are reviewed obligations, without new runtime behavior or test coverage claimed today.
+The reviewed obligations below are implemented; evidence is mapped after the criteria.
 
 | ID | Given / when | Required result |
 | --- | --- | --- |
@@ -113,12 +111,23 @@ These are reviewed obligations, without new runtime behavior or test coverage cl
 | P5-11 | Corrupt a binding, its result, target case or history, or make storage unavailable | Generic `500`, without replacement/rebind, false payload conflict or partial success; invalid HTTP input still fails before I/O. No production test/reset routes. |
 | P5-12 | Explicitly upgrade frozen version-1/version-2 stores, including empty/all-status/multi-batch inputs, and run setup plus the complete suite | Original case values and version-2 histories retained; version-1 baselines remain honest; old cases have no invented bindings. Upgrade failures/interruption leave a wholly supported old/new format. Existing lifecycle, list, history, root/health and all quality gates remain intact locally and in Linux CI. |
 
-## Review and implementation sequence
+## Current implementation coverage
 
-1. **Reviewed in PR #18:** optional-key behavior, syntax, normalized equality, `422`, original-result replay and retained-binding lifetime. Review the bounded corruption clarification with the storage design; amend assumptions explicitly if needed.
-2. **Proposed:** review [ADR 0006](../adr/0006-bind-creation-keys-in-the-local-case-store.md), including atomic binding ownership, supported old-format upgrades, inspection and uncertain-outcome recovery. Keep the existing production boundaries unless concrete requirements justify a change.
-3. Implement the focused create extension and actual-engine coverage, retaining existing keyless contracts. Use deterministic concurrency, response-loss and process-interruption controls, disposable stores and no arbitrary sleeps or production fault switches.
-4. Run restore, format verification, warnings-as-errors, Release build and the full suite; demonstrate key reuse after a lost response/restart and replay after later status changes.
-5. Update the walkthrough, architecture and implemented-scope README evidence only after the feature exists. Keep the profile on implemented Phase 4 until then.
+Tests run against disposable SQLite files, the real HTTP endpoints and real API/upgrade child processes. Domain remains unchanged. The binding table and format-3 commands are implemented within Api, without a new package, production project, background service or production fault switch.
 
-Requirements are reviewed; the storage design remains proposed. No runtime behavior, schema, upgrade, dependency, infrastructure or test framework is added by these documents.
+| Criteria | Automated evidence |
+| --- | --- |
+| P5-01 | [Key API tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseKeyApiTests.cs): keyless and distinct-key requests remain independent, with one `Created` entry each. |
+| P5-02 | Key API tests verify generated IDs, four-field `201`, Location and absence of key response metadata; [failure tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseKeyFailureTests.cs) reopen all three committed tables. |
+| P5-03 | Key API tests replay reordered/escaped JSON, trimmed text, uppercase hex and case-insensitive header names without changing database bytes. |
+| P5-04 | Key API tests reject changed fields, case/internal spaces and distinct Unicode/NUL suffixes with safe `422`, preserving the original binding. |
+| P5-05 | Key API tests cover malformed/repeated/list/empty headers, invalid JSON/fields/limits/media, known keys while storage is offline, and corrected requests using previously unclaimed keys. [Real HTTP header tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseKeyProtocolTests.cs) cover supplied empty/whitespace-only and repeated values. |
+| P5-06 | Key API tests replay at New/InReview/Closed, retaining current case/history; a replacement store with a throwing clock proves no replay or mismatch clock read. |
+| P5-07 | Key API tests coordinate simultaneous equal/differing requests with a barrier, verify one winner/replay or `422`, and exercise independent stores. Failure tests verify unique-key/target and foreign-key enforcement. |
+| P5-08 | Key failure tests use actual SQLite triggers with ABORT/IGNORE on each of the three writes plus a commit-lock failure; reopened connections see no partial records and the same-key retry creates one result. Constraint failures remain `500`. |
+| P5-09 | [Response-loss tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseResponseLossTests.cs) discard the committed keyed-create response, restart and retry without its ID. [Process recovery](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseProcessRecoveryTests.cs) separately force-kills the API after acknowledged keyed writes and replays the original `New` result while current state stays Closed. |
+| P5-10 | Key API tests replace the store/connection and control equal/backward/advanced clock values; retained keys replay without consulting the clock. |
+| P5-11 | Key failure tests damage selected targets/history/provenance/IDs and duplicate a selected row; equal and differing requests fail safely before replay/mismatch, without repair. An unrelated invalid binding leaves bounded lookup usable but fails offline inspection; a 205-binding fixture verifies inspection past two batches. Key API tests cover offline storage. |
+| P5-12 | [Key upgrade tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseKeyUpgradeTests.cs) use frozen versions 1/2 in UTF-8/UTF-16, empty/all-status/205-case inputs, exact version-2 history fields, no clock or inferred keys, invalid sources and commit-lock rollback for both formats. [Existing upgrade tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseStoreUpgradeTests.cs) fail after DDL/partial baselines; [upgrade process tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseUpgradeProcessTests.cs) kill a controlled in-progress upgrade and reconcile lost completion from both source formats. |
+
+The complete suite retains the existing lifecycle, list, history, foundation and process-recovery checks. Restore, format verification, warnings-as-errors, Release build and all tests are required locally and in Linux CI. These establish the stated local process/retained-file behavior, not power-loss recovery, external tamper detection or production readiness.

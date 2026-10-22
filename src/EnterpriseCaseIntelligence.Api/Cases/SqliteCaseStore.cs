@@ -9,12 +9,26 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
     private readonly TimeProvider _clock = timeProvider ?? TimeProvider.System;
 
     public CaseSnapshot Create(string title, string description)
+        => Create(title, description, null).Case!;
+
+    public CaseCreation Create(string title, string description, Guid? key)
+        => Create(new Case(title, description), key);
+
+    internal CaseCreation Create(Case record, Guid? key)
     {
+        if (key == Guid.Empty) throw new ArgumentException("Use a non-empty creation key.", nameof(key));
         lock (_gate)
         {
-            var record = new Case(title, description);
             using var connection = database.Open();
             using var transaction = connection.BeginTransaction(deferred: false);
+            if (key is { } requested && CaseCreationKeys.Find(connection, transaction, requested) is { } original)
+            {
+                if (!string.Equals(record.Title, original.Title, StringComparison.Ordinal) ||
+                    !string.Equals(record.Description, original.Description, StringComparison.Ordinal)) return new(null, true);
+                transaction.Commit();
+                return new(new(original.Id, original.Title, original.Description, CaseStatus.New), false);
+            }
+
             using var command = connection.CreateCommand();
             command.Transaction = transaction;
             command.CommandText = "INSERT INTO cases (id, title, description, status) VALUES ($id, $title, $description, $status)";
@@ -28,8 +42,9 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
             }
 
             CaseHistory.Insert(connection, transaction, record.Id, CaseHistory.Record(1, "Created", null, record.Status, _clock));
+            if (key is { } unbound) CaseCreationKeys.Insert(connection, transaction, unbound, record.Id);
             transaction.Commit();
-            return Snapshot(record);
+            return new(Snapshot(record), false);
         }
     }
 
@@ -151,7 +166,7 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
         }
     }
 
-    private static Case? Read(SqliteConnection connection, Guid id, SqliteTransaction? transaction = null)
+    internal static Case? Read(SqliteConnection connection, Guid id, SqliteTransaction? transaction = null)
     {
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
@@ -190,3 +205,5 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
 }
 
 public sealed record CaseStatusChange(CaseSnapshot? Case, bool IsConflict);
+
+public sealed record CaseCreation(CaseSnapshot? Case, bool IsKeyReused);

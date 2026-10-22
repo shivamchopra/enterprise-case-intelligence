@@ -2,11 +2,11 @@
 
 ## Status
 
-**Accepted — implemented for the local Phase 4 workflow.** Reviewed in PR #16 following the [Phase 4 requirements](../requirements/phase-4-status-history.md), reviewed in PR #15. The current executable initializes/hosts version 2 and explicitly upgrades version 1.
+**Accepted — implemented for the local Phase 4 workflow.** Reviewed in PR #16 following the [Phase 4 requirements](../requirements/phase-4-status-history.md), reviewed in PR #15. At Phase 4, the executable initialized/hosted version 2 and explicitly upgraded version 1.
 
 This amends [ADR 0004](0004-use-sqlite-for-the-durable-local-workflow.md): introduce history and an explicit version-1 → version-2 upgrade. Retain SQLite, the current application boundaries, connection ownership, synchronization, journaling and recovery limits. It does not supersede the whole storage decision.
 
-[ADR 0006](0006-bind-creation-keys-in-the-local-case-store.md) proposes a Phase 5 amendment for creation-key bindings and direct version-1/version-2 → version-3 upgrades. It is not implemented; this record still describes the current version-2 workflow.
+[ADR 0006](0006-bind-creation-keys-in-the-local-case-store.md) is the implemented Phase 5 amendment for creation-key bindings and direct version-1/version-2 → version-3 upgrades. This record retains the historical version-2 decision; current commands are documented in the walkthrough.
 
 ## Context
 
@@ -79,7 +79,7 @@ Extend the existing Api executable, using the same `CaseStorage:DatabasePath` co
 
 `inspect-store` resolves an uncertain upgrade result without guessing from a failed command or attempting a second mutation. Use one deferred read transaction to validate exact schema, engine integrity, all case values and, for version 2, foreign keys and every history chain before reporting success. Stream validation one case at a time, retaining at most four entries per case and closing batch readers before further queries on the connection. This offline scan has no promised duration. Open through the normal existing-file connection settings; SQLite may perform its own journal recovery. Inspection is not a promise of zero filesystem writes, but it does not initialize, upgrade, repair or change committed cases/history/version.
 
-Missing, empty, corrupt, unsupported or inaccessible files produce a concise diagnostic and nonzero exit in inspection/upgrade modes. Do not print paths, SQL, records or stack traces. Do not start a listener, auto-create a replacement or delete journals. These command modes are demonstrated in the [current walkthrough](../usage/local-case-workflow.md#inspect-and-upgrade-a-version-1-store).
+Missing, empty, corrupt, unsupported or inaccessible files produce a concise diagnostic and nonzero exit in inspection/upgrade modes. Do not print paths, SQL, records or stack traces. Do not start a listener, auto-create a replacement or delete journals. These command modes are demonstrated in the [current walkthrough](../usage/local-case-workflow.md#inspect-and-upgrade-an-older-store).
 
 ### Version-1 upgrade transaction
 

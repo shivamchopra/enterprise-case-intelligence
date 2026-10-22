@@ -96,7 +96,7 @@ public class CaseStoreLifecycleTests(ITestOutputHelper output)
         var before = File.ReadAllBytes(fixture.Path);
         fixture.Database.ValidateStartup();
         Assert.Equal(before, File.ReadAllBytes(fixture.Path));
-        Assert.Equal(2L, fixture.Scalar("PRAGMA user_version"));
+        Assert.Equal(3L, fixture.Scalar("PRAGMA user_version"));
         Assert.Equal("delete", fixture.Scalar("PRAGMA journal_mode"));
         Assert.Equal(2L, fixture.Scalar("PRAGMA synchronous"));
         var version = Version.Parse((string)fixture.Scalar("SELECT sqlite_version()")!);

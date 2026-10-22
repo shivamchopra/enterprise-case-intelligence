@@ -35,7 +35,7 @@ Out of scope for the original Phase 1 slice: listing/search/pagination, editing 
 
 Length limits use .NET string length after trimming. Null, missing, non-string and whitespace-only title/description values are invalid. Preserve internal whitespace. No timestamps, user identifiers or external references are required in this slice.
 
-Clients cannot supply an identifier or initial status. Creation accepts only `title` and `description`; unknown properties are rejected. Property names are case-sensitive and duplicate properties are rejected to avoid ambiguous input. Distinct successful create requests produce distinct identifiers, even when the text is identical. Duplicate detection and retry/idempotency keys are deferred.
+Clients cannot supply an identifier or initial status. Creation accepts only `title` and `description`; unknown properties are rejected. Property names are case-sensitive and duplicate properties are rejected to avoid ambiguous input. Distinct successful create requests produce distinct identifiers, even when the text is identical. Retry/idempotency keys were deferred in Phase 1. [Phase 5](phase-5-retry-safe-creation.md) adds optional creation keys; keyless requests retain these independent-create semantics.
 
 ## Lifecycle rules
 
