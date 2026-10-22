@@ -62,4 +62,49 @@ public class CaseProcessRecoveryTests
             Assert.Equal(histories[expected.Id], await CaseHistoryApiTests.ReadHistoryAsync(reader, expected.Id));
         }
     }
+    [Fact]
+    public async Task KeyedCreationReplaysOriginalAfterAcknowledgedWritesAndForcedApiTermination()
+    {
+        using var database = new TemporaryCaseDatabase();
+        var key = Guid.NewGuid();
+        const string json = "{\"title\":\"Synthetic process retry\",\"description\":\"Synthetic durable key\"}";
+        string original;
+        string? location;
+        Guid id;
+        CaseHistoryApiTests.HistoryValue[] history;
+        using (var process = await ApiProcess.StartAsync(database.Path))
+        using (var client = new HttpClient { BaseAddress = process.Address, Timeout = TimeSpan.FromSeconds(10) })
+        {
+            using var created = await CaseKeyApiTests.SendAsync(client, json, [$"\"{key:D}\""]);
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+            original = await created.Content.ReadAsStringAsync();
+            location = created.Headers.Location?.OriginalString;
+            using var body = JsonDocument.Parse(original);
+            id = body.RootElement.GetProperty("id").GetGuid();
+            foreach (var status in new[] { "InReview", "Closed" })
+            {
+                using var changed = await client.PutAsJsonAsync($"/cases/{id:D}/status", new { status });
+                Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+            }
+            history = await CaseHistoryApiTests.ReadHistoryAsync(client, id);
+            await process.KillAsync();
+        }
+        using var restarted = await ApiProcess.StartAsync(database.Path);
+        using var reader = new HttpClient { BaseAddress = restarted.Address, Timeout = TimeSpan.FromSeconds(10) };
+        using var retry = await CaseKeyApiTests.SendAsync(reader, json, [$"\"{key:D}\""]);
+        Assert.Equal(HttpStatusCode.Created, retry.StatusCode);
+        Assert.Equal(location, retry.Headers.Location?.OriginalString);
+        using var originalBody = JsonDocument.Parse(original);
+        using var replay = JsonDocument.Parse(await retry.Content.ReadAsStringAsync());
+        Assert.Equal(4, replay.RootElement.EnumerateObject().Count());
+        foreach (var name in new[] { "id", "title", "description", "status" })
+            Assert.Equal(originalBody.RootElement.GetProperty(name).GetString(), replay.RootElement.GetProperty(name).GetString());
+        using var current = await reader.GetAsync(location);
+        using var currentBody = JsonDocument.Parse(await current.Content.ReadAsStringAsync());
+        Assert.Equal("Closed", currentBody.RootElement.GetProperty("status").GetString());
+        Assert.Equal(history, await CaseHistoryApiTests.ReadHistoryAsync(reader, id));
+        Assert.Equal(1, database.Count());
+        Assert.Equal(1L, database.Scalar("SELECT count(*) FROM case_creation_keys"));
+    }
+
 }

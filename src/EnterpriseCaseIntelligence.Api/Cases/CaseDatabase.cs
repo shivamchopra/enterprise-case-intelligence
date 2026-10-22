@@ -45,7 +45,8 @@ public sealed class CaseDatabase
         using var transaction = connection.BeginTransaction(deferred: false);
         Execute(connection, Schema, transaction);
         Execute(connection, CaseHistory.Schema, transaction);
-        Execute(connection, "PRAGMA user_version=2", transaction);
+        Execute(connection, CaseCreationKeys.Schema, transaction);
+        Execute(connection, "PRAGMA user_version=3", transaction);
         transaction.Commit();
     }
 
@@ -54,13 +55,13 @@ public sealed class CaseDatabase
         using var connection = Open();
         using (var validation = connection.BeginTransaction(deferred: true))
         {
-            if (ValidateFormat(connection, validation) != 2) throw new InvalidDataException("Upgrade the version-1 store explicitly.");
+            if (ValidateFormat(connection, validation) != 3) throw new InvalidDataException("Upgrade the older store explicitly.");
             validation.Commit();
         }
 
         // Exercise journal creation, then roll back without changing committed metadata.
         using var transaction = connection.BeginTransaction(deferred: false);
-        Execute(connection, "PRAGMA user_version=2", transaction);
+        Execute(connection, "PRAGMA user_version=3", transaction);
         transaction.Rollback();
     }
 
@@ -69,7 +70,8 @@ public sealed class CaseDatabase
         using var connection = Open();
         using var transaction = connection.BeginTransaction(deferred: true);
         var version = ValidateFormat(connection, transaction);
-        ValidateCases(connection, transaction, version == 2);
+        ValidateCases(connection, transaction, version >= 2);
+        if (version == 3) CaseCreationKeys.Inspect(connection, transaction);
         transaction.Commit();
         return version;
     }
@@ -78,35 +80,42 @@ public sealed class CaseDatabase
     {
         using var connection = Open();
         using var transaction = connection.BeginTransaction(deferred: false);
-        if (ValidateFormat(connection, transaction) != 1) throw new InvalidDataException("Only version-1 stores can be upgraded.");
-        ValidateCases(connection, transaction, history: false);
-        Execute(connection, CaseHistory.Schema, transaction);
-        Guid? after = null;
-        while (true)
+        var version = ValidateFormat(connection, transaction);
+        if (version is not (1 or 2)) throw new InvalidDataException("Only older stores can be upgraded.");
+        ValidateCases(connection, transaction, history: version == 2);
+        if (version == 1)
         {
-            var batch = ReadBatch(connection, transaction, after);
-            if (batch.Count == 0) break;
-            foreach (var record in batch)
+            Execute(connection, CaseHistory.Schema, transaction);
+            Guid? after = null;
+            while (true)
             {
-                CaseHistory.Insert(connection, transaction, record.Id,
-                    CaseHistory.Record(1, "Baseline", null, record.Status, _clock));
-            }
+                var batch = ReadBatch(connection, transaction, after);
+                if (batch.Count == 0) break;
+                foreach (var record in batch)
+                {
+                    CaseHistory.Insert(connection, transaction, record.Id,
+                        CaseHistory.Record(1, "Baseline", null, record.Status, _clock));
+                }
 
-            after = batch[^1].Id;
+                after = batch[^1].Id;
+            }
         }
 
-        Execute(connection, "PRAGMA user_version=2", transaction);
-        if (ValidateFormat(connection, transaction) != 2) throw new InvalidDataException("Invalid upgraded store.");
+        Execute(connection, CaseCreationKeys.Schema, transaction);
+        Execute(connection, "PRAGMA user_version=3", transaction);
+        if (ValidateFormat(connection, transaction) != 3) throw new InvalidDataException("Invalid upgraded store.");
         ValidateCases(connection, transaction, history: true);
+        CaseCreationKeys.Inspect(connection, transaction);
         transaction.Commit();
     }
 
     private static long ValidateFormat(SqliteConnection connection, SqliteTransaction transaction)
     {
-        if (Scalar(connection, "PRAGMA user_version", transaction) is not long version || version is not (1 or 2))
+        if (Scalar(connection, "PRAGMA user_version", transaction) is not long version || version is not (1 or 2 or 3))
             throw new InvalidDataException("Unsupported case store version.");
         var expected = new Dictionary<string, string>(StringComparer.Ordinal) { ["cases"] = Schema };
-        if (version == 2) expected.Add("case_status_history", CaseHistory.Schema);
+        if (version >= 2) expected.Add("case_status_history", CaseHistory.Schema);
+        if (version == 3) expected.Add("case_creation_keys", CaseCreationKeys.Schema);
         using (var command = connection.CreateCommand())
         {
             command.Transaction = transaction;

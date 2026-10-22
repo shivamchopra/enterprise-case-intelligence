@@ -2,9 +2,9 @@
 
 ## Status
 
-**Proposed — not implemented.** Follows the [Phase 5 requirements](../requirements/phase-5-retry-safe-creation.md), reviewed in PR #18. Phase 4 and schema version 2 remain the current runnable implementation.
+**Accepted — implemented for Phase 5.** Requirements were reviewed in PR #18 and this storage design in PR #19. The executable initializes/hosts version 3 and explicitly upgrades versions 1 and 2. See [implementation coverage](../requirements/phase-5-retry-safe-creation.md#current-implementation-coverage).
 
-This proposes a focused amendment to [ADR 0005](0005-add-status-history-with-an-explicit-store-upgrade.md): add durable creation-key bindings, original-result replay and explicit upgrades from versions 1 and 2 to version 3. Keep the SQLite choice and operating/recovery limits from [ADR 0004](0004-use-sqlite-for-the-durable-local-workflow.md).
+This is a focused amendment to [ADR 0005](0005-add-status-history-with-an-explicit-store-upgrade.md): add durable creation-key bindings, original-result replay and explicit upgrades from versions 1 and 2 to version 3. Keep the SQLite choice and operating/recovery limits from [ADR 0004](0004-use-sqlite-for-the-durable-local-workflow.md).
 
 ## Context
 
@@ -12,7 +12,7 @@ A create can commit before the client receives its generated case ID. Phase 5 re
 
 The existing model makes IDs and normalized case text immutable; only status changes. Thus the durable case already retains the original ID/title/description, and a valid `Created` history start establishes its creation provenance. This permits a small binding table instead of copied request bodies, response JSON, payload hashes or a generic idempotency service.
 
-## Proposed decision
+## Decision
 
 ### Schema and original-result representation
 
@@ -75,7 +75,7 @@ Do not expire or evict bindings. Clock changes and host replacement never releas
 
 Keep existing-file ReadWrite access, private cache, disabled pooling, five-second provider timeout, verified foreign keys, DELETE journaling and FULL synchronization. After implementation, recognize formats by exact version and non-internal schema definitions; reject extra/missing/modified objects. Do not trust `user_version` alone or use `CREATE TABLE IF NOT EXISTS` to bypass a mismatch.
 
-| Proposed mode after implementation | Behavior |
+| Mode | Behavior |
 | --- | --- |
 | `init-store` | Reserve a new path exclusively; create all three tables and version 3 atomically. Refuse every existing file. |
 | Normal hosting | Accept only exact version 3, with existing integrity/FK checks and rolled-back write probe; refuse versions 1/2 with safe explicit-upgrade guidance. |
@@ -96,13 +96,13 @@ Within one non-deferred write transaction:
 4. Set `user_version=3` in that transaction, validate the exact target format/data and empty binding set, then commit once. Preserve original case values and every version-2 history value. Do not commit an intermediate version-2 store when upgrading version 1, commit per batch or set metadata outside the transaction.
 5. Report `Case store upgraded.` only after commit. A known failure rolls back the whole change. After interruption, commit error or lost completion output, stop processes and inspect first: a valid source version may be retried deliberately; valid version 3 must not be upgraded again; an invalid result requires investigation without deleting journals or resetting storage.
 
-Retain the one-way compatibility rule: old executables refuse version 3, and no downgrade or automatic backup/copy/restore is added. Upgrade/inspection introduce no listener, cloud resource or SQLite CLI prerequisite. Diagnostics must not disclose keys, IDs, text, SQL, paths or stack traces. These version-3 commands are proposed behavior, not available in today's Phase 4 walkthrough.
+Retain the one-way compatibility rule: old executables refuse version 3, and no downgrade or automatic backup/copy/restore is added. Upgrade/inspection introduce no listener, cloud resource or SQLite CLI prerequisite. Diagnostics must not disclose keys, IDs, text, SQL, paths or stack traces. These version-3 commands are available in the [current walkthrough](../usage/local-case-workflow.md).
 
 ## Alternatives considered
 
 | Option | Judgment for this slice |
 | --- | --- |
-| Two-column binding + immutable case + `Created` provenance | Proposed: stores only ownership, reuses durable request values and supports original `New` replay. Depends on immutable text and unchanged creation representation. |
+| Two-column binding + immutable case + `Created` provenance | Selected: stores only ownership, reuses durable request values and supports original `New` replay. Depends on immutable text and unchanged creation representation. |
 | Copy request fields and a response snapshot into the binding | Retains separate originals if cases later become editable, but duplicates current immutable data and adds cross-copy validation without a reviewed editing requirement. Revisit with that requirement. |
 | Payload hash as the only equality evidence | Adds canonical encoding/hash decisions and collision handling where exact normalized strings are already available. No hash is selected. |
 | In-memory dictionary or generic HTTP response cache | Cannot supply durable atomic ownership with the case/history commit or restart recovery. |
@@ -112,7 +112,7 @@ Retain the one-way compatibility rule: old executables refuse version 3, and no 
 
 ## Required implementation evidence
 
-The future implementation must cover every [P5-01–12 criterion](../requirements/phase-5-retry-safe-creation.md#acceptance-criteria), including:
+The implementation evidence covers every [P5-01–12 criterion](../requirements/phase-5-retry-safe-creation.md#acceptance-criteria), including:
 
 - Strict header/body/media validation before I/O, including known keys while storage is unavailable. Corrected invalid requests must be able to use an unbound key.
 - Exact ordinal normalized comparisons for quotes, NULs, supplementary Unicode and distinct Unicode sequences; equivalent JSON formatting and surrounding trimmed text must replay correctly.
@@ -124,12 +124,12 @@ The future implementation must cover every [P5-01–12 criterion](../requirement
 - Frozen version-1 and version-2 fixtures, including empty/all-status/multi-batch cases and supported UTF-8/UTF-16 encodings; byte-for-byte equality of individual version-2 history field values after upgrade, without requiring identical whole-file bytes. All old cases start without keys, and new keyed/keyless creation works afterward.
 - Upgrade failure after DDL/baselines and after the version write but before commit for both source formats; process interruption during a controlled upgrade and lost completion after commit. Inspection must find a wholly supported source or version 3, without an intermediate version-2 commit for a version-1 upgrade. Keep barriers/fault controls in test fixtures, never production flags.
 
-Preserve restore, format verification, zero-warning Release build and the full existing domain/API/storage/process suite locally and in Linux CI. Update the walkthrough with quoted-key examples, original-result versus current-state behavior, explicit direct upgrades and inspection recovery after implementation. Keep public implemented-scope evidence on Phase 4 until then.
+Preserve restore, format verification, zero-warning Release build and the full existing domain/API/storage/process suite locally and in Linux CI. Update the walkthrough with quoted-key examples, original-result versus current-state behavior, explicit direct upgrades and inspection recovery after implementation. The README and walkthrough describe the implemented Phase 5 scope.
 
-**Design-time feasibility check:** a disposable probe using the existing provider and bundled SQLite 3.53.3 exercised this exact DDL. Version-1 and version-2 inputs in both UTF-8 and UTF-16 rolled back to their source format after a controlled failure following the version write, then committed directly to version 3. Original case values and all fields of multi-entry version-2 histories were retained; version-1 cases received only baselines. Three-way creation/history/binding rollback and original-`New` projection after a later status change passed. Fourteen invalid/duplicate/orphan binding attempts were rejected, including a hidden NUL suffix. The current executable refused version 3 as expected. This checks SQL feasibility, not an implemented upgrade command, HTTP behavior, races or process-interruption coverage; the implementation evidence above remains required.
+**Design-time feasibility check:** a disposable probe using the existing provider and bundled SQLite 3.53.3 exercised this exact DDL. Version-1 and version-2 inputs in both UTF-8 and UTF-16 rolled back to their source format after a controlled failure following the version write, then committed directly to version 3. Original case values and all fields of multi-entry version-2 histories were retained; version-1 cases received only baselines. Three-way creation/history/binding rollback and original-`New` projection after a later status change passed. Fourteen invalid/duplicate/orphan binding attempts were rejected, including a hidden NUL suffix. The then-current Phase 4 executable refused version 3 as expected. That probe checked SQL feasibility. The current implementation coverage linked above supplies HTTP, command, race and recovery evidence.
 
 ## Consequences and revisit triggers
 
-This proposal adds one small table, a bounded creation lookup/outcome and one newest-format upgrade path within Api. It adds no production project, package, ORM, cache service or deployment capability. One binding per keyed case consumes durable disk without expiry or quotas. Inspection/upgrade remain synchronous offline scans.
+This decision adds one small table, a bounded creation lookup/outcome and one newest-format upgrade path within Api. It adds no production project, package, ORM, cache service or deployment capability. One binding per keyed case consumes durable disk without expiry or quotas. Inspection/upgrade remain synchronous offline scans.
 
 Revisit before allowing text edits/deletion, changing the creation response, expiring/releasing keys, introducing user/tenant namespaces, sharing stores between processes or using external side effects. The design is a local retry contract, not exactly-once distributed delivery, tamper evidence, authorization, power-loss recovery or production readiness.

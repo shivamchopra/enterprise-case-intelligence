@@ -90,6 +90,7 @@ public abstract class CaseApiTest : IDisposable
             HttpStatusCode.BadRequest => "Bad Request",
             HttpStatusCode.NotFound => "Not Found",
             HttpStatusCode.Conflict => "Conflict",
+            HttpStatusCode.UnprocessableEntity => "Unprocessable Content",
             HttpStatusCode.UnsupportedMediaType => "Unsupported Media Type",
             HttpStatusCode.InternalServerError => "Internal Server Error",
             _ => throw new ArgumentOutOfRangeException(nameof(expectedStatus))

@@ -15,10 +15,10 @@ internal static class LegacyCaseStore
         ) STRICT
         """;
 
-    internal static CaseSnapshot[] Initialize(TemporaryCaseDatabase fixture, int count = 3)
+    internal static CaseSnapshot[] Initialize(TemporaryCaseDatabase fixture, int count = 3, string encoding = "UTF-8")
     {
         using (new FileStream(fixture.Path, FileMode.CreateNew)) { }
-        fixture.Execute(Schema + "; PRAGMA user_version=1");
+        fixture.Execute($"PRAGMA encoding=\"{encoding}\"; " + Schema + "; PRAGMA user_version=1");
         var records = new List<CaseSnapshot>();
         for (var index = 0; index < count; index++)
         {
