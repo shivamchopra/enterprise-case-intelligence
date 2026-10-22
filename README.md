@@ -16,6 +16,7 @@ Enterprise case processes span legacy systems, fragmented information and manual
 
 - Demonstrate .NET engineering through runnable code, tests and documented tradeoffs.
 - Add architecture when requirements justify it.
+- Use EF Core Code First as the persistence direction; [adoption is the next task](docs/tasks/ef-core-code-first-adoption.md).
 - Evolve toward secure cloud deployment, asynchronous integration and trustworthy AI in later phases.
 
 ## Current Implemented Scope
@@ -134,7 +135,7 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 ## Roadmap
 
 - **Now:** [retry-safe creation and upgrade coverage](docs/requirements/phase-5-retry-safe-creation.md#current-implementation-coverage), durable status history, case browsing and process-recovery checks.
-- **Next:** assess the next concrete workflow or operational need before selecting another implementation slice.
+- **Next — planned:** [adopt EF Core Code First](docs/tasks/ef-core-code-first-adoption.md) for the existing persistence, initialization and upgrades. Use model-driven migrations and EF queries wherever supported; the current runtime still uses direct SQLite access.
 - **Later:** evaluate the planned capabilities against concrete needs and operational tradeoffs.
 
 ## Security and Privacy
