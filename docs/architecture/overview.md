@@ -85,6 +85,10 @@ Phase 3 changed no domain, package, schema/index/version or architecture boundar
 
 History tests cover all lifecycle cells, safe failures, immutable prior views, controlled equal/backward clock values, rollback at both write boundaries and retained history after force-killing the API. Upgrade tests use frozen version-1 fixtures, cross batch boundaries, fail after DDL/partial baselines, and force a commit lock failure. The test-only child executable blocks on a named pipe during a real upgrade; killing it verifies old-format recovery. A separate control suppresses completion after a real commit and reconciles format 4 through inspection. Phase 5 extends these checks with UTF-8/UTF-16 source fixtures, exact history preservation, all three creation write boundaries, coordinated key races, unknown-ID response loss and keyed replay after API termination. EF adoption adds frozen version-3 bindings, migration metadata validation, STRICT enforcement and rollback of metadata from all older sources. These checks establish local process behavior, without power-loss or production audit guarantees.
 
+## Next local reliability slice — proposed, not implemented
+
+[Phase 6 readiness requirements](../requirements/phase-6-storage-readiness.md) address the demonstrated gap between a responsive host and available storage. The proposal adds a separate `/health/ready` contract with fixed format/EF-metadata checks and a rollback-only write probe, finite work/waits and generic `200`/`503` output. It keeps `/health` storage-independent and leaves deep whole-store validation to the offline inspector. No readiness endpoint, storage-format change or monitoring deployment is implemented by the proposal.
+
 ## Conceptual future direction — not implemented
 
 ```mermaid
