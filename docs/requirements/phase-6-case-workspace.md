@@ -1,6 +1,6 @@
 # Phase 6 requirements: local browser case workspace
 
-**Status: Proposed requirements — not implemented.** The [project assessment](../roadmap.md) prioritizes a complete local case journey. The runnable baseline remains the Phase 5 API with EF Core Code First; there is no browser UI today.
+**Status: Reviewed requirements — local browser workflow implemented.** The [project assessment](../roadmap.md) prioritizes a complete local case journey. Phase 6 adds the workspace to the existing API/EF Core Code First baseline, without changing format 4. [ADR 0008](../adr/0008-serve-a-local-browser-case-workspace.md) records the same-host implementation and browser-test approach.
 
 ## Scenario and outcome
 
@@ -58,6 +58,18 @@ No new case fields, search, editing, comments, attachment, assignment, identity,
 
 ## Delivery and evidence
 
-Document the smallest same-host UI approach and reproducible browser-test setup in an ADR before runtime implementation. Choose tools for this workflow rather than scaffolding speculative layers. Use disposable stores and deterministic test coordination; keep fault controls outside production routes. Exercise real browser interactions against the real API for the core journey; HTTP/markup assertions alone do not establish that controls work.
+ADR 0008 selects plain HTML/CSS/JavaScript embedded in Api, explicit workspace asset routes and Microsoft.Playwright in the existing xUnit API test project. Tests use disposable stores and deterministic network coordination outside production routes. Real Chromium exercises the actual loopback API; CI also runs it from published output in an unrelated working directory.
 
-When the workspace ships, update this document with evidence links and the README/local walkthrough with the browser entry point and a short synthetic scenario. Until then, keep implemented-scope tables and the profile on the existing API capability. This proposal changes priority and acceptance expectations only.
+## Current implementation coverage
+
+| Criteria | Evidence |
+| --- | --- |
+| CW-01, CW-09 | [Mapped-asset tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Workspace/WorkspaceEndpointTests.cs) cover media types, browser headers and unmapped paths. [Browser CI](../../.github/workflows/ci.yml) publishes Api and runs the journey from unrelated test output. [ADR 0008](../adr/0008-serve-a-local-browser-case-workspace.md) explains embedded publication. |
+| CW-02 | `PaginationFiltersAndRefreshNeverLoadTheWholeCollection` in [browser tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Workspace/WorkspaceBrowserTests.cs) covers 25 cases, default-sized pages, all status filters, ordering, continuation/reset and no automatic traversal. Existing API tests retain query/materialization guarantees. |
+| CW-03–04 | Browser creation/validation, lost committed response and uncertain-draft/key-mismatch tests cover field feedback, retained drafts, frozen payload/key reuse, explicit replacement acknowledgment and retrieval of current Closed state after replay. Real SQLite counts confirm one retained case/binding. |
+| CW-05 | Browser journey covers creation, both transitions, history and host restart. The upgraded-baseline test uses a frozen legacy store and the real offline upgrade. |
+| CW-06–07 | Browser tests cover real conflict, independent read failures/recovery, confirmed writes followed by failed reads, deliberately delayed filter/selection responses and disabled duplicate mutations. |
+| CW-08 | Safe-rendering test exercises keyboard access, HTML-looking/Unicode data, narrow viewport/text enlargement, no persistent browser storage and same-origin requests. Manual screenshot review supplements Chromium checks; this is not a full accessibility or cross-browser certification. |
+| CW-10 | Existing Domain/API/SQLite/process gates remain, with workspace endpoint and real-browser tests added. See [contribution commands](../../CONTRIBUTING.md) and the [browser walkthrough](../usage/local-case-workflow.md#browser-workspace). |
+
+The client uses generation checks to discard obsolete reads and a 15-second fetch timeout. A browser timeout/cancellation does not prove a server write was canceled: creation retains its frozen key/payload for explicit retry, and uncertain status changes require reading current state before another action. Draft/key state is memory-only; no cross-reload recovery is promised. Server-side transaction and commit-before-success behavior remain unchanged.

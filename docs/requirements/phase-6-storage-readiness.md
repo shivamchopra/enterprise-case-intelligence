@@ -2,7 +2,7 @@
 
 **Status: Deferred requirements — not implemented.** Originally proposed for Phase 6, this is retained for a future hosting/operability slice. The [project reassessment](../roadmap.md) prioritizes the [local browser workspace](phase-6-case-workspace.md) instead. The filename and P6 criterion IDs are retained for traceability to the reviewed proposal; they do not reserve the next phase.
 
-The runnable baseline remains Phase 5 with EF Core Code First and format 4. This proposes a separate storage-readiness endpoint; `/health` currently reports host liveness only.
+The proposal was written against Phase 5 with EF Core Code First and format 4; the current browser workspace reuses that storage baseline. This proposes a separate storage-readiness endpoint; `/health` currently reports host liveness only.
 
 ## Assessment and outcome
 

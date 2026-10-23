@@ -19,3 +19,4 @@ Future meaningful choices should receive ADRs when they are evaluated and select
 | [0005: Add status history with an explicit store upgrade](0005-add-status-history-with-an-explicit-store-upgrade.md) | Accepted — implemented |
 | [0006: Bind creation keys in the local case store](0006-bind-creation-keys-in-the-local-case-store.md) | Accepted — implemented |
 | [0007: Adopt EF Core Code First](0007-adopt-ef-core-code-first.md) | Accepted — implemented |
+| [0008: Serve a local browser case workspace](0008-serve-a-local-browser-case-workspace.md) | Accepted — implemented |

@@ -6,10 +6,11 @@ This reference project explores enterprise case modernization using generic synt
 
 ## Current architecture
 
-One ASP.NET Core .NET 10 Minimal API is the only deployable application. It exposes `/`, `/health` and five case operations, including bounded case browsing, status history and optional retry-safe creation. The Api project also owns the EF Core model/migrations, SQLite setup/access and explicit offline upgrade/inspection; Domain owns case rules and restoration. No separate persistence service or project exists.
+One ASP.NET Core .NET 10 application is the only deployable. It exposes `/`, `/health` and five case operations, including bounded case browsing, status history and optional retry-safe creation, plus the local `/workspace` browser UI. The Api project also owns the EF Core model/migrations, SQLite setup/access and explicit offline upgrade/inspection; Domain owns case rules and restoration. No separate persistence service or project exists.
 
 ```mermaid
 flowchart LR
+    Browser[Local browser workspace] -->|HTTP| Api
     ApiTests[Api.Tests: HTTP and child-process tests] --> Api[Api: HTTP endpoints]
     Api --> Store[Api: EF Core case store]
     Store --> Domain[Domain: case rules and restoration]
@@ -85,9 +86,13 @@ Phase 3 changed no domain, package, schema/index/version or architecture boundar
 
 History tests cover all lifecycle cells, safe failures, immutable prior views, controlled equal/backward clock values, rollback at both write boundaries and retained history after force-killing the API. Upgrade tests use frozen version-1 fixtures, cross batch boundaries, fail after DDL/partial baselines, and force a commit lock failure. The test-only child executable blocks on a named pipe during a real upgrade; killing it verifies old-format recovery. A separate control suppresses completion after a real commit and reconciles format 4 through inspection. Phase 5 extends these checks with UTF-8/UTF-16 source fixtures, exact history preservation, all three creation write boundaries, coordinated key races, unknown-ID response loss and keyed replay after API termination. EF adoption adds frozen version-3 bindings, migration metadata validation, STRICT enforcement and rollback of metadata from all older sources. These checks establish local process behavior, without power-loss or production audit guarantees.
 
-## Next product slice — proposed, not implemented
+## Local browser case workspace
 
-[Phase 6 workspace requirements](../requirements/phase-6-case-workspace.md) prioritize a local browser journey over further storage work. A fictional service-desk staff member would browse/filter cases, create one, inspect its current state/history and progress the existing lifecycle. The workspace would use the existing HTTP operations and the same application host, preserving Domain and persistence boundaries. It introduces no new case fields, store format or deployment service. The implementation must document its UI/hosting and browser-verification choices before adding runtime code. No browser workspace exists today.
+[Phase 6](../requirements/phase-6-case-workspace.md#current-implementation-coverage) implements the browser journey: browse/filter, create, inspect current details/history and progress the existing lifecycle. [ADR 0008](../adr/0008-serve-a-local-browser-case-workspace.md) selects three embedded HTML/CSS/JavaScript assets, explicit same-host routes and no frontend build/runtime. There is no generic static directory or fallback. Browser content restrictions allow same-origin scripts/styles/connections and prohibit inline execution, frames and form navigation. Case text is rendered as text; server/proxy error bodies are never displayed.
+
+Presentation calls only the existing API. Generation numbers discard obsolete list/detail/history responses, with independent loading/failure states and no polling. Creation freezes its quoted UUID key and payload for same-page retries; an uncertain result requires explicit acknowledgment before a replacement draft. A 15-second fetch timeout does not cancel or reconcile a server commit. Draft/key state is memory-only; status uncertainty requires current-state retrieval before another action. Mutations never display optimistic success. Details and history are separate observations, with honest upgraded-baseline labels and generic recoverable failures.
+
+The workspace preserves Domain and persistence boundaries, existing HTTP contracts and format 4. Microsoft.Playwright is test-only in Api.Tests; real Chromium runs against disposable stores and actual API child processes, including published output in CI. Test-side routing controls lost/delayed responses without production fault switches. The UI does not add identity or network deployment support.
 
 The [project roadmap](../roadmap.md) assesses workflow value, demonstration, security, operations, integration and AI together. EF Core remains the persistence approach when a feature needs persistence; it does not determine feature priority.
 
@@ -107,4 +112,4 @@ flowchart TD
     Python -.-> Evaluation[Potential retrieval and evaluation]
 ```
 
-SQL Server / Azure SQL, Azure deployment, messaging, containers, Infrastructure as Code, identity, structured telemetry, a frontend and Python/AI remain future possibilities. No cloud service, broker or model provider is selected by this diagram; each requires concrete requirements and decisions.
+SQL Server / Azure SQL, Azure deployment, messaging, containers, Infrastructure as Code, identity, structured telemetry and Python/AI remain future possibilities. No cloud service, broker or model provider is selected by this diagram; each requires concrete requirements and decisions.
