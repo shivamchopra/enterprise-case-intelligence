@@ -18,7 +18,7 @@ public class CaseStoreUpgradeTests
         Assert.Throws<InvalidDataException>(() => fixture.Database.ValidateStartup());
         var database = new CaseDatabase(fixture.Path, new FixedClock());
         database.Upgrade();
-        Assert.Equal(3, database.Inspect());
+        Assert.Equal(4, database.Inspect());
         database.ValidateStartup();
         var store = new SqliteCaseStore(database, new FixedClock());
         foreach (var record in records)
@@ -78,7 +78,7 @@ public class CaseStoreUpgradeTests
     [InlineData("unknown-version")]
     [InlineData("extra-schema")]
     [InlineData("invalid-row")]
-    [InlineData("version3")]
+    [InlineData("version4")]
     public async Task CommandsRefuseInvalidUpgradeInputsWithoutReplacementOrHosting(string condition)
     {
         using var fixture = new TemporaryCaseDatabase(initialize: false);
@@ -89,7 +89,7 @@ public class CaseStoreUpgradeTests
             case "unknown-version": LegacyCaseStore.Initialize(fixture); fixture.Execute("PRAGMA user_version=99"); break;
             case "extra-schema": LegacyCaseStore.Initialize(fixture); fixture.Execute("CREATE TABLE extra (id TEXT)"); break;
             case "invalid-row": LegacyCaseStore.Initialize(fixture); fixture.Execute("UPDATE cases SET title=' corrupt '"); break;
-            case "version3": fixture.Database.Initialize(); break;
+            case "version4": fixture.Database.Initialize(); break;
         }
 
         var before = File.Exists(fixture.Path) ? File.ReadAllBytes(fixture.Path) : null;
@@ -100,7 +100,7 @@ public class CaseStoreUpgradeTests
         Assert.DoesNotContain("SYNTHETIC_SENSITIVE_MARKER", result.Output);
         Assert.DoesNotContain("Exception", result.Output);
         var inspected = await ApiProcess.RunAsync("inspect-store", "--CaseStorage:DatabasePath", fixture.Path);
-        Assert.Equal(condition == "version3" ? 0 : 1, inspected.ExitCode);
+        Assert.Equal(condition == "version4" ? 0 : 1, inspected.ExitCode);
         Assert.DoesNotContain("Now listening on:", inspected.Output);
         Assert.DoesNotContain(fixture.Path, inspected.Output);
         Assert.DoesNotContain("SYNTHETIC_SENSITIVE_MARKER", inspected.Output);
@@ -125,7 +125,7 @@ public class CaseStoreUpgradeTests
         Assert.Contains("Case store upgraded.", upgraded.Output);
         var current = await ApiProcess.RunAsync("inspect-store", "--CaseStorage:DatabasePath", fixture.Path);
         Assert.Equal(0, current.ExitCode);
-        Assert.Contains("Case store version: 3.", current.Output);
+        Assert.Contains("Case store version: 4.", current.Output);
         foreach (var output in new[] { inspect.Output, upgraded.Output, current.Output })
             Assert.DoesNotContain("Now listening on:", output);
         using (var factory = fixture.CreateFactory())

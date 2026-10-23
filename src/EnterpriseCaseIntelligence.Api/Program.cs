@@ -1,5 +1,6 @@
 using EnterpriseCaseIntelligence.Api.Cases;
 using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 
 var mode = args.FirstOrDefault() is "init-store" or "upgrade-store" or "inspect-store" ? args[0] : null;
 var builder = WebApplication.CreateBuilder(mode is not null ? args[1..] : args);
@@ -28,7 +29,7 @@ try
 
     database.ValidateStartup();
 }
-catch (Exception exception) when (exception is ArgumentException or IOException or InvalidDataException or UnauthorizedAccessException or SqliteException)
+catch (Exception exception) when (exception is ArgumentException or IOException or InvalidDataException or UnauthorizedAccessException or SqliteException or DbUpdateException)
 {
     Console.Error.WriteLine("Case store unavailable or incompatible. Check CaseStorage:DatabasePath and permissions. Stop hosting before inspect-store or upgrade-store; use init-store only for a new file.");
     return 1;

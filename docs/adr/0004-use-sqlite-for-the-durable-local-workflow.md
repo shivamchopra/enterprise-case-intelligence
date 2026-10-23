@@ -4,7 +4,9 @@
 
 **Accepted — implemented for the durable local Phase 2 workflow.** Reviewed in PR #11 following the requirements review in PR #10. Supersedes [ADR 0003](0003-use-process-memory-for-the-phase-1-local-workflow.md) for Phase 2. The HTTP contract remains unchanged; storage now uses a retained local SQLite file.
 
-[ADR 0005](0005-add-status-history-with-an-explicit-store-upgrade.md) is the accepted, implemented Phase 4 amendment for a history table and explicit version-1 → version-2 upgrade. This record preserves the original version-1 decision; ADR 0005 records paired history writes, and [ADR 0006](0006-bind-creation-keys-in-the-local-case-store.md) now defines creation-key bindings and the current version-3 format/upgrade commands. The SQLite choice and local operating/recovery limits remain in effect.
+[ADR 0007](0007-adopt-ef-core-code-first.md) now implements EF Core Code First and format 4 with validated adoption of versions 1–3. This record preserves the historical format and direct-access decision; use the current walkthrough for executable commands.
+
+[ADR 0005](0005-add-status-history-with-an-explicit-store-upgrade.md) is the accepted, implemented Phase 4 amendment for a history table and explicit version-1 → version-2 upgrade. This record preserves the original version-1 decision; ADR 0005 records paired history writes, and [ADR 0006](0006-bind-creation-keys-in-the-local-case-store.md) defined creation-key bindings and the historical version-3 format/upgrade commands. The SQLite choice and local operating/recovery limits remain in effect.
 
 ## Context
 

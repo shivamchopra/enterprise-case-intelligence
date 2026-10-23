@@ -44,7 +44,7 @@ public class CaseUpgradeProcessTests
         Assert.Contains("Case store version: 1.", inspected.Output);
         CaseStoreUpgradeTests.AssertLegacy(fixture, original);
         fixture.Database.Upgrade();
-        Assert.Equal(3, fixture.Database.Inspect());
+        Assert.Equal(4, fixture.Database.Inspect());
         var store = new SqliteCaseStore(fixture.Database);
         Assert.All(original, record => Assert.Single(store.History(record.Id)!));
     }
@@ -52,11 +52,17 @@ public class CaseUpgradeProcessTests
     [Theory]
     [InlineData(1)]
     [InlineData(2)]
+    [InlineData(3)]
     public async Task LostUpgradeCompletionMessageIsReconciledByInspectionWithoutRepeatingUpgrade(int version)
     {
         using var fixture = new TemporaryCaseDatabase(initialize: false);
-        var original = version == 1 ? LegacyCaseStore.Initialize(fixture) : VersionTwoCaseStore.Initialize(fixture);
-        var history = version == 2 ? VersionTwoCaseStore.HistoryFields(fixture) : [];
+        var original = version switch
+        {
+            1 => LegacyCaseStore.Initialize(fixture),
+            2 => VersionTwoCaseStore.Initialize(fixture),
+            _ => VersionThreeCaseStore.Initialize(fixture).Cases
+        };
+        var history = version >= 2 ? VersionTwoCaseStore.HistoryFields(fixture) : [];
         using var process = StartFixture("lost-output", fixture.Path, "unused");
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();
@@ -78,7 +84,7 @@ public class CaseUpgradeProcessTests
 
         var inspect = await ApiProcess.RunAsync("inspect-store", "--CaseStorage:DatabasePath", fixture.Path);
         Assert.Equal(0, inspect.ExitCode);
-        Assert.Contains("Case store version: 3.", inspect.Output);
+        Assert.Contains("Case store version: 4.", inspect.Output);
         var refused = await ApiProcess.RunAsync("upgrade-store", "--CaseStorage:DatabasePath", fixture.Path);
         Assert.Equal(1, refused.ExitCode);
         var store = new SqliteCaseStore(fixture.Database);
@@ -87,7 +93,7 @@ public class CaseUpgradeProcessTests
             Assert.Equal(record, store.Find(record.Id));
             if (version == 1) Assert.Equal("Baseline", Assert.Single(store.History(record.Id)!).Kind);
         });
-        if (version == 2)
+        if (version >= 2)
         {
             var actual = VersionTwoCaseStore.HistoryFields(fixture);
             Assert.Equal(history.Length, actual.Length);

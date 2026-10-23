@@ -6,12 +6,12 @@ This reference project explores enterprise case modernization using generic synt
 
 ## Current architecture
 
-One ASP.NET Core .NET 10 Minimal API is the only deployable application. It exposes `/`, `/health` and five case operations, including bounded case browsing, status history and optional retry-safe creation. The Api project also owns SQLite setup, access and explicit offline upgrade/inspection; Domain owns case rules and restoration. No separate persistence service or project exists.
+One ASP.NET Core .NET 10 Minimal API is the only deployable application. It exposes `/`, `/health` and five case operations, including bounded case browsing, status history and optional retry-safe creation. The Api project also owns the EF Core model/migrations, SQLite setup/access and explicit offline upgrade/inspection; Domain owns case rules and restoration. No separate persistence service or project exists.
 
 ```mermaid
 flowchart LR
     ApiTests[Api.Tests: HTTP and child-process tests] --> Api[Api: HTTP endpoints]
-    Api --> Store[Api: SQLite case store]
+    Api --> Store[Api: EF Core case store]
     Store --> Domain[Domain: case rules and restoration]
     Store --> Database[(Local SQLite file)]
     DomainTests[Domain.Tests] --> Domain
@@ -21,23 +21,27 @@ flowchart LR
 
 - **Api:** composition root, HTTP parsing/error mapping, SQLite configuration/initialization, schema checks and one concrete store per host. Provider failures remain generic `500 internal_error`; a rejected domain transition has an explicit store outcome mapped to `409 invalid_transition`.
 - **Domain:** immutable ID/text, creation validation, `New → InReview → Closed` lifecycle and validated restoration of existing cases. It references no web, provider or infrastructure code. Restoration rejects damaged/unnormalized text, empty IDs and undefined statuses without defaulting or replaying transitions.
-- **Tests:** Api.Tests references Api and exercises actual SQLite files, in-process HTTP hosts and real API child processes. A separate UpgradeFixture executable under `tests/` supplies a controlled clock/barrier for interruption tests, without production test switches. Frozen version-1 and version-2 fixtures remain independent of current initialization. Domain.Tests references Domain directly and needs no database.
+- **Tests:** Api.Tests references Api and exercises actual SQLite files, in-process HTTP hosts and real API child processes. A separate UpgradeFixture executable under `tests/` supplies a controlled clock/barrier for interruption tests, without production test switches. Frozen version-1, version-2 and version-3 fixtures remain independent of current initialization. Domain.Tests references Domain directly and needs no database.
 
-Api references Domain. No generic repository, provider interface, ORM or additional production project is introduced. Stored mutable entities never escape for HTTP serialization; callers receive immutable four-field snapshots.
+Api references Domain and owns the EF Core persistence model and migrations. One concrete store remains in Api; no generic repository, provider interface or additional production project is introduced. Stored mutable entities never escape for HTTP serialization; callers receive immutable four-field snapshots.
 
-## Next persistence task: EF Core Code First
+## EF Core Code First
 
-The owner has selected EF Core Code First as the preferred approach for future persistence work and conversion of the existing store. Use C# entities, `DbContext`/Fluent API configuration, LINQ/tracked writes and model-generated migrations wherever supported. The current Phase 5 runtime still uses direct `Microsoft.Data.Sqlite` access; EF adoption is [the next task](../tasks/ef-core-code-first-adoption.md), not an implemented capability.
+`CaseDbContext` and Fluent API define the persistence entities, relationships, keys and check constraints. The initial migration and model snapshot were scaffolded from that model. Ordinary operations use LINQ/projections or tracked writes; Domain restoration still validates materialized values. Each operation owns a context, with no context shared concurrently. A design-time factory uses in-memory SQLite only, so migration scaffolding/model checks select no user store.
 
-The conversion must preserve the HTTP/domain contract, atomic history/key semantics and existing-store data while explicitly reconciling application format versions, exact schema validation and EF migration metadata. Historical ADRs describe the shipped implementation; a new compatibility amendment will document the EF transition. [Repository instructions](../../AGENTS.md) define the EF-first rule and limited SQL exceptions.
+[ADR 0007](../adr/0007-adopt-ef-core-code-first.md) implements the owner's [EF-first instructions](../../AGENTS.md) and documents the small remaining SQL exceptions. The SQLite provider's generated CREATE TABLE operations receive a STRICT suffix through a focused generator extension. A single-entity save verifies the actual SQLite `changes()` count because EF can report a trigger-ignored insert as a saved entity. Catalog/PRAGMA diagnostics, frozen source definitions and EF-generated legacy-baseline execution remain provider/compatibility operations.
 
 ## Storage lifecycle and concurrency
 
-An explicit `CaseStorage:DatabasePath` selects an existing local file. The separate `init-store` command exclusively reserves a new file, initializes STRICT case/history/creation-key tables and schema version 3, and exits without hosting HTTP. Any existing file is refused. Normal startup validates the exact version-3 schema, integrity, foreign keys, journaling and write access; it does not create, seed, migrate, reset or repair a store.
+An explicit `CaseStorage:DatabasePath` selects an existing local file. The separate `init-store` command exclusively reserves a new file, initializes STRICT case/history/creation-key tables through EF migrations plus EF migration history and format 4, and exits without hosting HTTP. Any existing file is refused. Normal startup validates the exact version-4 schema/metadata, integrity, foreign keys, journaling and write access; it does not create, seed, migrate, reset or repair a store.
 
-With hosting stopped, `upgrade-store` validates an exact version-1 or version-2 store and all source data, then upgrades directly to version 3 in one transaction. Version 1 receives honest baselines; version 2 retains every history field without reading the clock. Both add an empty binding table, leaving old cases unbound. `inspect-store` validates versions 1/2/3, including all cases, histories where present and bindings in version 3, in bounded batches within one read view. An uncertain outcome must be inspected before another mutation; version 3 means committed and a repeated upgrade is refused. No downgrade or automatic backup is supplied. See [ADR 0006](../adr/0006-bind-creation-keys-in-the-local-case-store.md), which amends the historical version-2 workflow in [ADR 0005](../adr/0005-add-status-history-with-an-explicit-store-upgrade.md).
+With hosting stopped, `upgrade-store` validates an exact version-1, version-2 or version-3 store and all its data, then adopts it directly into format 4 in one transaction. Existing application tables/values remain in place; missing tables use scaffolded migration operations. Version 1 receives honest baselines, versions 2/3 keep exact histories without reading the event clock, and version 3 retains all key bindings. Only after validated adoption is the initial EF migration baseline recorded.
 
-The supported workflow is one API process per store at a time. Each operation owns a connection with pooling disabled, private cache, a finite five-second provider timeout, verified foreign-key enforcement and FULL synchronization; rollback journaling uses DELETE mode. The local directory must permit SQLite journal creation. Do not use network shares or synchronization-managed folders. See [ADR 0004](../adr/0004-use-sqlite-for-the-durable-local-workflow.md) and its Phase 4 amendment in ADR 0005.
+The explicit offline transaction includes EF metadata and format 4; initialization suppresses only EF's warning about that caller-owned migration transaction. No persistent EF lock is acquired and no application transaction is automatically replayed. Every store user must be stopped; live/concurrent migration remains unsupported. `inspect-store` validates versions 1–4, including all cases/history/bindings and format-4 metadata. Unexpected metadata/lock tables are refused without repair. An uncertain outcome must be inspected first; valid 1/2/3 is an old source, valid 4 is committed. No downgrade or automatic backup is supplied.
+
+Format 4 recognizes exact EF-generated definitions or exact frozen legacy application-table definitions, with provider-generated EF metadata and one known migration ID. This accepts the table combinations produced by direct adoption while rejecting arbitrary schema changes. Model/snapshot drift is rejected locally and in CI. Further migrations require an explicit compatibility/version amendment; the current adoption bridge accepts only the initial table-creation operations.
+
+The supported workflow is one API process per store at a time. Each operation owns a context and connection with pooling disabled, private cache, a finite five-second provider timeout, verified foreign-key enforcement and FULL synchronization; rollback journaling uses DELETE mode. The local directory must permit SQLite journal creation. Do not use network shares or synchronization-managed folders. See [ADR 0004](../adr/0004-use-sqlite-for-the-durable-local-workflow.md) and its Phase 4 amendment in ADR 0005.
 
 One synchronous host gate orders operations. Creation begins a non-deferred write transaction before optional key lookup; status changes begin a non-deferred write transaction before lookup/domain validation/update. Success is returned only after commit. Reads restore and validate the row; all operations return snapshots. Request arrival order is not promised, and synchronous I/O/serialization limit concurrency.
 
@@ -55,7 +59,7 @@ Bindings have no expiry, release, user/tenant scope or authorization meaning. Bo
 
 ## Configuration, operability and security
 
-The [walkthrough](../usage/local-case-workflow.md) covers initialization, normal startup, restart and disposal. The main Microsoft.Data.Sqlite package supplies the native engine through NuGet. No database server, SQLite CLI, cloud account or secret is required. Runtime files and local settings are ignored by Git; the repository contains initialization code, not a generated database.
+The [walkthrough](../usage/local-case-workflow.md) covers initialization, normal startup, restart and disposal. The EF Core SQLite provider and Microsoft.Data.Sqlite supply the native engine through NuGet. No database server, SQLite CLI, cloud account or secret is required. Runtime files and local settings are ignored by Git; the repository contains initialization code, not a generated database.
 
 `GET /` preserves foundation metadata; `/health` remains host liveness without storage readiness. If storage fails after startup, affected case operations fail safely. Initialization/startup storage failures produce a concise diagnostic and nonzero exit rather than dumping provider messages or configuration. There are no setup/reset/test HTTP endpoints.
 
@@ -63,7 +67,7 @@ All data must be synthetic. No authentication, authorization, encryption, secret
 
 ## Verification and constraints
 
-A stable .NET 10 SDK is pinned in `global.json`, with stable feature-band roll-forward within .NET 10.0. One CI workflow enforces restore, format verification, warnings-as-errors, Release compilation and tests.
+A stable .NET 10 SDK is pinned in `global.json`, with stable feature-band roll-forward within .NET 10.0. One CI workflow enforces restore, local EF tool restore, format verification, warnings-as-errors, Release compilation, EF model/snapshot agreement and tests.
 
 Tests cover domain rules/restoration, the complete HTTP contract, actual SQLite commits/rollback, host/file isolation, schema/startup failures and concurrent operations. A child-process test initializes storage, waits for acknowledged writes, force-kills the API and verifies state in a fresh process. Trigger/lock failures and lost-response controls live only in test fixtures. Tests use disposable directories, loopback ports assigned by the OS and bounded readiness waits; they need no machine-specific configuration or external service.
 
@@ -73,13 +77,13 @@ Tests cover domain rules/restoration, the complete HTTP contract, actual SQLite 
 
 Add architecture when requirements justify deployment independence, scaling, reliability, ownership, security or operational isolation. This local persistence choice does not establish an enterprise database or promise a drop-in SQL Server replacement. Revisit for shared/server storage, multi-instance hosting, measured load, audit, backups or real records.
 
-The [implemented Phase 3 case-list requirements](../requirements/phase-3-case-list.md) add `GET /cases` to find saved work without known IDs. Query validation happens before storage access. The existing concrete store uses one parameterized SELECT under its gate, with an optional exact status filter, an exclusive canonical-ID boundary, explicit BINARY ID ordering and a `limit + 1` row bound. The existing restoration path validates every materialized row, including lookahead; the endpoint returns immutable case values and `nextAfter`, or a safe problem response.
+The [implemented Phase 3 case-list requirements](../requirements/phase-3-case-list.md) add `GET /cases` to find saved work without known IDs. Query validation happens before storage access. The concrete EF store now uses one translated LINQ query under its gate, with an optional exact status filter, an exclusive canonical-ID boundary, explicit BINARY ID ordering and a `limit + 1` row bound. The existing restoration path validates every materialized row, including lookahead; the endpoint returns immutable case values and `nextAfter`, or a safe problem response.
 
 Default pages contain up to 20 cases, with a maximum of 100. ID order is not chronological order. Each page has one consistent read view, but a traversal across requests is not a snapshot: creates/status changes can alter later membership. The continuation is a plain comparison ID, without a retained paging session or permission meaning. This bounds application materialization, not database scan work or latency.
 
 Phase 3 changed no domain, package, schema/index/version or architecture boundary. Its list tests cover deterministic fixture ordering, query validation, failures/lookahead, changes between pages, file isolation and retained continuations after restart. Phase 4 amended the storage format through ADR 0005, preserving that list contract and the domain model.
 
-History tests cover all lifecycle cells, safe failures, immutable prior views, controlled equal/backward clock values, rollback at both write boundaries and retained history after force-killing the API. Upgrade tests use frozen version-1 fixtures, cross batch boundaries, fail after DDL/partial baselines, and force a commit lock failure. The test-only child executable blocks on a named pipe during a real upgrade; killing it verifies old-format recovery. A separate control suppresses completion after a real commit and reconciles version 3 through inspection. Phase 5 extends these checks with UTF-8/UTF-16 source fixtures, exact version-2 history preservation, all three creation write boundaries, coordinated key races, unknown-ID response loss and keyed replay after API termination. These checks establish local process behavior, without power-loss or production audit guarantees.
+History tests cover all lifecycle cells, safe failures, immutable prior views, controlled equal/backward clock values, rollback at both write boundaries and retained history after force-killing the API. Upgrade tests use frozen version-1 fixtures, cross batch boundaries, fail after DDL/partial baselines, and force a commit lock failure. The test-only child executable blocks on a named pipe during a real upgrade; killing it verifies old-format recovery. A separate control suppresses completion after a real commit and reconciles format 4 through inspection. Phase 5 extends these checks with UTF-8/UTF-16 source fixtures, exact history preservation, all three creation write boundaries, coordinated key races, unknown-ID response loss and keyed replay after API termination. EF adoption adds frozen version-3 bindings, migration metadata validation, STRICT enforcement and rollback of metadata from all older sources. These checks establish local process behavior, without power-loss or production audit guarantees.
 
 ## Conceptual future direction — not implemented
 

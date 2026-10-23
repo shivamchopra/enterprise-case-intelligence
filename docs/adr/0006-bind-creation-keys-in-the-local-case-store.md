@@ -2,7 +2,9 @@
 
 ## Status
 
-**Accepted — implemented for Phase 5.** Requirements were reviewed in PR #18 and this storage design in PR #19. The executable initializes/hosts version 3 and explicitly upgrades versions 1 and 2. See [implementation coverage](../requirements/phase-5-retry-safe-creation.md#current-implementation-coverage).
+**Accepted — implemented for Phase 5.** Requirements were reviewed in PR #18 and this storage design in PR #19. At Phase 5, the executable initialized/hosted version 3 and explicitly upgraded versions 1 and 2. See [implementation coverage](../requirements/phase-5-retry-safe-creation.md#current-implementation-coverage).
+
+[ADR 0007](0007-adopt-ef-core-code-first.md) now implements EF Core Code First and format 4 with validated adoption of versions 1–3. This record preserves the historical format and direct-access decision; use the current walkthrough for executable commands.
 
 This is a focused amendment to [ADR 0005](0005-add-status-history-with-an-explicit-store-upgrade.md): add durable creation-key bindings, original-result replay and explicit upgrades from versions 1 and 2 to version 3. Keep the SQLite choice and operating/recovery limits from [ADR 0004](0004-use-sqlite-for-the-durable-local-workflow.md).
 
