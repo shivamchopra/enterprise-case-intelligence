@@ -140,8 +140,9 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 
 - **Now:** [retry-safe creation and upgrade coverage](docs/requirements/phase-5-retry-safe-creation.md#current-implementation-coverage), durable status history, case browsing and process-recovery checks.
 - **Completed:** [EF Core Code First adoption](docs/tasks/ef-core-code-first-adoption.md) with retained-data and migration-recovery coverage.
-- **Next — proposed, not implemented:** [bounded local-store readiness](docs/requirements/phase-6-storage-readiness.md), separate from the existing storage-independent `/health` probe.
-- **Later:** evaluate the planned capabilities against concrete needs and operational tradeoffs.
+- **Next — proposed, not implemented:** a [local browser case workspace](docs/requirements/phase-6-case-workspace.md) to demonstrate browse → create → review → progress through the existing API.
+- **Deferred:** [storage readiness](docs/requirements/phase-6-storage-readiness.md), to revisit with deployment requirements. `/health` remains storage-independent liveness.
+- **Later:** extend the business workflow, establish secure hosting, then evaluate integration and AI against concrete scenarios. The [project roadmap](docs/roadmap.md) explains priorities and prerequisites; these capabilities are not implemented.
 
 ## Security and Privacy
 
