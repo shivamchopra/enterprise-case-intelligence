@@ -2,11 +2,13 @@
 
 [![CI](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml/badge.svg)](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml)
 
-**Phase 5: retry-safe creation with EF Core Code First persistence**
+**Phase 6: local browser case workspace**
 
-A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: create synthetic cases with optional durable retry keys, browse/retrieve them, progress their status and inspect recorded history through a tested HTTP API backed by EF Core Code First and a retained local SQLite file. Domain rules, unit/integration tests, CI and architecture decisions support this local workflow.
+A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: browse/filter synthetic cases, create one, review its details/history and progress its status in a local browser workspace or through the HTTP API. EF Core Code First and a retained SQLite file provide durable state and retry-safe creation. Domain, API, real-browser and recovery tests support this local workflow.
 
 [Review the implementation](#current-implemented-scope) · [Read the architecture](docs/architecture/overview.md) · [Run locally](#getting-started)
+
+![Local browser workspace showing a synthetic case in review and its recorded status history](docs/images/case-workspace.png)
 
 ## Problem / Context
 
@@ -24,6 +26,7 @@ Enterprise case processes span legacy systems, fragmented information and manual
 | Implemented now | Evidence |
 | --- | --- |
 | `GET /`: service/foundation metadata. `GET /health`: framework health checks | [Program.cs](src/EnterpriseCaseIntelligence.Api/Program.cs) |
+| `/workspace`: same-host browser journey with bounded pages, status filtering, details/history, safe creation retries and status progression | [Workspace assets and routes](src/EnterpriseCaseIntelligence.Api/Workspace) · [Real-browser tests](tests/EnterpriseCaseIntelligence.Api.Tests/Workspace/WorkspaceBrowserTests.cs) |
 | Case creation, text validation and `New → InReview → Closed` lifecycle; Domain has no HTTP/storage dependencies | [Case model](src/EnterpriseCaseIntelligence.Domain/Cases/Case.cs) · [Statuses](src/EnterpriseCaseIntelligence.Domain/Cases/CaseStatus.cs) |
 | Domain unit tests cover normalization, length boundaries, all status transitions and case isolation | [Domain tests](tests/EnterpriseCaseIntelligence.Domain.Tests) |
 | `POST /cases`, `GET /cases/{id}`, `PUT /cases/{id}/status`: strict JSON validation and problem responses | [Case endpoints](src/EnterpriseCaseIntelligence.Api/Cases/CaseEndpoints.cs) |
@@ -36,7 +39,7 @@ Enterprise case processes span legacy systems, fragmented information and manual
 | Explicit offline version-1/version-2/version-3 → version-4 upgrades, preserved histories and inspection after uncertain outcomes | [EF adoption tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseEfAdoptionTests.cs) · [Upgrade interruption tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseUpgradeProcessTests.cs) |
 | Real SQLite integration tests and child-process tests cover the workflow, failures, host isolation and restart recovery | [API tests](tests/EnterpriseCaseIntelligence.Api.Tests) |
 | Restore, format verification, Release build and tests in CI; warnings treated as errors | [CI workflow](.github/workflows/ci.yml) · [Build configuration](Directory.Build.props) |
-| Architecture overview and six current accepted decisions; historical memory decision retained | [Architecture overview](docs/architecture/overview.md) · [ADR index](docs/adr/README.md) |
+| Architecture overview and seven current accepted decisions; historical memory decision retained | [Architecture overview](docs/architecture/overview.md) · [ADR index](docs/adr/README.md) |
 
 **Local demonstration limits:** one API process uses one local store at a time. Committed data survives API restart with the same intact file; power/storage loss, backup, multi-instance operation, authentication/authorization and enforced disk quotas are outside scope. Use synthetic data only.
 
@@ -48,10 +51,11 @@ History describes recorded state changes, without actor identity or tamper evide
 
 ## Architecture at a Glance
 
-One runnable API with a separate domain model; unit and integration tests exercise each boundary.
+One runnable ASP.NET host serves the API and browser assets, with a separate domain model; unit, integration and browser tests exercise the workflow.
 
 ```mermaid
 flowchart LR
+    Browser[Local browser workspace] -->|HTTP| Api
     ApiTests[Api.Tests: SQLite and process tests] --> Api[Api: case endpoints and SQLite store]
     DomainTests[Domain.Tests: unit tests] --> Domain[Domain: case rules]
     Api --> Domain
@@ -62,7 +66,7 @@ flowchart LR
 
 ```text
 src/
-  EnterpriseCaseIntelligence.Api/        HTTP hosting, case endpoints and SQLite lifecycle
+  EnterpriseCaseIntelligence.Api/        HTTP hosting, workspace assets, case endpoints and SQLite lifecycle
   EnterpriseCaseIntelligence.Domain/     Case model and lifecycle rules
 tests/
   EnterpriseCaseIntelligence.Api.Tests/  Endpoint, SQLite and process recovery tests
@@ -105,6 +109,8 @@ curl http://localhost:5080/health
 
 Both return HTTP 200. The root returns `{"service":"Enterprise Case Intelligence","status":"foundation"}`; health returns `Healthy`.
 
+Open [the local workspace](http://localhost:5080/workspace) in a modern browser. Create a fictional case, select it, choose **Start review**, inspect recorded history and choose **Close case**. The workspace uses the same initialized store and API, with no frontend server, Node runtime or external assets. See the [browser walkthrough and recovery limits](docs/usage/local-case-workflow.md#browser-workspace).
+
 Follow the [local case workflow walkthrough](docs/usage/local-case-workflow.md) to create a case, browse saved work, retrieve it, progress its status and inspect its history using curl. The [retry example](docs/usage/local-case-workflow.md#retry-a-creation-with-a-retained-key) shows how to reconcile a lost creation response.
 
 ## Build and Test
@@ -117,8 +123,12 @@ dotnet tool restore
 dotnet format EnterpriseCaseIntelligence.slnx --verify-no-changes --no-restore
 dotnet build EnterpriseCaseIntelligence.slnx --configuration Release --no-restore
 dotnet ef migrations has-pending-model-changes --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build
+# Install once per Playwright update; on Linux use install --with-deps chromium if needed.
+dotnet exec --runtimeconfig tests/EnterpriseCaseIntelligence.Api.Tests/bin/Release/net10.0/EnterpriseCaseIntelligence.Api.Tests.runtimeconfig.json tests/EnterpriseCaseIntelligence.Api.Tests/bin/Release/net10.0/Microsoft.Playwright.dll install chromium
 dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 ```
+
+The full suite includes Chromium tests. A backend-only run can use `--filter 'Category!=Browser'`; CI also runs a separate browser job against the published application. The browser download is test tooling, not an application runtime requirement.
 
 ## Architecture Decisions
 
@@ -131,6 +141,7 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 - [ADR 0005](docs/adr/0005-add-status-history-with-an-explicit-store-upgrade.md): accepted and implemented amendment for atomic status history and an explicit store upgrade.
 - [ADR 0006](docs/adr/0006-bind-creation-keys-in-the-local-case-store.md): accepted and implemented creation-key bindings, original-result replay and direct upgrades to version 3.
 - [ADR 0007](docs/adr/0007-adopt-ef-core-code-first.md): implemented EF Core Code First models, generated migrations and validated adoption of retained stores.
+- [ADR 0008](docs/adr/0008-serve-a-local-browser-case-workspace.md): same-host embedded browser assets, explicit client state and real Chromium verification.
 
 ## Planned Evolution
 
@@ -138,9 +149,9 @@ dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 
 ## Roadmap
 
-- **Now:** [retry-safe creation and upgrade coverage](docs/requirements/phase-5-retry-safe-creation.md#current-implementation-coverage), durable status history, case browsing and process-recovery checks.
+- **Now:** [browser case workspace](docs/requirements/phase-6-case-workspace.md#current-implementation-coverage) over the existing durable API, with retry-safe creation, status history and process-recovery coverage.
 - **Completed:** [EF Core Code First adoption](docs/tasks/ef-core-code-first-adoption.md) with retained-data and migration-recovery coverage.
-- **Next — proposed, not implemented:** a [local browser case workspace](docs/requirements/phase-6-case-workspace.md) to demonstrate browse → create → review → progress through the existing API.
+- **Next:** define one concrete business-workflow enhancement based on the complete local journey; prioritization, ownership and finding work remain candidates, not implemented capabilities.
 - **Deferred:** [storage readiness](docs/requirements/phase-6-storage-readiness.md), to revisit with deployment requirements. `/health` remains storage-independent liveness.
 - **Later:** extend the business workflow, establish secure hosting, then evaluate integration and AI against concrete scenarios. The [project roadmap](docs/roadmap.md) explains priorities and prerequisites; these capabilities are not implemented.
 

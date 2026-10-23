@@ -18,10 +18,14 @@ dotnet tool restore
 dotnet format EnterpriseCaseIntelligence.slnx --verify-no-changes --no-restore
 dotnet build EnterpriseCaseIntelligence.slnx --configuration Release --no-restore
 dotnet ef migrations has-pending-model-changes --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build
+# Once per Playwright update; Linux may require install --with-deps chromium.
+dotnet exec --runtimeconfig tests/EnterpriseCaseIntelligence.Api.Tests/bin/Release/net10.0/EnterpriseCaseIntelligence.Api.Tests.runtimeconfig.json tests/EnterpriseCaseIntelligence.Api.Tests/bin/Release/net10.0/Microsoft.Playwright.dll install chromium
 dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 ```
 
 API tests create disposable SQLite stores and launch API child processes on loopback ports; no manually initialized store or external service is needed.
+
+Workspace tests use the pinned Microsoft.Playwright library and its Chromium download. After installing it, the normal test command includes the real-browser journey. For a browser-free backend check use `--filter 'Category!=Browser'`; browser coverage is still required before submitting UI changes. CI runs backend checks and a separate `Category=Browser` job against the published API. The application itself needs neither Chromium nor Node. See [ADR 0008](docs/adr/0008-serve-a-local-browser-case-workspace.md) for the boundary and test approach.
 
 The UpgradeFixture project under `tests/` is an executable fixture for deterministic upgrade interruption and lost-completion tests. Keep its pipe barriers/failure controls out of production commands. Use frozen version-1, version-2 and version-3 fixtures for compatibility tests; never run upgrade validation against user data.
 

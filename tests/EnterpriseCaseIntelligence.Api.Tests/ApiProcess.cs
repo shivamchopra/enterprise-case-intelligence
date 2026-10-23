@@ -19,7 +19,9 @@ internal sealed class ApiProcess : IDisposable
             UseShellExecute = false,
             WorkingDirectory = AppContext.BaseDirectory
         };
-        start.ArgumentList.Add(typeof(Program).Assembly.Location);
+        // Browser CI runs the published executable from an unrelated working
+        // directory to verify asset publication rather than source-tree lookup.
+        start.ArgumentList.Add(Environment.GetEnvironmentVariable("ECI_TEST_API_ASSEMBLY") ?? typeof(Program).Assembly.Location);
         foreach (var argument in arguments) start.ArgumentList.Add(argument);
         _process = new Process { StartInfo = start, EnableRaisingEvents = true };
         _process.OutputDataReceived += (_, args) => Record(args.Data);

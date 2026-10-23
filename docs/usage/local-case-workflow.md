@@ -6,6 +6,23 @@ Start the API using the [README commands](../../README.md#getting-started). The 
 
 Initialization is an explicit `init-store` command, not an HTTP route. It refuses any existing file, including an empty one. Normal startup refuses missing, incompatible, corrupt or unwritable storage and never creates a replacement. The directory must already exist and permit database/journal writes. Choose a local directory outside network shares or synchronization-managed folders; `CaseStorage__DatabasePath` is the equivalent environment setting.
 
+## Browser workspace
+
+With the API running on loopback, open [http://localhost:5080/workspace](http://localhost:5080/workspace). A modern browser with JavaScript is required; there is no frontend server, account, Node runtime or external asset download. The API and curl workflow below remain available.
+
+1. Choose **New case**. Enter title `Correct the sample guide` and description `Update the fictional example section.`, then choose **Create case**. The workspace reads the created ID for current state and shows recorded history.
+2. Choose **Start review**, then **Close case**. Success is shown after the server response; current details/history reload separately. Closed cases have no advance action.
+3. Filter by **Closed** to find saved work. **Next page** follows the server continuation when present; changing filters or **Refresh list** restarts at the beginning. Pages are ordered by ID, not creation time or priority. No total/count or traversal snapshot is promised.
+4. Stop/restart the API against the same intact file and revisit the workspace. Select the saved case to see its retained Closed state/history. Cases adopted from older stores can start with **State first recorded at upgrade**; that is not their original creation time.
+
+The browser sends a quoted UUID creation key and freezes the submitted payload while an outcome is uncertain. If creation cannot be confirmed, **Retry same draft** resends the same key/payload. A replay can represent the original New state; the workspace retrieves current state afterward. To change an uncertain draft, choose **Use a different draft**, acknowledge that the first request may already have created a case, then choose **Start new draft**. No automatic replacement key or background retry is used.
+
+Draft text/key state lives only in the open page's memory, including when the draft dialog is closed. Closing or reloading the page loses it; the UI warns while creating/uncertain, but browser unload prompts are best effort. This is not cross-reload recovery. Do not put real information into the demonstration. Creation keys/text are not saved in browser storage, page URLs or telemetry.
+
+If a list, detail or history read fails, use its explicit **Refresh** control. A failure is not an empty result. If a write was confirmed and its follow-up read fails, the confirmation remains visible separately. A rejected/uncertain status action requires **Refresh case** before another action. Browser requests time out after 15 seconds; this does not prove that a server-side write was canceled. Details/history load independently and can reflect different observations.
+
+The UI has no sign-in, staff identity or authorization, and it does not make network hosting safe. Keep the supported demonstration on loopback with synthetic data. `/health` still reports host liveness only; storage readiness remains deferred.
+
 ## Inspect and upgrade an older store
 
 Fresh `init-store` applies the checked-in EF Core migration and creates format 4 with case, history, creation-key and EF migration-history tables. Skip this upgrade section for a fresh version-4 store. For retained version-1, version-2 or version-3 data, build the current code first and **stop the API and every other process using that store**. `CASE_DB_PATH` must be the same absolute path selected during setup; neither inspection nor upgrade creates a missing file.

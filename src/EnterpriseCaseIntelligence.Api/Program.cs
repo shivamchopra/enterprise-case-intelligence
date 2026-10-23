@@ -1,4 +1,5 @@
 using EnterpriseCaseIntelligence.Api.Cases;
+using EnterpriseCaseIntelligence.Api.Workspace;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
@@ -42,6 +43,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(context =>
 app.MapGet("/", () => new { service = "Enterprise Case Intelligence", status = "foundation" });
 app.MapHealthChecks("/health");
 app.MapCaseEndpoints();
+app.MapWorkspace();
 
 await app.RunAsync();
 return 0;

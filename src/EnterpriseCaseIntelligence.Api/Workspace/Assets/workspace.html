@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Case workspace · Enterprise Case Intelligence</title>
+        <link rel="stylesheet" href="/workspace/app.css" />
+        <script src="/workspace/app.js" defer></script>
+    </head>
+    <body>
+        <a class="skip-link" href="#main">Skip to workspace</a>
+        <aside class="rail" aria-label="Application">
+            <div class="brand">
+                EC<span>I</span><span class="brand-dot">.</span>
+            </div>
+            <p class="rail-caption">ENTERPRISE CASE<br />INTELLIGENCE</p>
+            <a class="nav-current" href="/workspace" aria-current="page"
+                ><span aria-hidden="true">▤</span> Workspace</a
+            >
+            <div class="rail-bottom">
+                <span class="signal" aria-hidden="true"></span> Local
+                demonstration<br /><small>Synthetic data only</small>
+            </div>
+        </aside>
+        <main id="main" tabindex="-1">
+            <header class="page-header">
+                <div>
+                    <p class="eyebrow">SERVICE DESK / CASE OPERATIONS</p>
+                    <h1>Case workspace</h1>
+                    <p class="intro">
+                        Find the work. Understand the context. Move it forward.
+                    </p>
+                </div>
+                <button id="new-case" class="primary" type="button">
+                    + New case
+                </button>
+            </header>
+            <div class="context-strip">
+                <span class="local-tag">LOCAL WORKSPACE</span
+                ><span
+                    >One local store · No sign-in · Use fictional examples</span
+                >
+            </div>
+            <noscript
+                ><p class="notice">
+                    Enable JavaScript to use this workspace. The HTTP API and
+                    curl walkthrough remain available.
+                </p></noscript
+            >
+            <p
+                id="mutation-message"
+                class="feedback"
+                role="status"
+                aria-live="polite"
+            ></p>
+            <div class="work-grid">
+                <section class="panel inbox" aria-labelledby="inbox-heading">
+                    <div class="panel-header">
+                        <div>
+                            <p class="eyebrow">FIND SAVED WORK</p>
+                            <h2 id="inbox-heading">Cases</h2>
+                        </div>
+                        <button id="refresh-list" class="quiet" type="button">
+                            Refresh list
+                        </button>
+                    </div>
+                    <div class="filter-row">
+                        <label for="status-filter">Status</label
+                        ><select id="status-filter">
+                            <option value="">All statuses</option>
+                            <option value="New">New</option>
+                            <option value="InReview">In review</option>
+                            <option value="Closed">Closed</option>
+                        </select>
+                    </div>
+                    <p
+                        id="list-message"
+                        class="feedback"
+                        role="status"
+                        aria-live="polite"
+                    ></p>
+                    <ul
+                        id="case-list"
+                        class="case-list"
+                        aria-label="Saved cases"
+                    ></ul>
+                    <div class="list-footer">
+                        <p>
+                            Ordered by ID, not date or priority.<br />Refresh
+                            starts again with current matches.
+                        </p>
+                        <button id="next-page" type="button" hidden>
+                            Next page →
+                        </button>
+                    </div>
+                </section>
+                <section class="panel detail" aria-labelledby="detail-heading">
+                    <div class="panel-header">
+                        <div>
+                            <p class="eyebrow">REVIEW &amp; PROGRESS</p>
+                            <h2 id="detail-heading">Case details</h2>
+                        </div>
+                        <button
+                            id="refresh-case"
+                            class="quiet"
+                            type="button"
+                            disabled
+                        >
+                            Refresh case
+                        </button>
+                    </div>
+                    <p
+                        id="detail-message"
+                        class="feedback"
+                        role="status"
+                        aria-live="polite"
+                    >
+                        Select a case to review its details and history.
+                    </p>
+                    <div id="case-detail" hidden>
+                        <div class="case-meta">
+                            <span id="case-status" class="badge"></span
+                            ><code id="case-id"></code>
+                        </div>
+                        <h3 id="case-title"></h3>
+                        <p id="case-description" class="description"></p>
+                        <div class="action-row">
+                            <button
+                                id="advance-case"
+                                class="primary"
+                                type="button"
+                                hidden
+                            ></button
+                            ><span id="closed-note" hidden
+                                >This case is closed.</span
+                            >
+                        </div>
+                    </div>
+                    <section
+                        class="history-section"
+                        aria-labelledby="history-heading"
+                    >
+                        <div class="history-header">
+                            <h3 id="history-heading">Recorded history</h3>
+                            <button
+                                id="refresh-history"
+                                class="quiet"
+                                type="button"
+                                disabled
+                            >
+                                Refresh history
+                            </button>
+                        </div>
+                        <p class="subtle">
+                            Recorded changes, without actor identity. Details
+                            and history load separately.
+                        </p>
+                        <p
+                            id="history-message"
+                            class="feedback"
+                            role="status"
+                            aria-live="polite"
+                        >
+                            Select a case to see recorded history.
+                        </p>
+                        <ol id="case-history" class="timeline"></ol>
+                    </section>
+                </section>
+            </div>
+            <footer class="page-footer">
+                <span>Enterprise Case Intelligence</span
+                ><span
+                    >Local reference workflow · New → In review → Closed</span
+                >
+            </footer>
+        </main>
+        <dialog id="create-dialog" aria-labelledby="create-heading">
+            <div class="dialog-header">
+                <div>
+                    <p class="eyebrow">CAPTURE THE CONTEXT</p>
+                    <h2 id="create-heading">New synthetic case</h2>
+                </div>
+                <button
+                    id="close-draft"
+                    class="quiet"
+                    type="button"
+                    aria-label="Close draft"
+                >
+                    ×
+                </button>
+            </div>
+            <p class="subtle">
+                Describe a fictional documentation issue. Use synthetic
+                information only.
+            </p>
+            <form id="create-form" method="post" action="/workspace" novalidate>
+                <label for="title"
+                    >Title
+                    <span class="field-hint"
+                        >1–120 characters after trimming</span
+                    ></label
+                >
+                <input
+                    id="title"
+                    autofocus
+                    name="title"
+                    required
+                    aria-describedby="title-error"
+                    autocomplete="off"
+                />
+                <p id="title-error" class="field-error" aria-live="polite"></p>
+                <label for="description"
+                    >Description
+                    <span class="field-hint"
+                        >1–2,000 characters after trimming</span
+                    ></label
+                >
+                <textarea
+                    id="description"
+                    name="description"
+                    rows="6"
+                    required
+                    aria-describedby="description-error"
+                    autocomplete="off"
+                ></textarea>
+                <p
+                    id="description-error"
+                    class="field-error"
+                    aria-live="polite"
+                ></p>
+                <p
+                    id="create-message"
+                    class="feedback"
+                    role="status"
+                    aria-live="polite"
+                ></p>
+                <p id="uncertain-note" class="notice" hidden>
+                    The earlier request may already have created a case. Retry
+                    sends the same frozen draft safely. Reloading or closing
+                    this page loses that retry context.
+                </p>
+                <div id="replacement" class="notice" hidden>
+                    <label class="checkbox"
+                        ><input id="acknowledge-new" type="checkbox" /> I
+                        understand the earlier request may have created a case,
+                        and want to start another.</label
+                    ><button id="replace-draft" type="button" disabled>
+                        Start new draft
+                    </button>
+                </div>
+                <div class="dialog-actions">
+                    <button id="create-submit" class="primary" type="submit">
+                        Create case</button
+                    ><button
+                        id="request-new-draft"
+                        class="quiet"
+                        type="button"
+                        hidden
+                    >
+                        Use a different draft
+                    </button>
+                </div>
+            </form>
+        </dialog>
+    </body>
+</html>
