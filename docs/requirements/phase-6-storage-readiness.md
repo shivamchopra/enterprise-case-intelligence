@@ -1,6 +1,8 @@
-# Phase 6 proposal: bounded local-store readiness
+# Deferred proposal: bounded local-store readiness
 
-**Status: Proposed requirements — not implemented.** The runnable baseline remains Phase 5 with EF Core Code First and format 4. This proposes a separate storage-readiness endpoint; `/health` currently reports host liveness only.
+**Status: Deferred requirements — not implemented.** Originally proposed for Phase 6, this is retained for a future hosting/operability slice. The [project reassessment](../roadmap.md) prioritizes the [local browser workspace](phase-6-case-workspace.md) instead. The filename and P6 criterion IDs are retained for traceability to the reviewed proposal; they do not reserve the next phase.
+
+The runnable baseline remains Phase 5 with EF Core Code First and format 4. This proposes a separate storage-readiness endpoint; `/health` currently reports host liveness only.
 
 ## Assessment and outcome
 
@@ -63,7 +65,7 @@ For an idle, intact test store, repeated success/failure probes must preserve co
 
 ## Implementation sequence and evidence
 
-Review this contract, then document the focused probe/transaction/timeout design and its SQL exceptions before implementation. Keep this separate from the full offline inspector and current startup validation. Implementation must use disposable real SQLite files, bounded loopback child-process tests and test-only coordination; no production fault routes or arbitrary sleeps.
+When hosting requirements justify this work, revisit this contract, then document the focused probe/transaction/timeout design and its SQL exceptions before implementation. Keep this separate from the full offline inspector and current startup validation. Implementation must use disposable real SQLite files, bounded loopback child-process tests and test-only coordination; no production fault routes or arbitrary sleeps.
 
 When implemented, update the README and walkthrough with the two probes, healthy/unhealthy examples, limits and recovery behavior. Keep the profile/implemented-scope evidence on the shipped Phase 5 capability until then. These requirements add no runnable endpoint, package, table or migration today.
 
