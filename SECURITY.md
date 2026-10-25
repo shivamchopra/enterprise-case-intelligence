@@ -2,7 +2,9 @@
 
 ## Supported scope
 
-Security fixes apply to the current `main` foundation: HTTP endpoints, dependencies and build configuration. This is a Phase 0 reference project without production deployment, authentication or authorization. Planned capabilities are outside the implemented scope.
+Security fixes apply to the current `main` implementation: the local browser workspace, case HTTP API, EF Core/SQLite persistence and offline lifecycle commands, dependencies and build configuration. This reference project uses synthetic case data and has no implemented authentication, authorization or production deployment. Use the current demonstration on loopback; a public repository or published build does not establish safe network hosting.
+
+[Phase 8 secure-hosting requirements](docs/requirements/phase-8-secure-hosting.md) propose invited access and operating/recovery expectations. They are planning, not implemented controls. Report vulnerabilities in shipped behavior through the private process below; proposed capabilities remain outside current coverage.
 
 ## Reporting a vulnerability
 

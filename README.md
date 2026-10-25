@@ -153,8 +153,8 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 
 - **Now:** [case title search](docs/requirements/phase-7-case-title-search.md#current-implementation-coverage) in the browser/API journey, alongside retry-safe creation, status history and process-recovery coverage.
 - **Completed:** [EF Core Code First adoption](docs/tasks/ef-core-code-first-adoption.md) with retained-data and migration-recovery coverage.
-- **Next:** define secure hosting requirements—identity/access boundaries and operating needs—before broader access. Further business rules such as prioritization or ownership remain candidates, not implemented capabilities.
-- **Deferred:** [storage readiness](docs/requirements/phase-6-storage-readiness.md), to revisit with deployment requirements. `/health` remains storage-independent liveness.
+- **Next — proposed, not implemented:** [secure review hosting](docs/requirements/phase-8-secure-hosting.md): invited Reader/Caseworker access, authenticated browser/API behavior, deployment boundaries and tested recovery. Begin with the identity/session/authorization design; no identity provider or cloud service is selected yet.
+- **Deferred:** [storage readiness](docs/requirements/phase-6-storage-readiness.md), to revisit against the selected hosting/provider design. `/health` remains storage-independent liveness.
 - **Later:** extend the business workflow, establish secure hosting, then evaluate integration and AI against concrete scenarios. The [project roadmap](docs/roadmap.md) explains priorities and prerequisites; these capabilities are not implemented.
 
 ## Security and Privacy
