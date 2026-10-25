@@ -102,6 +102,14 @@ The [project roadmap](../roadmap.md) assesses workflow value, demonstration, sec
 
 The [storage-readiness proposal](../requirements/phase-6-storage-readiness.md) addresses the gap between a responsive host and available storage. It describes a separate `/health/ready` contract with fixed format/EF-metadata checks and a rollback-only write probe, finite work/waits and generic `200`/`503` output. It keeps `/health` storage-independent and leaves deep whole-store validation to the offline inspector. Revisit it with hosting requirements; it is no longer the next milestone. No readiness endpoint, storage-format change or monitoring deployment is implemented by the proposal.
 
+## Secure review hosting — proposed, not implemented
+
+[Phase 8 requirements](../requirements/phase-8-secure-hosting.md) target one invited organization/shared synthetic workspace with Reader and Caseworker grants. They require server-enforced policies, a framework-supported external OIDC/session-cookie flow, non-redirecting case API denials, JSON-write/sign-out CSRF protection and explicit expiry/recovery behavior. Current browser fetches omit credentials; authentication must deliberately amend that behavior rather than assuming the existing workspace already supports sessions. Retained creation keys stay environment-wide within the proposed shared workspace and are never authorization credentials.
+
+The proposal joins identity, ingress, secrets/session-key storage, runtime limits, logging and backup/restore requirements. A platform/store ADR must establish compatible persistence and writer topology before deployment; ephemeral/network-shared SQLite or overlapping writers are not supported by current evidence. RPO/RTO and retention targets are proposed acceptance needs, not shipped guarantees. Readiness is revisited against the selected provider instead of automatically implementing the older SQLite-specific probe first.
+
+The next implementation decision is identity/session/policy handling, followed by the platform/provider and operating design. No authority/tenant, Azure resource, server database, deployment topology or authentication runtime is selected/implemented by the requirements. Domain remains independent, and EF Code First/offline compatibility requirements continue to apply when persistence changes are needed.
+
 ## Conceptual future direction — not implemented
 
 ```mermaid

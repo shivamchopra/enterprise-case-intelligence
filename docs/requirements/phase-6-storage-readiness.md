@@ -4,6 +4,8 @@
 
 The proposal was written against Phase 5 with EF Core Code First and format 4; the current browser workspace reuses that storage baseline. This proposes a separate storage-readiness endpoint; `/health` currently reports host liveness only.
 
+[Phase 8 hosting requirements](phase-8-secure-hosting.md) revisit readiness after the platform/provider decision. This document's exact format-4/SQLite probe remains a candidate only if that storage design is retained; it is not a universal server-database probe or the next implementation task ahead of identity/access boundaries.
+
 ## Assessment and outcome
 
 The current [storage-failure test](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseStorageFailureTests.cs) deliberately moves the database away after hosting starts. Case requests fail safely while `/health` still returns `200`. That preserves liveness, but a local operator has no small HTTP probe to distinguish a responsive host from an available current-format store. Offline `inspect-store` provides deeper validation and requires store users stopped.
@@ -67,6 +69,6 @@ For an idle, intact test store, repeated success/failure probes must preserve co
 
 When hosting requirements justify this work, revisit this contract, then document the focused probe/transaction/timeout design and its SQL exceptions before implementation. Keep this separate from the full offline inspector and current startup validation. Implementation must use disposable real SQLite files, bounded loopback child-process tests and test-only coordination; no production fault routes or arbitrary sleeps.
 
-When implemented, update the README and walkthrough with the two probes, healthy/unhealthy examples, limits and recovery behavior. Keep the profile/implemented-scope evidence on the shipped Phase 5 capability until then. These requirements add no runnable endpoint, package, table or migration today.
+When implemented, update the README and walkthrough with the two probes, healthy/unhealthy examples, limits and recovery behavior. Keep the profile/implemented-scope evidence on shipped capabilities until then. These requirements add no runnable endpoint, package, table or migration today.
 
 Microsoft's [ASP.NET Core health-check guidance](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks?view=aspnetcore-10.0) describes separate liveness/readiness checks, endpoint filtering, status mapping and minimal output. The contract above is this project's selected local behavior, not a claim that framework connectivity checks provide its format/write guarantees.
