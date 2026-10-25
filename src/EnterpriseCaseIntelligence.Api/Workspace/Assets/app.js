@@ -6,6 +6,7 @@ let listGeneration = 0;
 let detailGeneration = 0;
 let historyGeneration = 0;
 let nextAfter = null;
+let submittedTitle = null;
 let selectedId = null;
 let currentCase = null;
 let changingStatus = false;
@@ -78,12 +79,24 @@ function markSelection() {
     }
 }
 
+function searchContext() {
+    byId("search-context").textContent =
+        byId("title-search").value !== (submittedTitle ?? "")
+            ? "Text edited. Choose Search to apply it; paging and Refresh keep the last submitted search."
+            : submittedTitle === null
+              ? "Showing all titles."
+              : "Using the submitted title search.";
+}
+
 async function loadList(after = null) {
     const generation = ++listGeneration;
     const filter = byId("status-filter").value;
     const query = new URLSearchParams();
     if (filter) query.set("status", filter);
+    if (submittedTitle !== null) query.set("title", submittedTitle);
     if (after) query.set("after", after);
+    byId("search-error").textContent = "";
+    byId("title-search").setAttribute("aria-invalid", "false");
     nextAfter = null;
     byId("next-page").hidden = true;
     byId("case-list").replaceChildren();
@@ -110,21 +123,35 @@ async function loadList(after = null) {
             byId("case-list").append(item);
         }
         markSelection();
+        searchContext();
         nextAfter = page.nextAfter;
         byId("next-page").hidden = nextAfter === null;
         message(
             "list-message",
             cases.length
                 ? ""
-                : "No cases match this view. Create a synthetic case or choose another status.",
+                : "No cases match this view. Clear or change the search/status, or create a synthetic case.",
         );
-    } catch {
-        if (generation === listGeneration)
+    } catch (error) {
+        if (generation === listGeneration) {
+            if (
+                error.status === 400 &&
+                Object.hasOwn(error.fields || {}, "title")
+            ) {
+                byId("search-error").textContent =
+                    "Use 1–120 characters of valid title text after trimming, or Clear search.";
+                byId("title-search").setAttribute("aria-invalid", "true");
+                byId("search-context").textContent =
+                    "The submitted title search was rejected. Correct it and choose Search, or Clear search.";
+            }
             message(
                 "list-message",
-                "Cases could not be loaded. Use Refresh list to try again.",
+                error.status === 400
+                    ? "The search request was rejected. Check the title search before retrying."
+                    : "Cases could not be loaded. Use Refresh list to try again.",
                 true,
             );
+        }
     } finally {
         if (generation === listGeneration)
             byId("case-list").setAttribute("aria-busy", "false");
@@ -386,6 +413,19 @@ async function createCase(event) {
     }
 }
 
+byId("search-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    submittedTitle = byId("title-search").value || null;
+    searchContext();
+    void loadList();
+});
+byId("title-search").addEventListener("input", searchContext);
+byId("clear-search").addEventListener("click", () => {
+    submittedTitle = null;
+    byId("title-search").value = "";
+    searchContext();
+    void loadList();
+});
 byId("status-filter").addEventListener("change", () => void loadList());
 byId("refresh-list").addEventListener("click", () => void loadList());
 byId("next-page").addEventListener("click", () => {

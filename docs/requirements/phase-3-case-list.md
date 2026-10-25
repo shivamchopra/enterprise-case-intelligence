@@ -2,6 +2,8 @@
 
 **Status: Reviewed requirements — local list workflow implemented.** Requirements reviewed in PR #13; this document records the implemented contract and acceptance coverage.
 
+**Phase 7 amendment:** [Title search](phase-7-case-title-search.md) adds the optional `title` parameter to the original query set below. The original no-search scope is historical to Phase 3; current queries combine literal case-sensitive title matching with status and ID continuation, preserving the response and bounds.
+
 The [durable local workflow](phase-2-durable-case-workflow.md) originally required a known ID to reopen each case. Phase 3 adds a bounded, optionally status-filtered list so a fictional service-desk staff member can find saved work and resume the existing retrieve/status workflow. It is a reference-project assumption, not a validated enterprise requirement.
 
 The API implements creation, listing, retrieval by ID and status changes. [ADR 0004](../adr/0004-use-sqlite-for-the-durable-local-workflow.md) remains the accepted storage decision.

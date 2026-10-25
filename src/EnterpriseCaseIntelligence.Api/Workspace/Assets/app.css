@@ -244,6 +244,29 @@ h2 {
     background: #fafbf8;
     border-bottom: 1px solid var(--line);
 }
+.search-form {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--line);
+}
+.search-form > label {
+    margin: 0;
+}
+.search-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.search-controls input {
+    flex: 1 1 160px;
+    min-width: 0;
+    width: 100%;
+}
+.search-controls button {
+    font-size: 0.8rem;
+}
+.search-form .subtle {
+    margin: 6px 0;
+}
 label {
     font-size: 0.8667rem;
     font-weight: 600;

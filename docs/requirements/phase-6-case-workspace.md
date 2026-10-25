@@ -2,6 +2,8 @@
 
 **Status: Reviewed requirements — local browser workflow implemented.** The [project assessment](../roadmap.md) prioritizes a complete local case journey. Phase 6 adds the workspace to the existing API/EF Core Code First baseline, without changing format 4. [ADR 0008](../adr/0008-serve-a-local-browser-case-workspace.md) records the same-host implementation and browser-test approach.
 
+**Phase 7 amendment:** [Title search](phase-7-case-title-search.md) adds explicit Search/Clear actions alongside the original status filter. The no-search scope below records the Phase 6 baseline; the current workspace retains submitted title text through paging, filters and refreshes.
+
 ## Scenario and outcome
 
 A fictional service-desk staff member should be able to find saved synthetic work, create a case, inspect its details and recorded history, and advance it from New to InReview to Closed without constructing HTTP requests. “Staff member” describes the demonstration scenario; no authenticated identity, role or ownership is implied.
