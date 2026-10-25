@@ -13,6 +13,12 @@ let changingStatus = false;
 let draft = null;
 let creating = false;
 let uncertain = false;
+let sessionGeneration = 0;
+let canRead = false;
+let canWrite = false;
+let csrfToken = null;
+let sessionExpiryTimer = null;
+let signingOut = false;
 
 function message(id, text, error = false) {
     const element = byId(id);
@@ -34,13 +40,27 @@ function badge(status) {
 }
 
 async function request(path, options = {}) {
+    const generation = sessionGeneration;
+    const headers = { ...options.headers };
+    if (options.method && options.method !== "GET" && csrfToken)
+        headers["X-ECI-CSRF"] = csrfToken;
     const response = await fetch(path, {
         cache: "no-store",
-        credentials: "omit",
+        credentials: "same-origin",
         redirect: "error",
         signal: AbortSignal.timeout(15000),
         ...options,
+        headers,
     });
+    if (generation !== sessionGeneration) throw new Error("Session changed");
+    if (response.status === 401 || response.status === 403) {
+        clearAccess(
+            response.status === 401
+                ? "Sign in to continue. An unfinished creation may already have committed. Signing in leaves this page and loses its retry context; reconcile saved cases before creating again."
+                : "Access denied. Your current session has no permission for this action. Refresh access or sign out.",
+        );
+        byId("sign-in").hidden = response.status !== 401;
+    }
     // Error bodies are not presentation content. Only known status/field names
     // select fixed client messages; raw provider/proxy output is never rendered.
     if (!response.ok) {
@@ -55,7 +75,147 @@ async function request(path, options = {}) {
         }
         throw error;
     }
-    return response.json();
+    const value = await response.json();
+    if (generation !== sessionGeneration) throw new Error("Session changed");
+    return value;
+}
+
+function clearAccess(text) {
+    clearTimeout(sessionExpiryTimer);
+    sessionExpiryTimer = null;
+    ++sessionGeneration;
+    ++listGeneration;
+    ++detailGeneration;
+    ++historyGeneration;
+    canRead = canWrite = false;
+    csrfToken = null;
+    selectedId = currentCase = nextAfter = null;
+    if (creating) uncertain = true;
+    byId("protected-workspace").hidden = true;
+    byId("new-case").hidden = true;
+    byId("case-detail").hidden = true;
+    byId("case-list").replaceChildren();
+    byId("case-history").replaceChildren();
+    for (const id of [
+        "case-id",
+        "case-title",
+        "case-description",
+        "mutation-message",
+        "list-message",
+        "detail-message",
+        "history-message",
+        "create-message",
+    ])
+        byId(id).textContent = "";
+    byId("case-status").textContent = "";
+    byId("case-status").removeAttribute("data-status");
+    byId("create-dialog").close();
+    byId("create-form").reset();
+    byId("refresh-case").disabled = byId("refresh-history").disabled = true;
+    byId("access-label").textContent = "ACCESS REQUIRED";
+    message("access-message", text, true);
+    renderAction();
+    updateDraftControls();
+}
+
+async function refreshAccess() {
+    if (signingOut) return;
+    clearAccess("Checking session…");
+    const generation = sessionGeneration;
+    try {
+        const session = await request("/auth/session");
+        if (generation !== sessionGeneration) return;
+        canRead = session.canRead === true;
+        canWrite = canRead && session.canWrite === true;
+        csrfToken = session.csrfToken;
+        if (!session.localDemo && session.authenticated) {
+            if (
+                !Number.isFinite(session.expiresInSeconds) ||
+                session.expiresInSeconds <= 0 ||
+                session.expiresInSeconds > 1800
+            )
+                throw new Error("Invalid session deadline");
+            sessionExpiryTimer = setTimeout(() => {
+                clearAccess(
+                    "Your session has expired. Sign in to continue. Signing in loses any unfinished retry context; reconcile saved cases before creating again.",
+                );
+                byId("sign-in").hidden = false;
+            }, session.expiresInSeconds * 1000);
+        }
+        byId("sign-in").hidden = session.localDemo || session.authenticated;
+        byId("sign-out").hidden = session.localDemo || !session.authenticated;
+        byId("new-case").hidden = !canWrite;
+        byId("protected-workspace").hidden = !canRead;
+        byId("access-label").textContent = session.localDemo
+            ? "LOCAL DEMO"
+            : canWrite
+              ? "CASEWORKER"
+              : canRead
+                ? "READER"
+                : "ACCESS REQUIRED";
+        message(
+            "access-message",
+            canRead
+                ? session.localDemo
+                    ? "Loopback demonstration · No sign-in required"
+                    : "Signed in · Sessions expire after 30 minutes. Use Refresh access to check your session."
+                : session.authenticated
+                  ? "Access denied. Ask the operator for a Reader or Caseworker grant, then sign out and sign in again."
+                  : "Sign in to view cases. Signing in navigates away and loses any unfinished draft or retry context.",
+        );
+        if (canRead) void loadList();
+        updateDraftControls();
+    } catch {
+        if (generation === sessionGeneration) {
+            clearAccess(
+                "Session could not be checked. Use Refresh access to retry.",
+            );
+            message(
+                "access-message",
+                "Session could not be checked. Use Refresh access to retry.",
+                true,
+            );
+        }
+    }
+}
+
+async function signOut() {
+    if (signingOut) return;
+    if (
+        (creating || uncertain) &&
+        !window.confirm(
+            "This creation may already have committed. Signing out loses its retry context. Sign out and reconcile saved cases before creating again?",
+        )
+    )
+        return;
+    signingOut = true;
+    byId("refresh-access").disabled = byId("sign-out").disabled = true;
+    // Hide protected content immediately and discard every earlier response.
+    const token = csrfToken;
+    clearAccess("Signing out…");
+    csrfToken = token;
+    try {
+        await request("/auth/logout", { method: "POST" });
+        draft = null;
+        uncertain = false;
+        csrfToken = null;
+        byId("sign-in").hidden = false;
+        byId("sign-out").hidden = true;
+        message(
+            "access-message",
+            "Signed out of this application. Your identity-provider session may still be active.",
+        );
+    } catch {
+        csrfToken = null;
+        message(
+            "access-message",
+            "Sign-out could not be confirmed. Protected content is hidden. Refresh access before trying again.",
+            true,
+        );
+    } finally {
+        signingOut = false;
+        byId("refresh-access").disabled = byId("sign-out").disabled = false;
+    }
 }
 
 function caseValue(value) {
@@ -89,6 +249,7 @@ function searchContext() {
 }
 
 async function loadList(after = null) {
+    if (!canRead) return;
     const generation = ++listGeneration;
     const filter = byId("status-filter").value;
     const query = new URLSearchParams();
@@ -160,7 +321,8 @@ async function loadList(after = null) {
 
 function renderAction() {
     const button = byId("advance-case");
-    button.hidden = !currentCase || currentCase.status === "Closed";
+    button.hidden =
+        !canWrite || !currentCase || currentCase.status === "Closed";
     button.disabled = changingStatus;
     button.textContent = changingStatus
         ? "Saving…"
@@ -252,6 +414,7 @@ async function loadHistory(id) {
 }
 
 function selectCase(id) {
+    if (!canRead) return;
     selectedId = id;
     markSelection();
     byId("refresh-case").disabled = false;
@@ -261,8 +424,14 @@ function selectCase(id) {
 }
 
 async function advanceCase() {
-    if (!currentCase || changingStatus || currentCase.status === "Closed")
+    if (
+        !canWrite ||
+        !currentCase ||
+        changingStatus ||
+        currentCase.status === "Closed"
+    )
         return;
+    const generation = sessionGeneration;
     const id = currentCase.id;
     const title = currentCase.title;
     const status = currentCase.status === "New" ? "InReview" : "Closed";
@@ -282,6 +451,7 @@ async function advanceCase() {
         if (id === selectedId) selectCase(id);
         void loadList();
     } catch (error) {
+        if (generation !== sessionGeneration) return;
         message(
             "mutation-message",
             error.status === 409
@@ -309,7 +479,8 @@ async function advanceCase() {
 function updateDraftControls() {
     byId("title").readOnly = creating || uncertain;
     byId("description").readOnly = creating || uncertain;
-    byId("create-submit").disabled = creating;
+    byId("new-case").hidden = !canWrite;
+    byId("create-submit").disabled = creating || !canWrite;
     byId("create-submit").textContent = creating
         ? "Creating…"
         : uncertain
@@ -331,7 +502,8 @@ function fieldError(field, text) {
 
 async function createCase(event) {
     event.preventDefault();
-    if (creating) return;
+    if (creating || !canWrite) return;
+    const generation = sessionGeneration;
     fieldError("title", "");
     fieldError("description", "");
     if (!uncertain) {
@@ -381,6 +553,10 @@ async function createCase(event) {
         selectCase(record.id);
         void loadList();
     } catch (error) {
+        if (generation !== sessionGeneration) {
+            uncertain = draft !== null;
+            return;
+        }
         if (error.status === 400 && !wasUncertain) {
             draft = null;
             for (const field of ["title", "description"]) {
@@ -438,9 +614,15 @@ byId("refresh-history").addEventListener("click", () => {
     if (selectedId) void loadHistory(selectedId);
 });
 byId("advance-case").addEventListener("click", () => void advanceCase());
-byId("new-case").addEventListener("click", () =>
-    byId("create-dialog").showModal(),
-);
+byId("new-case").addEventListener("click", () => {
+    if (!canWrite) return;
+    if (draft && uncertain) {
+        const payload = JSON.parse(draft.payload);
+        byId("title").value = payload.title;
+        byId("description").value = payload.description;
+    }
+    byId("create-dialog").showModal();
+});
 byId("close-draft").addEventListener("click", () =>
     byId("create-dialog").close(),
 );
@@ -474,4 +656,6 @@ window.addEventListener("beforeunload", (event) => {
         event.returnValue = "";
     }
 });
-void loadList();
+byId("refresh-access").addEventListener("click", () => void refreshAccess());
+byId("sign-out").addEventListener("click", () => void signOut());
+void refreshAccess();

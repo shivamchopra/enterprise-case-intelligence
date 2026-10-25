@@ -1,14 +1,14 @@
 # Run the local synthetic case workflow
 
-Start the API using the [README commands](../../README.md#getting-started). The examples assume `http://localhost:5080` and use synthetic text only.
+Start the API using the [README commands](../../README.md#getting-started). The examples select explicit `Security:Mode=LocalDemo`, assume `http://localhost:5080` and use synthetic text only.
 
-**Storage is local and retained:** initialize a new file once, then start/restart the API with the same `CaseStorage:DatabasePath`. Acknowledged writes survive API process termination when the file and local storage remain intact. Only one API process may use a store at a time. There is no authentication or authorization; use synthetic data only.
+**Storage is local and retained:** initialize a new file once, then start/restart the API with the same `CaseStorage:DatabasePath`. Acknowledged writes survive API process termination when the file and local storage remain intact. Only one API process may use a store at a time. LocalDemo has no authentication or authorization; use synthetic data only. [Oidc configuration and behavior](authenticated-case-workspace.md) are separate.
 
 Initialization is an explicit `init-store` command, not an HTTP route. It refuses any existing file, including an empty one. Normal startup refuses missing, incompatible, corrupt or unwritable storage and never creates a replacement. The directory must already exist and permit database/journal writes. Choose a local directory outside network shares or synchronization-managed folders; `CaseStorage__DatabasePath` is the equivalent environment setting.
 
 ## Browser workspace
 
-With the API running on loopback, open [http://localhost:5080/workspace](http://localhost:5080/workspace). A modern browser with JavaScript is required; there is no frontend server, account, Node runtime or external asset download. The API and curl workflow below remain available.
+With the API running on loopback, open [http://localhost:5080/workspace](http://localhost:5080/workspace). Open the server URL rather than the source HTML file. A modern browser with JavaScript is required; there is no frontend server, account, Node runtime or external asset download. The API and curl workflow below remain available.
 
 1. Choose **New case**. Enter title `Correct the sample guide` and description `Update the fictional example section.`, then choose **Create case**. The workspace reads the created ID for current state and shows recorded history.
 2. Choose **Start review**, then **Close case**. Success is shown after the server response; current details/history reload separately. Closed cases have no advance action.
@@ -21,7 +21,7 @@ Draft text/key state lives only in the open page's memory, including when the dr
 
 If a list, detail or history read fails, use its explicit **Refresh** control. A failure is not an empty result. If a write was confirmed and its follow-up read fails, the confirmation remains visible separately. A rejected/uncertain status action requires **Refresh case** before another action. Browser requests time out after 15 seconds; this does not prove that a server-side write was canceled. Details/history load independently and can reflect different observations.
 
-The UI has no sign-in, staff identity or authorization, and it does not make network hosting safe. Keep the supported demonstration on loopback with synthetic data. `/health` still reports host liveness only; storage readiness remains deferred.
+This explicit LocalDemo mode has no sign-in or staff permission checks and is not safe for network hosting. Oidc mode adds sign-in, Reader/Caseworker permissions and CSRF but still requires separate hosted acceptance. Keep the supported demonstration on loopback with synthetic data. `/health` still reports host liveness only; storage readiness remains deferred.
 
 ## Find cases by title
 
@@ -166,7 +166,7 @@ The existing `/` and `/health` endpoints retain their foundation behavior. See t
 Stop the API with Ctrl+C. In the same terminal, keep `CASE_DB_PATH` from the README setup and run **only normal startup**, without `init-store`:
 
 ```sh
-dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- --CaseStorage:DatabasePath "$CASE_DB_PATH" --urls http://localhost:5080
+dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- --CaseStorage:DatabasePath "$CASE_DB_PATH" --Security:Mode LocalDemo --urls http://localhost:5080
 ```
 
 List saved cases again, retrieve the original `CASE_ID` or read its `/history`. Plain ID continuations can also be reused against the same retained store after restart. Its ID, text, latest committed status and recorded history are retained. The automated process-recovery test also verifies acknowledged paired writes after force-killing the API. This does not establish hardware/power-loss recovery, backups, encryption or multi-instance operation.

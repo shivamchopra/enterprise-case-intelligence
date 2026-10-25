@@ -18,8 +18,8 @@
                 ><span aria-hidden="true">▤</span> Workspace</a
             >
             <div class="rail-bottom">
-                <span class="signal" aria-hidden="true"></span> Local
-                demonstration<br /><small>Synthetic data only</small>
+                <span class="signal" aria-hidden="true"></span> Case
+                operations<br /><small>Synthetic data only</small>
             </div>
         </aside>
         <main id="main" tabindex="-1">
@@ -31,16 +31,27 @@
                         Find the work. Understand the context. Move it forward.
                     </p>
                 </div>
-                <button id="new-case" class="primary" type="button">
+                <button id="new-case" class="primary" type="button" hidden>
                     + New case
                 </button>
             </header>
             <div class="context-strip">
-                <span class="local-tag">LOCAL WORKSPACE</span
-                ><span
-                    >One local store · No sign-in · Use fictional examples</span
-                >
+                <span id="access-label" class="local-tag">CHECKING ACCESS</span>
+                <span>Shared workspace · Synthetic data only</span>
+                <a id="sign-in" href="/auth/login" hidden>Sign in</a>
+                <button id="sign-out" type="button" hidden>Sign out</button>
+                <button id="refresh-access" type="button">
+                    Refresh access
+                </button>
             </div>
+            <p
+                id="access-message"
+                class="feedback"
+                role="status"
+                aria-live="polite"
+            >
+                Checking session…
+            </p>
             <noscript
                 ><p class="notice">
                     Enable JavaScript to use this workspace. The HTTP API and
@@ -53,7 +64,7 @@
                 role="status"
                 aria-live="polite"
             ></p>
-            <div class="work-grid">
+            <div id="protected-workspace" class="work-grid" hidden>
                 <section class="panel inbox" aria-labelledby="inbox-heading">
                     <div class="panel-header">
                         <div>

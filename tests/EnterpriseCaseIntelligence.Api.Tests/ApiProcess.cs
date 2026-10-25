@@ -47,6 +47,7 @@ internal sealed class ApiProcess : IDisposable
     public static async Task<ApiProcess> StartAsync(string path)
     {
         var process = new ApiProcess("--CaseStorage:DatabasePath", path, "--urls", "http://127.0.0.1:0",
+            "--Security:Mode", "LocalDemo",
             "--Logging:LogLevel:Default", "Warning", "--Logging:LogLevel:Microsoft.Hosting.Lifetime", "Information");
         try
         {
@@ -61,6 +62,10 @@ internal sealed class ApiProcess : IDisposable
     }
 
     public static async Task<(int ExitCode, string Output)> RunAsync(params string[] arguments)
+        => await RunRawAsync(arguments.FirstOrDefault() is "init-store" or "inspect-store" or "upgrade-store" ? arguments :
+            [.. arguments, "--Security:Mode", "LocalDemo", "--urls", "http://127.0.0.1:0"]);
+
+    public static async Task<(int ExitCode, string Output)> RunRawAsync(params string[] arguments)
     {
         using var process = new ApiProcess(arguments);
         await process._process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(25));

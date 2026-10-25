@@ -1,5 +1,7 @@
 using EnterpriseCaseIntelligence.Api.Cases;
+using EnterpriseCaseIntelligence.Api.Security;
 using EnterpriseCaseIntelligence.Api.Workspace;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,8 +13,26 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(services => new CaseDatabase(
     services.GetRequiredService<IConfiguration>()["CaseStorage:DatabasePath"], services.GetRequiredService<TimeProvider>()));
 builder.Services.AddSingleton<SqliteCaseStore>();
+builder.Services.AddCaseSecurity();
 
 await using var app = builder.Build();
+
+SecuritySettings? security = null;
+if (mode is null)
+{
+    try
+    {
+        security = app.Services.GetRequiredService<SecuritySettings>();
+        if (!security.LocalDemo)
+        {
+            var protector = app.Services.GetRequiredService<IDataProtectionProvider>().CreateProtector("startup-check");
+            var probe = Guid.NewGuid().ToString("N");
+            if (protector.Unprotect(protector.Protect(probe)) != probe) throw new System.Security.Cryptography.CryptographicException();
+        }
+    }
+    catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException or System.Security.Cryptography.CryptographicException)
+    { Console.Error.WriteLine("Security configuration unavailable or incompatible. Select explicit loopback LocalDemo or fully configured HTTPS Oidc mode."); return 1; }
+}
 
 try
 {
@@ -39,6 +59,8 @@ catch (Exception exception) when (exception is ArgumentException or IOException 
 app.UseExceptionHandler(errorApp => errorApp.Run(context =>
     Results.Problem(statusCode: 500, title: "Internal Server Error", type: "about:blank",
         extensions: new Dictionary<string, object?> { ["code"] = "internal_error" }).ExecuteAsync(context)));
+app.UseCaseSecurity(security!);
+app.MapSecurity(security!);
 
 app.MapGet("/", () => new { service = "Enterprise Case Intelligence", status = "foundation" });
 app.MapHealthChecks("/health");
