@@ -48,11 +48,12 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
         }
     }
 
-    public CasePage List(int limit, CaseStatus? status = null, Guid? after = null)
+    public CasePage List(int limit, CaseStatus? status = null, Guid? after = null, string? title = null)
     {
         if (limit is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(limit));
         if (status is { } requested && !Enum.IsDefined(requested)) throw new ArgumentOutOfRangeException(nameof(status));
         if (after == Guid.Empty) throw new ArgumentException("Use a non-empty identifier boundary.", nameof(after));
+        var titleText = title is null ? null : CaseTitleFilter.Normalize(title);
         var statusText = status?.ToString();
         var boundary = after?.ToString("D");
         lock (_gate)
@@ -61,6 +62,7 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
             using var context = database.Context(connection);
             var rows = context.Cases.AsNoTracking()
                 .Where(row => (statusText == null || row.Status == statusText) &&
+                    (titleText == null || row.Title.Contains(titleText)) &&
                     (boundary == null || string.Compare(EF.Functions.Collate(row.Id, "BINARY"), boundary) > 0))
                 .OrderBy(row => EF.Functions.Collate(row.Id, "BINARY")).Take(limit + 1).ToArray();
             // Validate lookahead as well; materialized damaged rows cannot become partial success.

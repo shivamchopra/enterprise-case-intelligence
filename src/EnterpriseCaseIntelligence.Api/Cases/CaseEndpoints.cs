@@ -21,10 +21,11 @@ internal static class CaseEndpoints
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
         CaseStatus? status = null;
         Guid? after = null;
+        string? title = null;
         var limit = 20;
         foreach (var (name, values) in request.Query)
         {
-            if (name is not ("status" or "limit" or "after"))
+            if (name is not ("status" or "limit" or "after" or "title"))
             {
                 errors["query"] = ["The query contains an unsupported parameter."];
                 continue;
@@ -39,6 +40,10 @@ internal static class CaseEndpoints
             var value = values[0];
             switch (name)
             {
+                case "title":
+                    try { title = CaseTitleFilter.Normalize(value ?? ""); }
+                    catch (ArgumentException) { errors[name] = ["Use 1 to 120 characters of valid text after trimming."]; }
+                    break;
                 case "status":
                     status = ReadStatus(value);
                     if (status is null) errors[name] = ["Use New, InReview or Closed."];
@@ -55,7 +60,7 @@ internal static class CaseEndpoints
 
         if (errors.Count > 0) return Validation(errors);
 
-        var page = store.List(limit, status, after);
+        var page = store.List(limit, status, after, title);
         return Results.Ok(new { items = page.Items.Select(Representation).ToArray(), nextAfter = page.NextAfter });
     }
 

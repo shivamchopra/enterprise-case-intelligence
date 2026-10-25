@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml/badge.svg)](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml)
 
-**Phase 6: local browser case workspace**
+**Phase 7: find cases by title**
 
-A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: browse/filter synthetic cases, create one, review its details/history and progress its status in a local browser workspace or through the HTTP API. EF Core Code First and a retained SQLite file provide durable state and retry-safe creation. Domain, API, real-browser and recovery tests support this local workflow.
+A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: find synthetic cases by literal title text and status, create one, review its details/history and progress its status in a local browser workspace or through the HTTP API. EF Core Code First and a retained SQLite file provide durable state and retry-safe creation. Domain, API, real-browser and recovery tests support this local workflow.
 
 [Review the implementation](#current-implemented-scope) · [Read the architecture](docs/architecture/overview.md) · [Run locally](#getting-started)
 
@@ -30,7 +30,7 @@ Enterprise case processes span legacy systems, fragmented information and manual
 | Case creation, text validation and `New → InReview → Closed` lifecycle; Domain has no HTTP/storage dependencies | [Case model](src/EnterpriseCaseIntelligence.Domain/Cases/Case.cs) · [Statuses](src/EnterpriseCaseIntelligence.Domain/Cases/CaseStatus.cs) |
 | Domain unit tests cover normalization, length boundaries, all status transitions and case isolation | [Domain tests](tests/EnterpriseCaseIntelligence.Domain.Tests) |
 | `POST /cases`, `GET /cases/{id}`, `PUT /cases/{id}/status`: strict JSON validation and problem responses | [Case endpoints](src/EnterpriseCaseIntelligence.Api/Cases/CaseEndpoints.cs) |
-| `GET /cases`: optional status filtering, bounded pages and canonical-ID continuation | [List acceptance tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseListPaginationTests.cs) |
+| `GET /cases`: literal case-sensitive title search, optional status filtering, bounded pages and canonical-ID continuation | [Title search tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseTitleSearchTests.cs) · [List acceptance tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseListPaginationTests.cs) |
 | `GET /cases/{id}/history`: bounded status history; creation and actual transitions commit with their entries; same-status retries add nothing | [History API tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseHistoryApiTests.cs) · [Paired-write failure tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseHistoryFailureTests.cs) |
 | Optional quoted `Idempotency-Key` on creation: atomic binding, original-result replay and safe `422` on changed fields | [Retry API tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseKeyApiTests.cs) · [Atomic failure tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseKeyFailureTests.cs) |
 | EF Core LINQ/tracked writes, explicit SQLite transactions, commit-before-success and immutable snapshots | [Store](src/EnterpriseCaseIntelligence.Api/Cases/SqliteCaseStore.cs) |
@@ -111,6 +111,8 @@ Both return HTTP 200. The root returns `{"service":"Enterprise Case Intelligence
 
 Open [the local workspace](http://localhost:5080/workspace) in a modern browser. Create a fictional case, select it, choose **Start review**, inspect recorded history and choose **Close case**. The workspace uses the same initialized store and API, with no frontend server, Node runtime or external assets. See the [browser walkthrough and recovery limits](docs/usage/local-case-workflow.md#browser-workspace).
 
+To find saved work, enter part of its title under **Find cases** and choose **Search** (or Enter). Matching is literal and case-sensitive; `guide` matches `Sample guide` but not `Sample Guide`. Combine it with Status, follow Next page, or Clear search. Editing alone does not change the submitted search. See the [API search example](docs/usage/local-case-workflow.md#find-cases-by-title).
+
 Follow the [local case workflow walkthrough](docs/usage/local-case-workflow.md) to create a case, browse saved work, retrieve it, progress its status and inspect its history using curl. The [retry example](docs/usage/local-case-workflow.md#retry-a-creation-with-a-retained-key) shows how to reconcile a lost creation response.
 
 ## Build and Test
@@ -149,9 +151,9 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 
 ## Roadmap
 
-- **Now:** [browser case workspace](docs/requirements/phase-6-case-workspace.md#current-implementation-coverage) over the existing durable API, with retry-safe creation, status history and process-recovery coverage.
+- **Now:** [case title search](docs/requirements/phase-7-case-title-search.md#current-implementation-coverage) in the browser/API journey, alongside retry-safe creation, status history and process-recovery coverage.
 - **Completed:** [EF Core Code First adoption](docs/tasks/ef-core-code-first-adoption.md) with retained-data and migration-recovery coverage.
-- **Next:** define one concrete business-workflow enhancement based on the complete local journey; prioritization, ownership and finding work remain candidates, not implemented capabilities.
+- **Next:** define secure hosting requirements—identity/access boundaries and operating needs—before broader access. Further business rules such as prioritization or ownership remain candidates, not implemented capabilities.
 - **Deferred:** [storage readiness](docs/requirements/phase-6-storage-readiness.md), to revisit with deployment requirements. `/health` remains storage-independent liveness.
 - **Later:** extend the business workflow, establish secure hosting, then evaluate integration and AI against concrete scenarios. The [project roadmap](docs/roadmap.md) explains priorities and prerequisites; these capabilities are not implemented.
 

@@ -64,6 +64,48 @@
                             Refresh list
                         </button>
                     </div>
+                    <form
+                        id="search-form"
+                        class="search-form"
+                        method="post"
+                        action="/workspace"
+                        novalidate
+                    >
+                        <label for="title-search">Find cases</label>
+                        <p id="search-hint" class="subtle">
+                            Literal title text · Case-sensitive · 1–120
+                            characters after trimming
+                        </p>
+                        <div class="search-controls">
+                            <input
+                                id="title-search"
+                                type="search"
+                                autocomplete="off"
+                                aria-describedby="search-hint search-error search-context"
+                            />
+                            <button type="submit">Search</button>
+                            <button
+                                id="clear-search"
+                                class="quiet"
+                                type="button"
+                            >
+                                Clear search
+                            </button>
+                        </div>
+                        <p
+                            id="search-error"
+                            class="field-error"
+                            aria-live="polite"
+                        ></p>
+                        <p
+                            id="search-context"
+                            class="subtle"
+                            role="status"
+                            aria-live="polite"
+                        >
+                            Showing all titles.
+                        </p>
+                    </form>
                     <div class="filter-row">
                         <label for="status-filter">Status</label
                         ><select id="status-filter">

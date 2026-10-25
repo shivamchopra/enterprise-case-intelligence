@@ -12,7 +12,7 @@ With the API running on loopback, open [http://localhost:5080/workspace](http://
 
 1. Choose **New case**. Enter title `Correct the sample guide` and description `Update the fictional example section.`, then choose **Create case**. The workspace reads the created ID for current state and shows recorded history.
 2. Choose **Start review**, then **Close case**. Success is shown after the server response; current details/history reload separately. Closed cases have no advance action.
-3. Filter by **Closed** to find saved work. **Next page** follows the server continuation when present; changing filters or **Refresh list** restarts at the beginning. Pages are ordered by ID, not creation time or priority. No total/count or traversal snapshot is promised.
+3. Enter `sample guide` under **Find cases** and choose **Search** (or Enter), then filter by **Closed**. Search matches literal title text with case sensitivity; `%`/`_` are ordinary characters. **Next page** retains title/status. Search, Clear, changing status filters or **Refresh list** starts at the beginning. Editing without submitting does not change the active search. **Clear search** removes title filtering and preserves status. Pages are ordered by ID, not creation time or priority. No total/count or traversal snapshot is promised.
 4. Stop/restart the API against the same intact file and revisit the workspace. Select the saved case to see its retained Closed state/history. Cases adopted from older stores can start with **State first recorded at upgrade**; that is not their original creation time.
 
 The browser sends a quoted UUID creation key and freezes the submitted payload while an outcome is uncertain. If creation cannot be confirmed, **Retry same draft** resends the same key/payload. A replay can represent the original New state; the workspace retrieves current state afterward. To change an uncertain draft, choose **Use a different draft**, acknowledge that the first request may already have created a case, then choose **Start new draft**. No automatic replacement key or background retry is used.
@@ -22,6 +22,21 @@ Draft text/key state lives only in the open page's memory, including when the dr
 If a list, detail or history read fails, use its explicit **Refresh** control. A failure is not an empty result. If a write was confirmed and its follow-up read fails, the confirmation remains visible separately. A rejected/uncertain status action requires **Refresh case** before another action. Browser requests time out after 15 seconds; this does not prove that a server-side write was canceled. Details/history load independently and can reflect different observations.
 
 The UI has no sign-in, staff identity or authorization, and it does not make network hosting safe. Keep the supported demonstration on loopback with synthetic data. `/health` still reports host liveness only; storage readiness remains deferred.
+
+## Find cases by title
+
+Search the same case list through HTTP:
+
+```sh
+curl --get http://localhost:5080/cases \
+  --data-urlencode 'title=sample guide' \
+  --data-urlencode 'status=Closed' \
+  --data-urlencode 'limit=1'
+```
+
+`title` is optional and supplied once; omit it to include every title. A present value is trimmed, then must contain 1–120 UTF-16 code units of valid text. Empty/whitespace-only, overlong or repeated values return `400 validation_failed` with `errors.title` before storage access. Match is a case-sensitive literal substring of title only, with significant internal spacing/Unicode forms and no wildcard, description or relevance search. For example, `guide` does not match `Guide`.
+
+The response remains exactly `items`/`nextAfter` with the usual four-field cases. If `nextAfter` is non-null, resend the same title/status with that value as `after`. To change search/filter or refresh current membership, omit `after`. Search filters before the bounded page/lookahead, without promising a bounded database scan or traversal snapshot. It changes no stored values or format. Search text appears in the API query string and may appear in HTTP diagnostics; use synthetic text. It is not added to the workspace page address or saved in browser storage.
 
 ## Inspect and upgrade an older store
 
