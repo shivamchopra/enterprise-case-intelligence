@@ -7,9 +7,10 @@ namespace EnterpriseCaseIntelligence.Api.Tests.Security;
 [Trait("Category", "Browser")]
 public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassFixture<WorkspaceBrowser>
 {
-    private async Task<(IBrowserContext Context, IPage Page)> Open(SecurityHost host)
+    private async Task<(IBrowserContext Context, IPage Page)> Open(SecurityHost host, bool proxy = false)
     {
-        await host.Provider.StartBrowserEndpoint(); host.Start(network: true);
+        await host.Provider.StartBrowserEndpoint(); host.Start(network: true, proxy: proxy);
+        if (proxy) await host.StartProxyAsync();
         var context = await driver.Browser.NewContextAsync(new() { IgnoreHTTPSErrors = true }); // Generated test certificate only.
         var page = await context.NewPageAsync(); page.SetDefaultTimeout(10_000);
         await page.GotoAsync(new Uri(host.Origin, "/workspace").AbsoluteUri);
@@ -24,11 +25,13 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
         await Expect(page.Locator("#sign-out")).ToBeVisibleAsync();
     }
 
-    [Fact]
-    public async Task WorkerSignsInCreatesProgressesAndSignsOutWithRealCookiesAndCsrf()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task WorkerSignsInCreatesProgressesAndSignsOutWithRealCookiesAndCsrf(bool proxy)
     {
         await using var host = new SecurityHost(); host.Provider.Role = "Caseworker";
-        var (context, page) = await Open(host); await using var browserContext = context;
+        var (context, page) = await Open(host, proxy); await using var browserContext = context;
         var errors = new List<string>(); page.PageError += (_, error) => errors.Add(error);
         await Login(page);
         await Expect(page.Locator("#access-label")).ToHaveTextAsync("CASEWORKER");
@@ -74,12 +77,14 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
         Assert.Empty(errors);
     }
 
-    [Fact]
-    public async Task ReaderHasNoMutationControlsAndDirectWritesAreDenied()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReaderHasNoMutationControlsAndDirectWritesAreDenied(bool proxy)
     {
         await using var host = new SecurityHost();
         new EnterpriseCaseIntelligence.Api.Cases.SqliteCaseStore(host.Database.Database).Create("Reader-visible fictional case", "Synthetic description.");
-        var (context, page) = await Open(host); await using var browserContext = context;
+        var (context, page) = await Open(host, proxy); await using var browserContext = context;
         await Login(page);
         await Expect(page.Locator("#access-label")).ToHaveTextAsync("READER");
         await page.Locator("#case-list button").ClickAsync();

@@ -6,6 +6,7 @@ namespace EnterpriseCaseIntelligence.Api.Security;
 internal sealed class SecuritySettings : IDisposable
 {
     public bool LocalDemo { get; private init; }
+    public IPAddress? ProxyAddress { get; private init; }
     public string Authority { get; private init; } = "";
     public string Issuer { get; private init; } = "";
     public string ClientId { get; private init; } = "";
@@ -21,6 +22,7 @@ internal sealed class SecuritySettings : IDisposable
 
     public static SecuritySettings Read(IConfiguration configuration)
     {
+        CaseIngress.RejectAutomaticForwarding(configuration);
         string Required(string name)
         {
             var value = configuration["Security:" + name];
@@ -38,6 +40,7 @@ internal sealed class SecuritySettings : IDisposable
             return new() { LocalDemo = true };
         }
         if (mode != "Oidc") throw new ArgumentException("Unknown security mode.");
+        var proxyAddress = CaseIngress.ReadProxyAddress(configuration);
         var authority = Https(Required("Authority"));
         var issuer = Required("Issuer");
         _ = Https(issuer);
@@ -64,6 +67,7 @@ internal sealed class SecuritySettings : IDisposable
         { certificate.Dispose(); throw new ArgumentException("Invalid protection certificate."); }
         return new()
         {
+            ProxyAddress = proxyAddress,
             Authority = authority.AbsoluteUri.TrimEnd('/'),
             Issuer = issuer,
             Origin = origin,

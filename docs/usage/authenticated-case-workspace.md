@@ -7,7 +7,7 @@ This is the locally testable identity/session slice of Phase 8, implemented by [
 Normal HTTP startup requires `Security:Mode`:
 
 - **LocalDemo:** explicitly configured loopback URLs only; no other `Security` settings or Kestrel endpoint overrides. Requests need both a loopback peer and loopback Host, including protection against non-loopback Host rebinding. It ignores identity headers/cookies and does not sign users in. Use this standalone local exception for the [curl/browser walkthrough](local-case-workflow.md), never behind a proxy or public ingress. Environment names such as Development do not select this mode.
-- **Oidc:** configured HTTPS OIDC authority, exact issuer, confidential client, trusted role mapping and protected session keys. Direct HTTPS only in this slice. Requests must use the exact configured host/port; HTTP and unexpected hosts fail with generic `400 invalid_origin`. Forwarding headers do not alter that decision. TLS termination/proxy support requires a later hosting decision.
+- **Oidc:** configured HTTPS OIDC authority, exact issuer, confidential client, trusted role mapping and protected session keys. Direct HTTPS is the default; [ADR 0010 proxy ingress](proxy-case-workspace.md) supports one explicitly configured same-host TLS proxy. Requests must use the exact configured host/port; HTTP and unexpected hosts fail with generic `400 invalid_origin`. Forwarding headers do not alter that decision. Other proxy chains/topologies require a separate trust decision.
 
 Missing/invalid security configuration fails before case storage validation, with a concise diagnostic. Offline `init-store`, `inspect-store` and `upgrade-store` do not require identity configuration and never start HTTP. Initializing a case file remains a separate explicit operation; skip initialization when resuming retained data.
 
@@ -20,6 +20,7 @@ Configuration uses ASP.NET Core providers; environment settings replace `:` with
 | Setting | Required Oidc value |
 | --- | --- |
 | `Security:Mode` | `Oidc` |
+| `Security:Ingress` | Optional `DirectHttps` default, or `LoopbackProxy` with the [strict binding/header contract](proxy-case-workspace.md) |
 | `Security:Authority` | Maintained HTTPS authority for discovery/signing keys; no query, fragment or user information |
 | `Security:Issuer` | Exact expected issuer string, including any trailing slash; issuer and client/audience are checked |
 | `Security:ClientId`, `Security:ClientSecret` | Registered confidential client and externally supplied secret |
@@ -31,7 +32,7 @@ Configuration uses ASP.NET Core providers; environment settings replace `:` with
 | `Security:KeyDirectory` | Existing absolute directory outside application publication output, durable across restart, accessible only to the runtime/operator |
 | `Security:CertificatePath` | Absolute path to a valid RSA PFX with private key for Data Protection encryption/decryption; keep separate from case files and publication output |
 | `Security:CertificatePassword` | PFX password when needed; supply externally |
-| `Kestrel:Certificates:Default:Path`, `...:Password` | Externally supplied HTTPS server certificate configuration for direct Kestrel hosting; independent of session-key protection |
+| `Kestrel:Certificates:Default:Path`, `...:Password` | Externally supplied HTTPS server certificate configuration when using direct Kestrel hosting; independent of session-key protection |
 | `CaseStorage:DatabasePath` | Existing supported local format-4 store; one process per file |
 
 With those settings supplied privately and the retained store already initialized, start using the configured HTTPS origin:
@@ -40,7 +41,7 @@ With those settings supplied privately and the retained store already initialize
 dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- --urls "$Security__PublicOrigin"
 ```
 
-Use a browser that trusts the server certificate. Production performs normal HTTPS metadata/backchannel validation; there is no certificate-validation bypass or test-login setting. Use a new shell/configuration when switching to LocalDemo, rather than leaving Oidc credentials/grants configured. This document establishes no safe cloud filesystem, public ingress or deployment principal.
+Use a browser that trusts the server certificate. Disable the framework-wide automatic forwarding flag in every mode; only the explicit proxy path is supported. Production performs normal HTTPS metadata/backchannel validation; there is no certificate-validation bypass or test-login setting. Use a new shell/configuration when switching to LocalDemo, rather than leaving Oidc credentials/grants configured. This document establishes no safe cloud filesystem, public ingress or deployment principal.
 
 ## Browser and API behavior
 
@@ -75,4 +76,4 @@ If replacing/losing/compromising the protection certificate or session keys, sto
 
 [Security API tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Security/CaseSecurityTests.cs) cover policy/CSRF ordering, direct calls, global retained-key replay, exact denials, absolute expiry, encrypted key persistence/restart, revision/environment isolation and invalid OIDC callback/token cases. [Authenticated browser tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Security/AuthenticatedBrowserTests.cs) exercise the real OIDC handler through a disposable provider and real HTTPS app host, Reader/Caseworker flows, sign-out and session loss during pending reads/writes. Generated certificates, static test metadata/backchannels and controlled clocks exist only in test code; no real tenant secret is needed by CI.
 
-The existing local browser tests continue against the published executable in CI. Authenticated browser tests use the built app through a test-hosted HTTPS server to inject only test identity dependencies; they do not establish the production provider, ingress or cloud deployment. Complete a private real-provider smoke test, role-change/revocation drill, platform/storage ADR, five-client workload, operating/recovery controls and the remaining [SH-01–SH-14 acceptance conditions](../requirements/phase-8-secure-hosting.md#threats-and-acceptance) before inviting hosted users.
+The existing local browser tests continue against the published executable in CI. Authenticated browser tests use the built app through a test-hosted HTTPS server to inject only test identity dependencies; they do not establish the production provider, ingress or cloud deployment. Follow the [Entra verification procedure](entra-review-verification.md) for private real-provider/grant/revocation evidence and the [hosting preparation task](../tasks/review-hosting-preparation.md) for platform/storage decisions, five-client workload, operating/recovery controls and the remaining [SH-01–SH-14 acceptance conditions](../requirements/phase-8-secure-hosting.md#threats-and-acceptance) before inviting hosted users.
