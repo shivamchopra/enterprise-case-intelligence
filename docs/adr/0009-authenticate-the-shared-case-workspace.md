@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for the locally testable identity/session slice of Phase 8. Hosted release, provider provisioning and operational acceptance remain separate work.
+Accepted for the locally testable identity/session slice of Phase 8. Hosted release, provider provisioning and operational acceptance remain separate work. [ADR 0010](0010-trust-a-single-loopback-https-proxy.md) subsequently amends the transport boundary with explicit same-host proxy support.
 
 ## Decision
 

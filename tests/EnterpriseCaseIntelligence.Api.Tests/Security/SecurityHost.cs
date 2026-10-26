@@ -35,6 +35,8 @@ internal sealed class SecurityHost : IAsyncDisposable
     public TestIdentityProvider Provider { get; } = new();
     public WebApplicationFactory<Program> Factory { get; private set; } = null!;
     public Uri Origin { get; private set; } = new("https://localhost");
+    public Uri? Backend { get; private set; }
+    private TestHttpsProxy? _proxy;
     public string Keys => Path.Combine(Database.DirectoryPath, "keys");
     public MutableSecurityClock Clock { get; } = new();
     public X509Certificate2 Certificate { get; }
@@ -51,7 +53,7 @@ internal sealed class SecurityHost : IAsyncDisposable
         Directory.CreateDirectory(Keys);
     }
 
-    public void Start(bool network = false, string revision = "test-revision", string environment = "synthetic-tests")
+    public void Start(bool network = false, string revision = "test-revision", string environment = "synthetic-tests", bool proxy = false, Action<HttpContext>? requestSetup = null)
     {
         if (network)
         {
@@ -59,12 +61,15 @@ internal sealed class SecurityHost : IAsyncDisposable
             port.Start();
             Origin = new($"https://localhost:{((IPEndPoint)port.LocalEndpoint).Port}");
         }
+        Backend = proxy ? new Uri($"http://127.0.0.1:{ReservePort()}") : null;
         Factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["CaseStorage:DatabasePath"] = Database.Path,
                 ["Security:Mode"] = "Oidc",
+                ["Security:Ingress"] = proxy ? "LoopbackProxy" : "DirectHttps",
+                ["urls"] = Backend?.AbsoluteUri,
                 ["Security:Authority"] = Issuer,
                 ["Security:Issuer"] = Issuer,
                 ["Security:ClientId"] = ClientId,
@@ -80,6 +85,7 @@ internal sealed class SecurityHost : IAsyncDisposable
             }));
             builder.ConfigureServices(services =>
             {
+                if (requestSetup is not null) services.AddSingleton<IStartupFilter>(new RequestSetupFilter(requestSetup));
                 services.PostConfigure<OpenIdConnectOptions>("eci-oidc", options =>
                 {
                     // Static metadata/backchannel is exclusively a test seam.
@@ -91,8 +97,24 @@ internal sealed class SecurityHost : IAsyncDisposable
                 services.PostConfigure<CookieAuthenticationOptions>("eci-cookie", options => options.TimeProvider = Clock);
             });
         });
-        if (network) Factory.UseKestrel(options => options.Listen(IPAddress.Loopback, Origin.Port, endpoint => endpoint.UseHttps(Certificate)));
+        if (network) Factory.UseKestrel(options =>
+        {
+            if (proxy) options.Listen(IPAddress.Loopback, Backend!.Port);
+            else options.Listen(IPAddress.Loopback, Origin.Port, endpoint => endpoint.UseHttps(Certificate));
+        });
         using var client = CreateClient(); // Start and validate configuration now.
+    }
+
+    public async Task StartProxyAsync()
+    {
+        _proxy = new TestHttpsProxy();
+        await _proxy.Start(Origin, Backend!, Certificate);
+    }
+
+    private static int ReservePort()
+    {
+        using var port = new TcpListener(IPAddress.Loopback, 0); port.Start();
+        return ((IPEndPoint)port.LocalEndpoint).Port;
     }
 
     public HttpClient CreateClient(string? ticket = null)
@@ -130,9 +152,19 @@ internal sealed class SecurityHost : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (_proxy is not null) await _proxy.DisposeAsync();
         if (Factory is not null) await Factory.DisposeAsync();
         await Provider.DisposeAsync(); Certificate.Dispose(); Database.Dispose();
     }
+}
+
+internal sealed class RequestSetupFilter(Action<HttpContext> setup) : IStartupFilter
+{
+    public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+    {
+        app.Use(async (context, continuation) => { setup(context); await continuation(context); });
+        next(app);
+    };
 }
 
 internal sealed class MutableSecurityClock : TimeProvider

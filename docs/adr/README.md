@@ -21,3 +21,4 @@ Future meaningful choices should receive ADRs when they are evaluated and select
 | [0007: Adopt EF Core Code First](0007-adopt-ef-core-code-first.md) | Accepted — implemented |
 | [0008: Serve a local browser case workspace](0008-serve-a-local-browser-case-workspace.md) | Accepted — implemented |
 | [0009: Authenticate the shared case workspace](0009-authenticate-the-shared-case-workspace.md) | Accepted — identity slice implemented; hosted acceptance pending |
+| [0010: Trust a single loopback HTTPS proxy](0010-trust-a-single-loopback-https-proxy.md) | Accepted — application ingress support implemented; actual proxy/deployment pending |

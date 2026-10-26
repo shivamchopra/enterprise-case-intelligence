@@ -2,9 +2,9 @@
 
 ## Supported scope
 
-Security fixes apply to the current `main` implementation: the local browser workspace, case HTTP API, EF Core/SQLite persistence and offline lifecycle commands, dependencies and build configuration. This reference project uses synthetic case data. Explicit LocalDemo mode is loopback-only; configured Oidc mode adds framework sign-in, Reader/Caseworker policies, protected sessions and CSRF. A real review tenant and hosted/production release have not been established. A public repository or published build does not establish safe network hosting.
+Security fixes apply to the current `main` implementation: the local browser workspace, case HTTP API, EF Core/SQLite persistence and offline lifecycle commands, dependencies and build configuration. This reference project uses synthetic case data. Explicit LocalDemo mode is loopback-only; configured Oidc mode adds framework sign-in, Reader/Caseworker policies, protected sessions and CSRF. Oidc supports direct HTTPS or the explicit same-host loopback proxy boundary; unrestricted automatic forwarding is refused. A real review tenant and hosted/production release have not been established. A public repository or published build does not establish safe network hosting.
 
-[Phase 8 secure-hosting requirements](docs/requirements/phase-8-secure-hosting.md) propose invited access and operating/recovery expectations. The [identity slice and operator runbook](docs/usage/authenticated-case-workspace.md) implement part of that contract; ingress, platform/provider, restricted operational logs and recovery acceptance remain pending. Report vulnerabilities in shipped behavior through the private process below; proposed capabilities remain outside current coverage.
+[Phase 8 secure-hosting requirements](docs/requirements/phase-8-secure-hosting.md) propose invited access and operating/recovery expectations. The [identity slice and operator runbook](docs/usage/authenticated-case-workspace.md) implement part of that contract; actual proxy/network/TLS deployment, platform/provider, restricted operational logs and recovery acceptance remain pending. Report vulnerabilities in shipped behavior through the private process below; proposed capabilities remain outside current coverage.
 
 ## Reporting a vulnerability
 

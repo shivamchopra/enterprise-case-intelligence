@@ -6,7 +6,7 @@ This reference project explores enterprise case modernization using generic synt
 
 ## Current architecture
 
-One ASP.NET Core .NET 10 application is the only deployable. It exposes `/`, `/health` and five case operations, including bounded case browsing, status history and optional retry-safe creation, plus the `/workspace` browser UI and sign-in/session/sign-out routes. Explicit LocalDemo mode is loopback-only; configured Oidc mode adds authenticated Reader/Caseworker access. The Api project also owns the EF Core model/migrations, SQLite setup/access and explicit offline upgrade/inspection; Domain owns case rules and restoration. No separate persistence service or project exists.
+One ASP.NET Core .NET 10 application is the only deployable. It exposes `/`, `/health` and five case operations, including bounded case browsing, status history and optional retry-safe creation, plus the `/workspace` browser UI and sign-in/session/sign-out routes. Explicit LocalDemo mode is loopback-only; configured Oidc mode adds authenticated Reader/Caseworker access. Oidc serves public HTTPS directly or through the explicit same-host proxy contract in ADR 0010. The Api project also owns the EF Core model/migrations, SQLite setup/access and explicit offline upgrade/inspection; Domain owns case rules and restoration. No separate persistence service or project exists.
 
 ```mermaid
 flowchart LR
@@ -108,7 +108,7 @@ The [storage-readiness proposal](../requirements/phase-6-storage-readiness.md) a
 
 The proposal joins identity, ingress, secrets/session-key storage, runtime limits, logging and backup/restore requirements. A platform/store ADR must establish compatible persistence and writer topology before deployment; ephemeral/network-shared SQLite or overlapping writers are not supported by current evidence. RPO/RTO and retention targets are proposed acceptance needs, not shipped guarantees. Readiness is revisited against the selected provider instead of automatically implementing the older SQLite-specific probe first.
 
-The identity/session/policy runtime is implemented by ADR 0009, verified with test fixtures. The next decisions are the actual review tenant/grants, platform/provider and operating design. No real authority/tenant, Azure resource, server database or deployment topology is provisioned/verified. Domain remains independent, and EF Code First/offline compatibility requirements continue to apply when persistence changes are needed.
+The identity/session/policy runtime is implemented by ADR 0009, verified with test fixtures. [ADR 0010](../adr/0010-trust-a-single-loopback-https-proxy.md) adds a single HTTP loopback backend behind same-host HTTPS ingress, checks the original peer/protocol before processing only one forwarded HTTPS value, and retains the exact public Host. Automatic unrestricted forwarding is rejected at startup in every mode. Reader/Caseworker browser journeys also run through a real TLS-to-HTTP test proxy; no installed production proxy is certified. The [hosting assessment](../tasks/review-hosting-preparation.md) recommends evaluating one Linux VM with retained block storage to preserve the current file contract. The next decisions are the actual review tenant/grants, platform/provider, budget and operating design. No real authority/tenant, Azure resource, server database or deployment topology is provisioned/verified. Domain remains independent, and EF Code First/offline compatibility requirements continue to apply when persistence changes are needed.
 
 ## Conceptual future direction — not implemented
 

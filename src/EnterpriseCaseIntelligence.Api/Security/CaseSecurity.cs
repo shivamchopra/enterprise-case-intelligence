@@ -145,6 +145,11 @@ internal static class CaseSecurity
             context.Response.Headers["Referrer-Policy"] = "no-referrer";
             context.Response.Headers.XContentTypeOptions = "nosniff";
             context.Response.Headers.XFrameOptions = "DENY";
+            await next(context);
+        });
+        app.UseCaseIngress(settings);
+        app.Use(async (context, next) =>
+        {
             if (settings.LocalDemo)
             {
                 var remote = context.Connection.RemoteIpAddress;
@@ -153,7 +158,7 @@ internal static class CaseSecurity
                 { await Problem(403).ExecuteAsync(context); return; }
             }
             else if (!context.Request.IsHttps || !string.Equals(context.Request.Host.Value, settings.Origin.Authority, StringComparison.OrdinalIgnoreCase))
-            { await Results.Problem(statusCode: 400, title: "Bad Request", type: "about:blank", extensions: new Dictionary<string, object?> { ["code"] = "invalid_origin" }).ExecuteAsync(context); return; }
+            { await CaseIngress.InvalidOrigin().ExecuteAsync(context); return; }
             await next(context);
         });
         app.UseAuthentication();
