@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml/badge.svg)](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml)
 
-**Phase 8 identity slice: authenticated case workspace**
+**Phase 8 identity and ingress slices: authenticated case workspace**
 
-A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: find synthetic cases by literal title text and status, create one, review its details/history and progress its status in a local browser workspace or through the HTTP API. EF Core Code First and a retained SQLite file provide durable state and retry-safe creation. Configured OIDC sign-in, Reader/Caseworker policies, protected sessions and CSRF now support an authenticated browser/API slice. Real-tenant and hosted operations acceptance remain pending. Domain, API, browser and recovery tests support the implemented workflows.
+A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: find synthetic cases by literal title text and status, create one, review its details/history and progress its status in a local browser workspace or through the HTTP API. EF Core Code First and a retained SQLite file provide durable state and retry-safe creation. Configured OIDC sign-in, Reader/Caseworker policies, protected sessions and CSRF now support an authenticated browser/API slice. An optional same-host HTTPS proxy path is also tested. Real-tenant and hosted operations acceptance remain pending. Domain, API, browser and recovery tests support the implemented workflows.
 
 [Review the implementation](#current-implemented-scope) · [Read the architecture](docs/architecture/overview.md) · [Run locally](#getting-started)
 
@@ -30,6 +30,7 @@ Enterprise case processes span legacy systems, fragmented information and manual
 | `GET /`: service/foundation metadata. `GET /health`: framework health checks | [Program.cs](src/EnterpriseCaseIntelligence.Api/Program.cs) |
 | `/workspace`: same-host browser journey with bounded pages, status filtering, details/history, safe creation retries and status progression | [Workspace assets and routes](src/EnterpriseCaseIntelligence.Api/Workspace) · [Real-browser tests](tests/EnterpriseCaseIntelligence.Api.Tests/Workspace/WorkspaceBrowserTests.cs) |
 | Explicit loopback LocalDemo or HTTPS OIDC mode; Reader/Caseworker policies, 30-minute encrypted sessions, CSRF and session-loss handling | [Security implementation](src/EnterpriseCaseIntelligence.Api/Security) · [API/browser security tests](tests/EnterpriseCaseIntelligence.Api.Tests/Security) · [Configuration/runbook](docs/usage/authenticated-case-workspace.md) |
+| Optional single-hop HTTPS proxy ingress to an explicit HTTP loopback backend, with physical-peer/protocol/host checks | [Ingress implementation](src/EnterpriseCaseIntelligence.Api/Security/CaseIngress.cs) · [API/process tests](tests/EnterpriseCaseIntelligence.Api.Tests/Security/CaseIngressTests.cs) · [Proxy contract](docs/usage/proxy-case-workspace.md) |
 | Case creation, text validation and `New → InReview → Closed` lifecycle; Domain has no HTTP/storage dependencies | [Case model](src/EnterpriseCaseIntelligence.Domain/Cases/Case.cs) · [Statuses](src/EnterpriseCaseIntelligence.Domain/Cases/CaseStatus.cs) |
 | Domain unit tests cover normalization, length boundaries, all status transitions and case isolation | [Domain tests](tests/EnterpriseCaseIntelligence.Domain.Tests) |
 | `POST /cases`, `GET /cases/{id}`, `PUT /cases/{id}/status`: strict JSON validation and problem responses | [Case endpoints](src/EnterpriseCaseIntelligence.Api/Cases/CaseEndpoints.cs) |
@@ -42,9 +43,9 @@ Enterprise case processes span legacy systems, fragmented information and manual
 | Explicit offline version-1/version-2/version-3 → version-4 upgrades, preserved histories and inspection after uncertain outcomes | [EF adoption tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseEfAdoptionTests.cs) · [Upgrade interruption tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseUpgradeProcessTests.cs) |
 | Real SQLite integration tests and child-process tests cover the workflow, failures, host isolation and restart recovery | [API tests](tests/EnterpriseCaseIntelligence.Api.Tests) |
 | Restore, format verification, Release build and tests in CI; warnings treated as errors | [CI workflow](.github/workflows/ci.yml) · [Build configuration](Directory.Build.props) |
-| Architecture overview and eight current accepted decisions; historical memory decision retained | [Architecture overview](docs/architecture/overview.md) · [ADR index](docs/adr/README.md) |
+| Architecture overview and nine current accepted decisions; historical memory decision retained | [Architecture overview](docs/architecture/overview.md) · [ADR index](docs/adr/README.md) |
 
-**Local demonstration limits:** one API process uses one local store at a time. Committed data survives API restart with the same intact file; power/storage loss, backup, multi-instance operation, hosted release and enforced disk quotas remain outside scope. Explicit LocalDemo mode has no user permission boundary; Oidc requires private configuration and direct HTTPS. Use synthetic data only.
+**Local demonstration limits:** one API process uses one local store at a time. Committed data survives API restart with the same intact file; power/storage loss, backup, multi-instance operation, hosted release and enforced disk quotas remain outside scope. Explicit LocalDemo mode has no user permission boundary; Oidc requires private configuration and a valid public HTTPS origin, served directly or through the explicit same-host proxy contract. Use synthetic data only.
 
 Creation keys remain bound for the store’s lifetime, without expiry or release. Retry with the same key and equivalent normalized fields; a new or omitted key can create another case. Replay returns the original `New` result; retrieve its `Location` for current state.
 
@@ -58,7 +59,10 @@ One runnable ASP.NET host serves the API and browser assets, with a separate dom
 
 ```mermaid
 flowchart LR
-    Browser[Local browser workspace] -->|HTTP| Api
+    Browser[Browser workspace] -->|Direct HTTPS or local-demo HTTP| Api
+    Browser -->|Optional HTTPS| Proxy[Same-host TLS proxy]
+    Proxy -->|HTTP loopback| Api
+    Api <-->|Configured OIDC over HTTPS| Identity[External identity provider]
     ApiTests[Api.Tests: SQLite and process tests] --> Api[Api: case endpoints and SQLite store]
     DomainTests[Domain.Tests: unit tests] --> Domain[Domain: case rules]
     Api --> Domain
@@ -149,6 +153,7 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 - [ADR 0008](docs/adr/0008-serve-a-local-browser-case-workspace.md): same-host embedded browser assets, explicit client state and real Chromium verification.
 
 - [ADR 0009](docs/adr/0009-authenticate-the-shared-case-workspace.md): framework OIDC/cookie sessions, named policies, CSRF and explicit local exception.
+- [ADR 0010](docs/adr/0010-trust-a-single-loopback-https-proxy.md): explicit single-hop loopback ingress without broad forwarding trust.
 
 ## Planned Evolution
 
@@ -156,9 +161,9 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 
 ## Roadmap
 
-- **Now:** [authenticated Reader/Caseworker access](docs/usage/authenticated-case-workspace.md), plus [case title search](docs/requirements/phase-7-case-title-search.md#current-implementation-coverage) in the browser/API journey, alongside retry-safe creation, status history and process-recovery coverage.
+- **Now:** [authenticated Reader/Caseworker access](docs/usage/authenticated-case-workspace.md) and [same-host proxy support](docs/usage/proxy-case-workspace.md), plus [case title search](docs/requirements/phase-7-case-title-search.md#current-implementation-coverage) in the browser/API journey, alongside retry-safe creation, status history and process-recovery coverage.
 - **Completed:** [EF Core Code First adoption](docs/tasks/ef-core-code-first-adoption.md) with retained-data and migration-recovery coverage.
-- **Next — not implemented:** complete [secure review hosting](docs/requirements/phase-8-secure-hosting.md) through real identity-tenant/grant verification, platform/storage/ingress decisions and tested operational recovery. OIDC runtime and local test evidence do not establish a hosted release; no cloud service or actual review tenant is selected yet.
+- **Next — not implemented:** complete [secure review hosting](docs/requirements/phase-8-secure-hosting.md) through real identity-tenant/grant verification, platform/storage/ingress decisions and tested operational recovery. OIDC runtime and local test evidence do not establish a hosted release; no resources or actual review tenant are provisioned/verified. The [hosting assessment](docs/tasks/review-hosting-preparation.md) recommends evaluating a single Linux VM with a retained block disk; the [Entra smoke plan](docs/usage/entra-review-verification.md) records the real-provider steps.
 - **Deferred:** [storage readiness](docs/requirements/phase-6-storage-readiness.md), to revisit against the selected hosting/provider design. `/health` remains storage-independent liveness.
 - **Later:** extend the business workflow, establish secure hosting, then evaluate integration and AI against concrete scenarios. The [project roadmap](docs/roadmap.md) explains priorities and prerequisites; these capabilities are not implemented.
 
