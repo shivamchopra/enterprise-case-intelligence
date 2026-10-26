@@ -8,6 +8,14 @@ updates:
       - /tests/EnterpriseCaseIntelligence.Domain.Tests
     schedule:
       interval: weekly
+    groups:
+      ef-core-sqlite:
+        patterns:
+          - "Microsoft.EntityFrameworkCore.*"
+          - "Microsoft.Data.Sqlite*"
+        update-types:
+          - minor
+          - patch
   - package-ecosystem: github-actions
     directory: /
     schedule:

@@ -8,6 +8,8 @@ Use **EF Core Code First** for persistence wherever supported: C# entities, `DbC
 
 Prefer EF APIs and generated migration operations over hand-written SQL/DDL. EF-generated SQL is normal. Keep hand-written SQL only for a demonstrated provider limitation, required integrity/compatibility operation or historical/fault-injection fixture that EF cannot express. Explain each exception and its validation; parameterize runtime values. Preserve explicit offline upgrades and existing data/transaction contracts. See [AGENTS.md](AGENTS.md) for the complete repository instructions.
 
+Keep EF Core runtime/provider and Design package updates together, with the direct Microsoft.Data.Sqlite reference and pinned `dotnet-ef` tool on the matching supported release. Dependabot groups related minor/patch package updates; review the local tool manifest alongside them. Run the full gates and retained-store/replay checks before merging. The compatibility badge summarizes other repositories' CI outcomes; it does not replace this repository's checks. Preserve generated historical migrations/snapshots when no model change is needed. A newer EF patch can stamp its version on newly initialized/adopted stores; the existing metadata validator can refuse those files under an older executable, so do not assume downgrade compatibility.
+
 ## Validation
 
 Before submitting, run from the repository root:
