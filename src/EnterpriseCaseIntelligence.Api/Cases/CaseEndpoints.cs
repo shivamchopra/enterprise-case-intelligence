@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using EnterpriseCaseIntelligence.Api.Security;
 using EnterpriseCaseIntelligence.Domain.Cases;
 
 namespace EnterpriseCaseIntelligence.Api.Cases;
@@ -9,11 +10,11 @@ internal static class CaseEndpoints
 {
     public static void MapCaseEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost("/cases", CreateCase);
-        endpoints.MapGet("/cases", ListCases);
-        endpoints.MapGet("/cases/{id}", GetCase);
-        endpoints.MapGet("/cases/{id}/history", GetHistory);
-        endpoints.MapPut("/cases/{id}/status", ChangeStatus);
+        endpoints.MapPost("/cases", CreateCase).RequireAuthorization(CaseSecurity.Write).WithMetadata(new CaseSecurity.CsrfRequired());
+        endpoints.MapGet("/cases", ListCases).RequireAuthorization(CaseSecurity.Read);
+        endpoints.MapGet("/cases/{id}", GetCase).RequireAuthorization(CaseSecurity.Read);
+        endpoints.MapGet("/cases/{id}/history", GetHistory).RequireAuthorization(CaseSecurity.Read);
+        endpoints.MapPut("/cases/{id}/status", ChangeStatus).RequireAuthorization(CaseSecurity.Write).WithMetadata(new CaseSecurity.CsrfRequired());
     }
 
     private static IResult ListCases(HttpRequest request, SqliteCaseStore store)

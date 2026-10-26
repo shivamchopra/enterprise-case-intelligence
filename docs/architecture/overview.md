@@ -6,7 +6,7 @@ This reference project explores enterprise case modernization using generic synt
 
 ## Current architecture
 
-One ASP.NET Core .NET 10 application is the only deployable. It exposes `/`, `/health` and five case operations, including bounded case browsing, status history and optional retry-safe creation, plus the local `/workspace` browser UI. The Api project also owns the EF Core model/migrations, SQLite setup/access and explicit offline upgrade/inspection; Domain owns case rules and restoration. No separate persistence service or project exists.
+One ASP.NET Core .NET 10 application is the only deployable. It exposes `/`, `/health` and five case operations, including bounded case browsing, status history and optional retry-safe creation, plus the `/workspace` browser UI and sign-in/session/sign-out routes. Explicit LocalDemo mode is loopback-only; configured Oidc mode adds authenticated Reader/Caseworker access. The Api project also owns the EF Core model/migrations, SQLite setup/access and explicit offline upgrade/inspection; Domain owns case rules and restoration. No separate persistence service or project exists.
 
 ```mermaid
 flowchart LR
@@ -20,7 +20,7 @@ flowchart LR
 
 ## Boundaries and dependency direction
 
-- **Api:** composition root, HTTP parsing/error mapping, SQLite configuration/initialization, schema checks and one concrete store per host. Provider failures remain generic `500 internal_error`; a rejected domain transition has an explicit store outcome mapped to `409 invalid_transition`.
+- **Api:** composition root, identity/session/authorization/CSRF, HTTP parsing/error mapping, SQLite configuration/initialization, schema checks and one concrete store per host. Provider failures remain generic `500 internal_error`; a rejected domain transition has an explicit store outcome mapped to `409 invalid_transition`.
 - **Domain:** immutable ID/text, creation validation, `New → InReview → Closed` lifecycle and validated restoration of existing cases. It references no web, provider or infrastructure code. Restoration rejects damaged/unnormalized text, empty IDs and undefined statuses without defaulting or replaying transitions.
 - **Tests:** Api.Tests references Api and exercises actual SQLite files, in-process HTTP hosts and real API child processes. A separate UpgradeFixture executable under `tests/` supplies a controlled clock/barrier for interruption tests, without production test switches. Frozen version-1, version-2 and version-3 fixtures remain independent of current initialization. Domain.Tests references Domain directly and needs no database.
 
@@ -60,11 +60,11 @@ Bindings have no expiry, release, user/tenant scope or authorization meaning. Bo
 
 ## Configuration, operability and security
 
-The [walkthrough](../usage/local-case-workflow.md) covers initialization, normal startup, restart and disposal. The EF Core SQLite provider and Microsoft.Data.Sqlite supply the native engine through NuGet. No database server, SQLite CLI, cloud account or secret is required. Runtime files and local settings are ignored by Git; the repository contains initialization code, not a generated database.
+The [walkthrough](../usage/local-case-workflow.md) covers initialization, normal startup, restart and disposal. The EF Core SQLite provider and Microsoft.Data.Sqlite supply the native engine through NuGet. No database server, SQLite CLI, cloud account or real identity secret is required for LocalDemo or tests. Oidc requires private provider/session/TLS configuration. Runtime files and local settings are ignored by Git; the repository contains initialization code, not a generated database.
 
 `GET /` preserves foundation metadata; `/health` remains host liveness without storage readiness. If storage fails after startup, affected case operations fail safely. Initialization/startup storage failures produce a concise diagnostic and nonzero exit rather than dumping provider messages or configuration. There are no setup/reset/test HTTP endpoints.
 
-All data must be synthetic. No authentication, authorization, encryption, secret-management service or production deployment is implemented. Local file access is not an application permission boundary. Future handling of sensitive records requires explicit identity, access-control, retention and data-protection requirements.
+All data must be synthetic. [ADR 0009](../adr/0009-authenticate-the-shared-case-workspace.md) and the [identity runbook](../usage/authenticated-case-workspace.md) describe implemented OIDC/cookie sessions, named policies, CSRF and protected durable session keys. API denials precede case input/store access, and keys remain shared workspace-wide. Data Protection encrypts session keys/tickets, not SQLite case records. No secret-management service, actual tenant, public ingress or production deployment is established. Local file access is not an application permission boundary.
 
 ## Verification and constraints
 
@@ -94,7 +94,7 @@ Presentation calls only the existing API. Generation numbers discard obsolete li
 
 Phase 7 keeps explicit submitted title text separately from field edits. Search/Clear reset continuation; Next, status changes and list refreshes retain the submitted title. The field explains literal case-sensitive matching and reports validation separately from unavailable storage or no matches. Search terms are API query values, potentially present in HTTP diagnostics, while the workspace address and persistent browser storage remain unchanged. Existing generation checks also discard obsolete search successes/failures.
 
-The workspace preserves Domain and persistence boundaries, existing HTTP contracts and format 4. Microsoft.Playwright is test-only in Api.Tests; real Chromium runs against disposable stores and actual API child processes, including published output in CI. Test-side routing controls lost/delayed responses without production fault switches. The UI does not add identity or network deployment support.
+The workspace preserves Domain and persistence boundaries, existing HTTP contracts and format 4. Microsoft.Playwright is test-only in Api.Tests; real Chromium runs against disposable stores and actual API child processes, including published output in CI. Test-side routing controls lost/delayed responses without production fault switches. The Phase 8 identity slice adds same-origin credentials, access bootstrap, Reader/Caseworker controls and clearing/invalidation on denial/sign-out. Real HTTPS browser tests use a disposable provider/test backchannel, separate from the published LocalDemo process journeys. No production impersonation route/header is supplied; network deployment acceptance remains pending.
 
 The [project roadmap](../roadmap.md) assesses workflow value, demonstration, security, operations, integration and AI together. EF Core remains the persistence approach when a feature needs persistence; it does not determine feature priority.
 
@@ -104,11 +104,11 @@ The [storage-readiness proposal](../requirements/phase-6-storage-readiness.md) a
 
 ## Secure review hosting — proposed, not implemented
 
-[Phase 8 requirements](../requirements/phase-8-secure-hosting.md) target one invited organization/shared synthetic workspace with Reader and Caseworker grants. They require server-enforced policies, a framework-supported external OIDC/session-cookie flow, non-redirecting case API denials, JSON-write/sign-out CSRF protection and explicit expiry/recovery behavior. Current browser fetches omit credentials; authentication must deliberately amend that behavior rather than assuming the existing workspace already supports sessions. Retained creation keys stay environment-wide within the proposed shared workspace and are never authorization credentials.
+[Phase 8 requirements](../requirements/phase-8-secure-hosting.md) target one invited organization/shared synthetic workspace with Reader and Caseworker grants. They require server-enforced policies, a framework-supported external OIDC/session-cookie flow, non-redirecting case API denials, JSON-write/sign-out CSRF protection and explicit expiry/recovery behavior. The identity slice now deliberately uses same-origin credentials, secure cookie sessions and antiforgery request headers. Retained creation keys stay environment-wide within the proposed shared workspace and are never authorization credentials.
 
 The proposal joins identity, ingress, secrets/session-key storage, runtime limits, logging and backup/restore requirements. A platform/store ADR must establish compatible persistence and writer topology before deployment; ephemeral/network-shared SQLite or overlapping writers are not supported by current evidence. RPO/RTO and retention targets are proposed acceptance needs, not shipped guarantees. Readiness is revisited against the selected provider instead of automatically implementing the older SQLite-specific probe first.
 
-The next implementation decision is identity/session/policy handling, followed by the platform/provider and operating design. No authority/tenant, Azure resource, server database, deployment topology or authentication runtime is selected/implemented by the requirements. Domain remains independent, and EF Code First/offline compatibility requirements continue to apply when persistence changes are needed.
+The identity/session/policy runtime is implemented by ADR 0009, verified with test fixtures. The next decisions are the actual review tenant/grants, platform/provider and operating design. No real authority/tenant, Azure resource, server database or deployment topology is provisioned/verified. Domain remains independent, and EF Code First/offline compatibility requirements continue to apply when persistence changes are needed.
 
 ## Conceptual future direction — not implemented
 
@@ -122,4 +122,4 @@ flowchart TD
     Python -.-> Evaluation[Potential retrieval and evaluation]
 ```
 
-SQL Server / Azure SQL, Azure deployment, messaging, containers, Infrastructure as Code, identity, structured telemetry and Python/AI remain future possibilities. No cloud service, broker or model provider is selected by this diagram; each requires concrete requirements and decisions.
+SQL Server / Azure SQL, Azure deployment, messaging, containers, Infrastructure as Code, restricted structured telemetry and Python/AI remain future possibilities. No cloud service, broker or model provider is selected by this diagram; each requires concrete requirements and decisions.

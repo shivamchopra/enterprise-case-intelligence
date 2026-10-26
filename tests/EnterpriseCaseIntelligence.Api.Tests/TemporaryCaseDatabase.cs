@@ -24,7 +24,13 @@ public sealed class TemporaryCaseDatabase : IDisposable
         .WithWebHostBuilder(builder =>
         {
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
-                new Dictionary<string, string?> { ["CaseStorage:DatabasePath"] = Path }));
+                new Dictionary<string, string?>
+                {
+                    ["CaseStorage:DatabasePath"] = Path,
+                    ["Security:Mode"] = "LocalDemo",
+                    ["urls"] = "http://127.0.0.1:0"
+                }));
+            builder.ConfigureServices(services => services.AddSingleton<IStartupFilter, LoopbackTestConnection>());
             if (clock is not null) builder.ConfigureServices(services => services.AddSingleton(clock));
         });
 
@@ -53,4 +59,20 @@ public sealed class TemporaryCaseDatabase : IDisposable
     }
 
     public void Dispose() => Directory.Delete(DirectoryPath, recursive: true);
+}
+
+// TestServer has no TCP peer; this supplies only the connection information
+// its local-mode boundary needs, never an identity or permission shortcut.
+internal sealed class LoopbackTestConnection : IStartupFilter
+{
+    public Action<Microsoft.AspNetCore.Builder.IApplicationBuilder> Configure(Action<Microsoft.AspNetCore.Builder.IApplicationBuilder> next)
+        => app =>
+        {
+            Microsoft.AspNetCore.Builder.UseExtensions.Use(app, async (context, continuation) =>
+            {
+                context.Connection.RemoteIpAddress = System.Net.IPAddress.Loopback;
+                await continuation(context);
+            });
+            next(app);
+        };
 }

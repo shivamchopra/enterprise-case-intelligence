@@ -2,13 +2,15 @@
 
 [![CI](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml/badge.svg)](https://github.com/shivamchopra/enterprise-case-intelligence/actions/workflows/ci.yml)
 
-**Phase 7: find cases by title**
+**Phase 8 identity slice: authenticated case workspace**
 
-A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: find synthetic cases by literal title text and status, create one, review its details/history and progress its status in a local browser workspace or through the HTTP API. EF Core Code First and a retained SQLite file provide durable state and retry-safe creation. Domain, API, real-browser and recovery tests support this local workflow.
+A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: find synthetic cases by literal title text and status, create one, review its details/history and progress its status in a local browser workspace or through the HTTP API. EF Core Code First and a retained SQLite file provide durable state and retry-safe creation. Configured OIDC sign-in, Reader/Caseworker policies, protected sessions and CSRF now support an authenticated browser/API slice. Real-tenant and hosted operations acceptance remain pending. Domain, API, browser and recovery tests support the implemented workflows.
 
 [Review the implementation](#current-implemented-scope) · [Read the architecture](docs/architecture/overview.md) · [Run locally](#getting-started)
 
-![Local browser workspace showing a synthetic case in review and its recorded status history](docs/images/case-workspace.png)
+![Authenticated Caseworker workspace showing a synthetic case and recorded history](docs/images/authenticated-case-workspace.png)
+
+Shown with a disposable test identity over HTTPS. No real tenant or hosted deployment is demonstrated.
 
 ## Problem / Context
 
@@ -27,6 +29,7 @@ Enterprise case processes span legacy systems, fragmented information and manual
 | --- | --- |
 | `GET /`: service/foundation metadata. `GET /health`: framework health checks | [Program.cs](src/EnterpriseCaseIntelligence.Api/Program.cs) |
 | `/workspace`: same-host browser journey with bounded pages, status filtering, details/history, safe creation retries and status progression | [Workspace assets and routes](src/EnterpriseCaseIntelligence.Api/Workspace) · [Real-browser tests](tests/EnterpriseCaseIntelligence.Api.Tests/Workspace/WorkspaceBrowserTests.cs) |
+| Explicit loopback LocalDemo or HTTPS OIDC mode; Reader/Caseworker policies, 30-minute encrypted sessions, CSRF and session-loss handling | [Security implementation](src/EnterpriseCaseIntelligence.Api/Security) · [API/browser security tests](tests/EnterpriseCaseIntelligence.Api.Tests/Security) · [Configuration/runbook](docs/usage/authenticated-case-workspace.md) |
 | Case creation, text validation and `New → InReview → Closed` lifecycle; Domain has no HTTP/storage dependencies | [Case model](src/EnterpriseCaseIntelligence.Domain/Cases/Case.cs) · [Statuses](src/EnterpriseCaseIntelligence.Domain/Cases/CaseStatus.cs) |
 | Domain unit tests cover normalization, length boundaries, all status transitions and case isolation | [Domain tests](tests/EnterpriseCaseIntelligence.Domain.Tests) |
 | `POST /cases`, `GET /cases/{id}`, `PUT /cases/{id}/status`: strict JSON validation and problem responses | [Case endpoints](src/EnterpriseCaseIntelligence.Api/Cases/CaseEndpoints.cs) |
@@ -39,13 +42,13 @@ Enterprise case processes span legacy systems, fragmented information and manual
 | Explicit offline version-1/version-2/version-3 → version-4 upgrades, preserved histories and inspection after uncertain outcomes | [EF adoption tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseEfAdoptionTests.cs) · [Upgrade interruption tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseUpgradeProcessTests.cs) |
 | Real SQLite integration tests and child-process tests cover the workflow, failures, host isolation and restart recovery | [API tests](tests/EnterpriseCaseIntelligence.Api.Tests) |
 | Restore, format verification, Release build and tests in CI; warnings treated as errors | [CI workflow](.github/workflows/ci.yml) · [Build configuration](Directory.Build.props) |
-| Architecture overview and seven current accepted decisions; historical memory decision retained | [Architecture overview](docs/architecture/overview.md) · [ADR index](docs/adr/README.md) |
+| Architecture overview and eight current accepted decisions; historical memory decision retained | [Architecture overview](docs/architecture/overview.md) · [ADR index](docs/adr/README.md) |
 
-**Local demonstration limits:** one API process uses one local store at a time. Committed data survives API restart with the same intact file; power/storage loss, backup, multi-instance operation, authentication/authorization and enforced disk quotas are outside scope. Use synthetic data only.
+**Local demonstration limits:** one API process uses one local store at a time. Committed data survives API restart with the same intact file; power/storage loss, backup, multi-instance operation, hosted release and enforced disk quotas remain outside scope. Explicit LocalDemo mode has no user permission boundary; Oidc requires private configuration and direct HTTPS. Use synthetic data only.
 
 Creation keys remain bound for the store’s lifetime, without expiry or release. Retry with the same key and equivalent normalized fields; a new or omitted key can create another case. Replay returns the original `New` result; retrieve its `Location` for current state.
 
-Health checks confirm host liveness, without checking storage readiness. Tests use disposable SQLite files and loopback HTTP child processes; no separately installed database server, cloud account or secret is required.
+Health checks confirm host liveness, without checking storage readiness. Tests use disposable SQLite files and loopback HTTP child processes, plus test-only HTTPS/OIDC fixtures; no external database server, cloud account or real identity secret is required for tests or LocalDemo.
 
 History describes recorded state changes, without actor identity or tamper evidence. Older cases receive a baseline at explicit upgrade; their earlier transitions and creation times remain unknown.
 
@@ -93,10 +96,10 @@ mkdir -p "$HOME/.local/share/enterprise-case-intelligence"
 CASE_DB_PATH="$HOME/.local/share/enterprise-case-intelligence/cases.db"
 # Initialize once for a NEW file. Skip this command when reusing an existing store.
 dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- init-store --CaseStorage:DatabasePath "$CASE_DB_PATH"
-dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- --CaseStorage:DatabasePath "$CASE_DB_PATH" --urls http://localhost:5080
+dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- --CaseStorage:DatabasePath "$CASE_DB_PATH" --Security:Mode LocalDemo --urls http://localhost:5080
 ```
 
-Normal startup requires the configured existing file; it does not create or repair one. Initialization refuses any existing file. To resume later, rerun only the final command against the same path. `CaseStorage__DatabasePath` is the equivalent environment setting.
+Normal startup also requires an explicit security mode. The commands above select the loopback-only demo; see the [authenticated configuration and revocation runbook](docs/usage/authenticated-case-workspace.md) for Oidc. Missing mode fails closed. Normal startup requires the configured existing file; it does not create or repair one. Initialization refuses any existing file. To resume later, rerun only the final command against the same path. `CaseStorage__DatabasePath` is the equivalent environment setting.
 
 Fresh initialization creates schema version 4 through EF migrations. A retained version-1, version-2 or version-3 store requires a deliberate offline upgrade; see [inspection, upgrade and recovery commands](docs/usage/local-case-workflow.md#inspect-and-upgrade-an-older-store). The upgrade is one-way: older executables cannot open version 4. Normal startup never upgrades automatically.
 
@@ -130,7 +133,7 @@ dotnet exec --runtimeconfig tests/EnterpriseCaseIntelligence.Api.Tests/bin/Relea
 dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
 ```
 
-The full suite includes Chromium tests. A backend-only run can use `--filter 'Category!=Browser'`; CI also runs a separate browser job against the published application. The browser download is test tooling, not an application runtime requirement.
+The full suite includes Chromium tests. A backend-only run can use `--filter 'Category!=Browser'`; CI also runs a separate browser job: existing LocalDemo journeys use the published executable, and authenticated journeys use a test-hosted HTTPS app with a disposable OIDC provider. The browser download is test tooling, not an application runtime requirement.
 
 ## Architecture Decisions
 
@@ -145,21 +148,23 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 - [ADR 0007](docs/adr/0007-adopt-ef-core-code-first.md): implemented EF Core Code First models, generated migrations and validated adoption of retained stores.
 - [ADR 0008](docs/adr/0008-serve-a-local-browser-case-workspace.md): same-host embedded browser assets, explicit client state and real Chromium verification.
 
+- [ADR 0009](docs/adr/0009-authenticate-the-shared-case-workspace.md): framework OIDC/cookie sessions, named policies, CSRF and explicit local exception.
+
 ## Planned Evolution
 
-**Planned / Conceptual — none is implemented today:** server-managed persistence such as SQL Server / Azure SQL; Azure deployment; asynchronous/event-driven integration; Infrastructure as Code; structured observability; identity and authorization; Python-based AI capabilities; retrieval; AI evaluation; human approval boundaries. Specific technologies and services require future requirements and ADRs.
+**Planned / Conceptual — none is implemented today:** server-managed persistence such as SQL Server / Azure SQL; Azure deployment; asynchronous/event-driven integration; Infrastructure as Code; restricted structured observability; real-tenant/hosted acceptance; Python-based AI capabilities; retrieval; AI evaluation; human approval boundaries. Specific technologies and services require future requirements and ADRs.
 
 ## Roadmap
 
-- **Now:** [case title search](docs/requirements/phase-7-case-title-search.md#current-implementation-coverage) in the browser/API journey, alongside retry-safe creation, status history and process-recovery coverage.
+- **Now:** [authenticated Reader/Caseworker access](docs/usage/authenticated-case-workspace.md), plus [case title search](docs/requirements/phase-7-case-title-search.md#current-implementation-coverage) in the browser/API journey, alongside retry-safe creation, status history and process-recovery coverage.
 - **Completed:** [EF Core Code First adoption](docs/tasks/ef-core-code-first-adoption.md) with retained-data and migration-recovery coverage.
-- **Next — proposed, not implemented:** [secure review hosting](docs/requirements/phase-8-secure-hosting.md): invited Reader/Caseworker access, authenticated browser/API behavior, deployment boundaries and tested recovery. Begin with the identity/session/authorization design; no identity provider or cloud service is selected yet.
+- **Next — not implemented:** complete [secure review hosting](docs/requirements/phase-8-secure-hosting.md) through real identity-tenant/grant verification, platform/storage/ingress decisions and tested operational recovery. OIDC runtime and local test evidence do not establish a hosted release; no cloud service or actual review tenant is selected yet.
 - **Deferred:** [storage readiness](docs/requirements/phase-6-storage-readiness.md), to revisit against the selected hosting/provider design. `/health` remains storage-independent liveness.
 - **Later:** extend the business workflow, establish secure hosting, then evaluate integration and AI against concrete scenarios. The [project roadmap](docs/roadmap.md) explains priorities and prerequisites; these capabilities are not implemented.
 
 ## Security and Privacy
 
-Synthetic/example concepts only. Never submit real customer, employer or client information, proprietary material or credentials. This local workflow has no authentication or authorization and is not a production deployment. See [security reporting](SECURITY.md) and [contribution guidance](CONTRIBUTING.md).
+Synthetic/example concepts only. Never submit real customer, employer or client information, proprietary material or credentials. LocalDemo deliberately has no sign-in; configured Oidc enforces authenticated permissions and CSRF. Neither mode establishes a production deployment. See [security reporting](SECURITY.md) and [contribution guidance](CONTRIBUTING.md).
 
 ## License
 
