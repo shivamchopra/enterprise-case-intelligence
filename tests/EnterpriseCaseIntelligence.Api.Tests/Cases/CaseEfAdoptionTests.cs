@@ -15,7 +15,7 @@ public class CaseEfAdoptionTests
         Assert.False(context.Database.HasPendingModelChanges());
         var migration = Assert.Single(context.Database.GetMigrations());
         Assert.Equal(migration, fixture.Scalar("SELECT MigrationId FROM __EFMigrationsHistory"));
-        Assert.Equal("10.0.13", fixture.Scalar("SELECT ProductVersion FROM __EFMigrationsHistory"));
+        Assert.Equal(Microsoft.EntityFrameworkCore.Infrastructure.ProductInfo.GetVersion(), fixture.Scalar("SELECT ProductVersion FROM __EFMigrationsHistory"));
         Assert.Equal(3L, fixture.Scalar("SELECT count(*) FROM pragma_table_list WHERE name IN ('cases','case_status_history','case_creation_keys') AND strict=1"));
         Assert.Equal(0L, fixture.Scalar("SELECT count(*) FROM sqlite_schema WHERE name='__EFMigrationsLock'"));
         Assert.Equal(4, fixture.Database.Inspect());
@@ -23,6 +23,25 @@ public class CaseEfAdoptionTests
         var error = Assert.Throws<SqliteException>(() => fixture.Execute("INSERT INTO cases VALUES ($id,$title,'Synthetic','New')",
             ("$id", Guid.NewGuid().ToString("D")), ("$title", new byte[] { 1, 2, 3 })));
         Assert.Equal(19, error.SqliteErrorCode);
+    }
+
+    [Fact]
+    public void OriginalEfPatchMetadataRemainsAcceptedWithoutRewritingRetainedState()
+    {
+        using var fixture = new TemporaryCaseDatabase();
+        var store = new SqliteCaseStore(fixture.Database);
+        var key = Guid.NewGuid();
+        var original = store.Create("Synthetic retained patch fixture", "Fictional description.", key).Case!;
+        store.ChangeStatus(original.Id, CaseStatus.InReview);
+        // Historical-metadata fixture only; no production downgrade or metadata rewrite.
+        fixture.Execute("UPDATE __EFMigrationsHistory SET ProductVersion='10.0.13'");
+        var before = File.ReadAllBytes(fixture.Path);
+        fixture.Database.ValidateStartup();
+        Assert.Equal(4, fixture.Database.Inspect());
+        Assert.Equal(original with { Status = CaseStatus.InReview }, store.Find(original.Id));
+        Assert.Equal(original, store.Create(original.Title, original.Description, key).Case);
+        Assert.Equal("10.0.13", fixture.Scalar("SELECT ProductVersion FROM __EFMigrationsHistory"));
+        Assert.Equal(before, File.ReadAllBytes(fixture.Path));
     }
 
     [Theory]
