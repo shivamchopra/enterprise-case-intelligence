@@ -1,6 +1,6 @@
 # Prepare the first invited review deployment
 
-**Status: application identity and single-loopback-proxy support implemented; hosting not provisioned or accepted.** This task follows the [Phase 8 requirements](../requirements/phase-8-secure-hosting.md), [ADR 0009](../adr/0009-authenticate-the-shared-case-workspace.md) and [ADR 0010](../adr/0010-trust-a-single-loopback-https-proxy.md). It is a deployment preparation record, not a claim of a running review site.
+**Status: application identity/proxy support implemented and private local Entra role/revocation checks passed; hosting not provisioned or accepted.** This task follows the [Phase 8 requirements](../requirements/phase-8-secure-hosting.md), [ADR 0009](../adr/0009-authenticate-the-shared-case-workspace.md) and [ADR 0010](../adr/0010-trust-a-single-loopback-https-proxy.md). It is a deployment preparation record, not a claim of a running review site.
 
 ## Assessment and recommended first target
 
@@ -26,11 +26,11 @@ flowchart LR
 
 ## Inputs needed before provisioning
 
-Record deployment-specific values privately; keep real identity identifiers, secrets and reviewer details out of the repository. The [Entra onboarding/smoke plan](../usage/entra-review-verification.md) supplies the identity steps, without claiming a tenant exists.
+Record deployment-specific values privately; keep real identity identifiers, secrets and reviewer details out of the repository. The [Entra onboarding/smoke plan](../usage/entra-review-verification.md) records the completed private local checks and the remaining hosted identity evidence. [ADR 0011](../adr/0011-use-entra-for-private-review-identity.md) selects Entra; no actual identifiers or credentials belong in these inputs.
 
 | Input | Required decision/evidence |
 | --- | --- |
-| Identity | Available dedicated review tenant, authorized app owner/admin, client registration, explicit Reader/Caseworker assignments and private real-provider verification. |
+| Identity | Authorized tenant and dedicated local registration verified with one approved account. Still needed: isolated hosted configuration/callback, intended reviewer grants and the remaining independent-user/provider checks. |
 | Subscription and owner | Intended subscription, least-privilege runtime/deployment/operator principals and who maintains/releases/retires the environment. |
 | Cost and region | User-approved region, live estimate and monthly cap covering the selected compute/disk/network/backup/log services; budget alerts, shutdown/retirement procedure and retained-resource inventory. No resources are created by this task. |
 | Public entry point | Controlled hostname/DNS, certificate issuance/renewal owner and tested same-host proxy configuration. Only the intended public entry point is exposed; restrict operator access separately. |
@@ -39,11 +39,11 @@ Record deployment-specific values privately; keep real identity identifiers, sec
 
 ## Remaining delivery work
 
-1. Verify the real review identity using the private smoke plan. Test app grants, unassigned regular accounts, changed grants/new sign-in, cookie expiry and emergency revision-based revocation. Record only non-sensitive outcome summaries publicly.
+1. Complete the [remaining private identity checks](../usage/entra-review-verification.md#local-verification-on-2026-10-26): a separate regular unassigned account, real-provider absolute expiry/failure cases and the actual hosted registration/callback. Local Reader/Caseworker/unmapped-role changes and emergency revision-based revocation already passed. Repeat relevant checks for the intended hosted users and retain only non-sensitive outcome summaries publicly.
 2. Review the actual platform/disk/ingress and budget decisions. Prepare reproducible infrastructure/service configuration for that chosen region/topology, with no destructive volume formatting, automatic initialization or overlapping writers. Test syntax and the real TLS/network path before use. The current application tests use a proxy fixture, not a deployed Nginx server.
 3. Implement/test finite request admission, body/time limits, readiness and minimal restricted diagnostics for the selected topology. `/health` remains storage-independent liveness. Enforce privacy-safe ingress/framework logging and the proposed seven-day restricted-log retention.
 4. Rehearse release/restart/offline-upgrade with state and session keys retained. Stop the old process before starting the new writer; inspect uncertain outcomes before any upgrade/retry. Keep release binaries read-only and outside the retained data/key paths. No scale-out, slot overlap or public repair endpoint.
 5. Implement backup/restore tooling and an isolated restore exercise against a separate destination, meeting or explicitly revising the proposed 24-hour RPO/four-hour RTO. Preserve the original source, validate retained histories/keys, and demonstrate that snapshot rollback loses later creations/bindings. Disk replication or an untested snapshot is not a complete recovery procedure.
 6. Run the five-client synthetic workload, real-provider/browser/proxy/restart/recovery tests and remaining SH acceptance before invitations. Retain reproducible evidence without publishing credentials, tokens, case payloads or real identities.
 
-This sequence can proceed locally until tenant/platform inputs are supplied. It neither invents those inputs nor substitutes authentication tests for hosted operational acceptance. A switch to a managed app host/server database remains a valid later decision when its operating benefits justify the provider/adoption work.
+Local provider verification is complete for the documented checks; platform/budget inputs and the remaining identity evidence are still needed. Authentication results do not substitute for hosted operational acceptance. A switch to a managed app host/server database remains a valid later decision when its operating benefits justify the provider/adoption work.
