@@ -1,6 +1,6 @@
 # Authenticated shared case workspace
 
-This is the locally testable identity/session slice of Phase 8, implemented by [ADR 0009](../adr/0009-authenticate-the-shared-case-workspace.md). It is not a hosted release. A real review tenant, invitations/grants, cloud platform/storage, ingress, restricted diagnostics, readiness and backup/restore acceptance remain pending. All cases must be synthetic.
+This is the locally testable identity/session slice of Phase 8, implemented by [ADR 0009](../adr/0009-authenticate-the-shared-case-workspace.md). It is not a hosted release. [Private local Entra role/revocation checks](entra-review-verification.md#local-verification-on-2026-10-26) passed with one approved account. Hosted registration, reviewer invitations/grants, cloud platform/storage, ingress, restricted diagnostics, readiness and backup/restore acceptance remain pending. All cases must be synthetic.
 
 ## Explicit modes
 
@@ -13,7 +13,7 @@ Missing/invalid security configuration fails before case storage validation, wit
 
 ## Provider and runtime configuration
 
-Register a confidential web application at a maintained OIDC provider. Enable authorization-code flow with PKCE and form-post response mode; register **exactly** `<PublicOrigin>/auth/callback`. Supply the provider's HTTPS authority and exact ID-token issuer, audience/client ID and explicit trusted grant claim/values. The provider must issue an immutable `sub` and the configured roles in the validated ID token. Invite only the intended synthetic-workspace reviewers. Entra ID remains a candidate, not a provisioned/verified tenant. Do not use a common/multi-tenant issuer or copy fixture identities into runtime configuration.
+Register a confidential web application at a maintained OIDC provider. Enable authorization-code flow with PKCE and form-post response mode; register **exactly** `<PublicOrigin>/auth/callback`. Supply the provider's HTTPS authority and exact ID-token issuer, audience/client ID and explicit trusted grant claim/values. The provider must issue an immutable `sub` and the configured roles in the validated ID token. Invite only the intended synthetic-workspace reviewers. [ADR 0011](../adr/0011-use-entra-for-private-review-identity.md) selects Entra ID for private review; local registration and role/revocation checks passed, with actual configuration kept outside Git. Do not use a common/multi-tenant issuer or copy fixture identities into runtime configuration.
 
 Configuration uses ASP.NET Core providers; environment settings replace `:` with `__`. Supply credentials through a protected local environment or secret provider, not command arguments, checked-in appsettings, screenshots or shell history.
 

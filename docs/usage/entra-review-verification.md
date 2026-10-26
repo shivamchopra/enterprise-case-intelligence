@@ -1,6 +1,6 @@
 # Configure and verify a review tenant in Microsoft Entra ID
 
-**Status: operator procedure; no actual tenant, registration, grants or smoke result is supplied by this repository.** Application OIDC/policy/session and [proxy ingress](proxy-case-workspace.md) have local automated tests. A private real-provider check is still required before invited hosting. Use an authorized dedicated review tenant and synthetic case content, never an employer/client tenant or records without authorization.
+**Status: private local Entra role and revocation checks passed; hosted acceptance pending.** [ADR 0011](../adr/0011-use-entra-for-private-review-identity.md) selects Entra for the first private review registration. The [dated summary](#local-verification-on-2026-10-26) contains outcomes only; actual identifiers, grants/configuration files and credentials stay outside Git. Use an authorized tenant with a dedicated review registration and synthetic case content, never an employer/client tenant or records without authorization. Complete the remaining checks against the actual hosted environment before invitations.
 
 ## Prepare the registration and grants
 
@@ -40,3 +40,22 @@ Run separate regular-user browser profiles/sessions. Preserve only synthetic dat
 | Real proxy path | Public host/HTTPS callback are correct, cookies/CSRF work, client-supplied forwarding chains cannot change the destination, and external connections cannot reach Kestrel's backend. Proxy/TLS renewal and safe diagnostics need their own evidence. |
 
 Record the app commit/artifact, test date, pseudonymous actor labels, pass/fail, provider propagation observations and unresolved issues in an operator-controlled location. Retained-key replay/atomicity remains independently covered by the backend tests; keys do not become user ownership or authorization credentials. A tenant smoke pass alone does not complete the [hosting/recovery acceptance](../requirements/phase-8-secure-hosting.md).
+
+## Local verification on 2026-10-26
+
+Real Entra sign-in was exercised against commit `32b7e230ee8f1843ecc575976e442c246c5692de` using the release executable, direct loopback HTTPS with normal certificate validation, an isolated browser session and a separate synthetic format-4 store. One approved account was assigned roles sequentially on a dedicated single-tenant registration. No other reviewers were invited. Tenant/client/user IDs, credential values, provider traces and session material are deliberately excluded from this summary.
+
+| Observed check | Result |
+| --- | --- |
+| Reader code/callback sign-in | Authenticated; read allowed, write flag false; case list returned **200** and direct create with request-token proof returned **403**. |
+| Caseworker after application sign-out/new sign-in | Read/write flags true; synthetic creation **201**, New → InReview → Closed updates **200**, history contained three entries. |
+| Retained creation-key replay | Same key/payload returned **201** with the original creation result after closure; one case and one binding remained. |
+| Cookie properties | The application session cookie was Secure and HttpOnly; access bootstrap exposed flags and a bounded remaining lifetime. |
+| Authenticated without a mapped role | After removing custom case roles and signing in again, authentication succeeded but read/write flags were false; direct case read/create both returned **403**. The existing default application-access assignment was preserved. |
+| Assignment change | Existing application ticket retained its cached permissions; a fresh sign-in observed the newly assigned role or absence of mapped roles. Application sign-out allowed provider SSO at the next sign-in. |
+| Emergency session revocation | Stopped the sole process, changed the session revision and restarted with the same store/keys. Old-ticket read/create returned **401**; a new Caseworker sign-in succeeded. |
+| Retained-state comparison across restart | All case/history/creation-binding/migration rows and protected session-key files were unchanged: one case, three history entries and one creation binding. No initialization/upgrade/reset ran during restart. |
+
+The account's Caseworker grant was restored after the negative check. Registration, runtime configuration, short-lived credential, protection material and outcome records remain in restricted operator-controlled storage outside the repository. No compute, disk or public hosting resources were provisioned for this check.
+
+This does **not** verify a separate regular unassigned account, independent users/groups/guests, natural 30-minute expiry with the real provider, provider outage/misconfiguration, an actual proxy/public callback or five-client workload. Deterministic tests cover additional policy/CSRF/session failures, but are not substituted for these private/hosted checks. Hosted credential delivery/rotation, expiry/isolated-key drills, ingress/network fencing, diagnostics, readiness and release/restore acceptance remain pending. The complete scenario table above remains the operator checklist for those environments.

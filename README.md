@@ -4,7 +4,7 @@
 
 **Phase 8 identity and ingress slices: authenticated case workspace**
 
-A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: find synthetic cases by literal title text and status, create one, review its details/history and progress its status in a local browser workspace or through the HTTP API. EF Core Code First and a retained SQLite file provide durable state and retry-safe creation. Configured OIDC sign-in, Reader/Caseworker policies, protected sessions and CSRF now support an authenticated browser/API slice. An optional same-host HTTPS proxy path is also tested. Real-tenant and hosted operations acceptance remain pending. Domain, API, browser and recovery tests support the implemented workflows.
+A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: find synthetic cases by literal title text and status, create one, review its details/history and progress its status in a local browser workspace or through the HTTP API. EF Core Code First and a retained SQLite file provide durable state and retry-safe creation. Configured OIDC sign-in, Reader/Caseworker policies, protected sessions and CSRF now support an authenticated browser/API slice. An optional same-host HTTPS proxy path is also tested. Private local Microsoft Entra role and session-revocation checks have passed; hosted operations acceptance remains pending. Domain, API, browser and recovery tests support the implemented workflows.
 
 [Review the implementation](#current-implemented-scope) · [Read the architecture](docs/architecture/overview.md) · [Run locally](#getting-started)
 
@@ -154,16 +154,18 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 
 - [ADR 0009](docs/adr/0009-authenticate-the-shared-case-workspace.md): framework OIDC/cookie sessions, named policies, CSRF and explicit local exception.
 - [ADR 0010](docs/adr/0010-trust-a-single-loopback-https-proxy.md): explicit single-hop loopback ingress without broad forwarding trust.
+- [ADR 0011](docs/adr/0011-use-entra-for-private-review-identity.md): Entra selection and private local role/revocation evidence, with credentials outside Git.
 
 ## Planned Evolution
 
-**Planned / Conceptual — none is implemented today:** server-managed persistence such as SQL Server / Azure SQL; Azure deployment; asynchronous/event-driven integration; Infrastructure as Code; restricted structured observability; real-tenant/hosted acceptance; Python-based AI capabilities; retrieval; AI evaluation; human approval boundaries. Specific technologies and services require future requirements and ADRs.
+**Planned / Conceptual — none is implemented today:** server-managed persistence such as SQL Server / Azure SQL; Azure deployment; asynchronous/event-driven integration; Infrastructure as Code; restricted structured observability; remaining real-provider/hosted acceptance; Python-based AI capabilities; retrieval; AI evaluation; human approval boundaries. Specific technologies and services require future requirements and ADRs.
 
 ## Roadmap
 
 - **Now:** [authenticated Reader/Caseworker access](docs/usage/authenticated-case-workspace.md) and [same-host proxy support](docs/usage/proxy-case-workspace.md), plus [case title search](docs/requirements/phase-7-case-title-search.md#current-implementation-coverage) in the browser/API journey, alongside retry-safe creation, status history and process-recovery coverage.
 - **Completed:** [EF Core Code First adoption](docs/tasks/ef-core-code-first-adoption.md) with retained-data and migration-recovery coverage.
-- **Next — not implemented:** complete [secure review hosting](docs/requirements/phase-8-secure-hosting.md) through real identity-tenant/grant verification, platform/storage/ingress decisions and tested operational recovery. OIDC runtime and local test evidence do not establish a hosted release; no resources or actual review tenant are provisioned/verified. The [hosting assessment](docs/tasks/review-hosting-preparation.md) recommends evaluating a single Linux VM with a retained block disk; the [Entra smoke plan](docs/usage/entra-review-verification.md) records the real-provider steps.
+- **Verified privately:** [real Entra Reader, Caseworker, unmapped-role and emergency session-revocation flows](docs/usage/entra-review-verification.md#local-verification-on-2026-10-26), using one approved account and a local synthetic store. Account details and credentials stay outside Git.
+- **Next — not implemented:** complete [secure review hosting](docs/requirements/phase-8-secure-hosting.md) through platform/storage/ingress decisions and tested operational recovery, then finish provider/multi-user checks on that environment. The [hosting assessment](docs/tasks/review-hosting-preparation.md) recommends evaluating a single Linux VM with a retained block disk. No compute or public deployment is provisioned; local Entra evidence does not establish hosted acceptance.
 - **Deferred:** [storage readiness](docs/requirements/phase-6-storage-readiness.md), to revisit against the selected hosting/provider design. `/health` remains storage-independent liveness.
 - **Later:** extend the business workflow, establish secure hosting, then evaluate integration and AI against concrete scenarios. The [project roadmap](docs/roadmap.md) explains priorities and prerequisites; these capabilities are not implemented.
 

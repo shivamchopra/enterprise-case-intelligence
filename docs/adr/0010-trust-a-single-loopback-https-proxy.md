@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted and implemented for local testing of the Phase 8 ingress boundary. Actual proxy/platform deployment and identity-tenant verification remain pending. This amends ADR 0009's direct-HTTPS-only transport boundary; its session, role, CSRF and retained-data decisions remain.
+Accepted and implemented for local testing of the Phase 8 ingress boundary. Actual proxy/platform deployment and identity-tenant verification were pending at acceptance. [ADR 0011](0011-use-entra-for-private-review-identity.md) subsequently records private local Entra verification; actual proxy/platform deployment remains pending. This amends ADR 0009's direct-HTTPS-only transport boundary; its session, role, CSRF and retained-data decisions remain.
 
 ## Context
 
