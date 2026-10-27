@@ -18,3 +18,13 @@ Current runtime code uses EF Core Code First. [The completed adoption task](docs
 ## Scope and documentation
 
 Keep the .NET 10 baseline, synthetic-data rule and current application boundaries. Add layers or infrastructure only when concrete implementation needs justify them. Keep implemented and planned scope distinct in the README, architecture and task documents, and update them when behavior changes.
+
+## Hosting cost boundary
+
+The owner requires **$0 out-of-pocket recurring hosting cost** for this public reference project. Continue local development and private identity verification while cloud compatibility and free-tier eligibility are assessed.
+
+- Do not provision billable resources, upgrade plans, remove spending protection or enable billing beyond a free allowance without explicit owner authorization for a concrete costed change. Introductory credit is temporary funding, not evidence of a sustainable free deployment; do not consume it merely to publish a demo.
+- Budget notifications do not enforce a spending cap. Verify the exact free SKU, subscription eligibility, quota-exhaustion behavior and ancillary resources before any proposed cloud deployment. Keep billing/account identifiers and benefit details private.
+- App Service F1 with Azure SQL's free tier is an assessment candidate, not a supported deployment. The current SQLite store and loopback-proxy trust contract cannot be assumed compatible with App Service. Any selected server-database work must use EF Core Code First and preserve retained values/history/creation-key behavior through explicit, tested lifecycle/adoption procedures.
+
+See [the zero-cost hosting assessment](docs/tasks/zero-cost-review-hosting.md) for the decision and remaining work.
