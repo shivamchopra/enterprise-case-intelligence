@@ -19,6 +19,7 @@ dotnet restore EnterpriseCaseIntelligence.slnx
 dotnet tool restore
 dotnet format EnterpriseCaseIntelligence.slnx --verify-no-changes --no-restore
 dotnet build EnterpriseCaseIntelligence.slnx --configuration Release --no-restore
+dotnet build tools/ReviewHostPreflight.cs --configuration Release
 dotnet ef migrations has-pending-model-changes --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build
 # Once per Playwright update; Linux may require install --with-deps chromium.
 dotnet exec --runtimeconfig tests/EnterpriseCaseIntelligence.Api.Tests/bin/Release/net10.0/EnterpriseCaseIntelligence.Api.Tests.runtimeconfig.json tests/EnterpriseCaseIntelligence.Api.Tests/bin/Release/net10.0/Microsoft.Playwright.dll install chromium
@@ -32,6 +33,8 @@ Workspace tests use the pinned Microsoft.Playwright library and its Chromium dow
 The UpgradeFixture project under `tests/` is an executable fixture for deterministic upgrade interruption and lost-completion tests. Keep its pipe barriers/failure controls out of production commands. Use frozen version-1, version-2 and version-3 fixtures for compatibility tests; never run upgrade validation against user data.
 
 Add tests when behavior changes. Update documentation when behavior or design changes, and add or update ADRs for meaningful architecture decisions. Keep planned functionality clearly distinguished from implemented functionality.
+
+The optional [hosting catalog checker](docs/tasks/app-service-compatibility.md#run-the-catalog-checker) is a .NET 10 file-based operator tool, not an API runtime dependency. CI builds its standalone entry point and tests its linked implementation with disposable responses; no real Azure CLI login is required. Catalog success never proves deployment readiness or free-tier eligibility.
 
 Never contribute credentials, secrets, proprietary code or real employer/customer data. Use synthetic concepts only. Report security concerns through the process in [SECURITY.md](SECURITY.md).
 
