@@ -155,6 +155,7 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 - [ADR 0009](docs/adr/0009-authenticate-the-shared-case-workspace.md): framework OIDC/cookie sessions, named policies, CSRF and explicit local exception.
 - [ADR 0010](docs/adr/0010-trust-a-single-loopback-https-proxy.md): explicit single-hop loopback ingress without broad forwarding trust.
 - [ADR 0011](docs/adr/0011-use-entra-for-private-review-identity.md): Entra selection and private local role/revocation evidence, with credentials outside Git.
+- [ADR 0012](docs/adr/0012-gate-cloud-hosting-on-zero-recurring-cost.md): zero recurring hosting cost; continue locally while free-tier compatibility is assessed.
 
 ## Planned Evolution
 
@@ -165,7 +166,7 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 - **Now:** [authenticated Reader/Caseworker access](docs/usage/authenticated-case-workspace.md) and [same-host proxy support](docs/usage/proxy-case-workspace.md), plus [case title search](docs/requirements/phase-7-case-title-search.md#current-implementation-coverage) in the browser/API journey, alongside retry-safe creation, status history and process-recovery coverage.
 - **Completed:** [EF Core Code First adoption](docs/tasks/ef-core-code-first-adoption.md) with retained-data and migration-recovery coverage.
 - **Verified privately:** [real Entra Reader, Caseworker, unmapped-role and emergency session-revocation flows](docs/usage/entra-review-verification.md#local-verification-on-2026-10-26), using one approved account and a local synthetic store. Account details and credentials stay outside Git.
-- **Next — not implemented:** complete [secure review hosting](docs/requirements/phase-8-secure-hosting.md) through platform/storage/ingress decisions and tested operational recovery, then finish provider/multi-user checks on that environment. The [hosting assessment](docs/tasks/review-hosting-preparation.md) recommends evaluating a single Linux VM with a retained block disk. No compute or public deployment is provisioned; local Entra evidence does not establish hosted acceptance.
+- **Next — not implemented:** complete [secure review hosting](docs/requirements/phase-8-secure-hosting.md) through platform/storage/ingress decisions and tested operational recovery, then finish provider/multi-user checks on that environment. The [zero-cost assessment](docs/tasks/zero-cost-review-hosting.md) keeps development local and evaluates App Service F1 + Azure SQL free limits; that stack needs provider/ingress work and is not yet supported. The earlier VM option requires separately approved costs. No compute or public deployment is provisioned; local Entra evidence does not establish hosted acceptance.
 - **Deferred:** [storage readiness](docs/requirements/phase-6-storage-readiness.md), to revisit against the selected hosting/provider design. `/health` remains storage-independent liveness.
 - **Later:** extend the business workflow, establish secure hosting, then evaluate integration and AI against concrete scenarios. The [project roadmap](docs/roadmap.md) explains priorities and prerequisites; these capabilities are not implemented.
 
