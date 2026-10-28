@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 
@@ -29,7 +31,18 @@ internal static class CaseSecurity
             var settings = provider.GetRequiredService<SecuritySettings>();
             return settings.LocalDemo ? new EphemeralDataProtectionProvider() :
                 DataProtectionProvider.Create(new DirectoryInfo(settings.KeyDirectory), protection =>
-                    protection.SetApplicationName("ECI:" + settings.EnvironmentId).ProtectKeysWithCertificate(settings.Certificate!));
+                {
+                    protection.SetApplicationName("ECI:" + settings.EnvironmentId).ProtectKeysWithCertificate(settings.Certificate!);
+                    // A fresh probe alone can generate a replacement key if an old
+                    // descriptor cannot be decrypted. Read all retained descriptors
+                    // through the framework before allowing normal key generation.
+                    protection.Services.Replace(ServiceDescriptor.Singleton<IKeyManager>(services =>
+                    {
+                        var manager = ActivatorUtilities.CreateInstance<XmlKeyManager>(services);
+                        foreach (var key in manager.GetAllKeys()) _ = key.Descriptor;
+                        return manager;
+                    }));
+                });
         });
         services.AddAuthentication(options => { options.DefaultScheme = Cookie; options.DefaultChallengeScheme = Cookie; })
             .AddCookie(Cookie).AddOpenIdConnect(Oidc, _ => { });

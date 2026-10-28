@@ -24,3 +24,4 @@ Future meaningful choices should receive ADRs when they are evaluated and select
 | [0010: Trust a single loopback HTTPS proxy](0010-trust-a-single-loopback-https-proxy.md) | Accepted — application ingress support implemented; actual proxy/deployment pending |
 | [0011: Use Microsoft Entra ID for private review identity](0011-use-entra-for-private-review-identity.md) | Accepted — private local role/revocation checks passed; hosted acceptance pending |
 | [0012: Gate cloud hosting on zero recurring cost](0012-gate-cloud-hosting-on-zero-recurring-cost.md) | Accepted — continue locally; free-tier compatibility assessment pending |
+| [0013: Load protection certificates from private configuration](0013-load-protection-certificates-from-private-configuration.md) | Accepted — locally verified; hosted credential delivery pending |

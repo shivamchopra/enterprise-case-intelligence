@@ -263,6 +263,8 @@ public sealed class CaseSecurityTests
     [InlineData(null, "http://127.0.0.1:0", null)]
     [InlineData("LocalDemo", "http://0.0.0.0:8000", null)]
     [InlineData("LocalDemo", "http://localhost:8000", "--Security:ClientId")]
+    [InlineData("LocalDemo", "http://localhost:8000", "--Security:CertificateSource")]
+    [InlineData("LocalDemo", "http://localhost:8000", "--Security:CertificatePfx")]
     [InlineData("LocalDemo", "http://localhost:8000", "--Kestrel:Endpoints:Public:Url")]
     [InlineData("Oidc", "https://localhost:8000", null)]
     public async Task InvalidHostingConfigurationFailsWithoutTouchingStore(string? mode, string urls, string? extra)
