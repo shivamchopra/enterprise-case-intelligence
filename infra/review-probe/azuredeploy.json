@@ -1,0 +1,63 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "planName": { "type": "string", "minLength": 3, "maxLength": 40 },
+    "siteName": { "type": "string", "minLength": 3, "maxLength": 40 }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2024-11-01",
+      "name": "[parameters('planName')]",
+      "location": "[parameters('location')]",
+      "kind": "linux",
+      "sku": { "name": "F1", "tier": "Free", "capacity": 1 },
+      "properties": { "reserved": true, "perSiteScaling": false }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2024-11-01",
+      "name": "[parameters('siteName')]",
+      "location": "[parameters('location')]",
+      "kind": "app,linux",
+      "dependsOn": ["[resourceId('Microsoft.Web/serverfarms', parameters('planName'))]"],
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('planName'))]",
+        "httpsOnly": true,
+        "clientAffinityEnabled": false,
+        "siteConfig": {
+          "linuxFxVersion": "DOTNETCORE|10.0",
+          "alwaysOn": false,
+          "minTlsVersion": "1.2",
+          "scmMinTlsVersion": "1.2",
+          "ftpsState": "Disabled",
+          "remoteDebuggingEnabled": false,
+          "httpLoggingEnabled": false,
+          "detailedErrorLoggingEnabled": false,
+          "requestTracingEnabled": false,
+          "appSettings": [
+            { "name": "ASPNETCORE_FORWARDEDHEADERS_ENABLED", "value": "false" },
+            { "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE", "value": "true" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites/basicPublishingCredentialsPolicies",
+      "apiVersion": "2024-11-01",
+      "name": "[concat(parameters('siteName'), '/scm')]",
+      "dependsOn": ["[resourceId('Microsoft.Web/sites', parameters('siteName'))]"],
+      "properties": { "allow": false }
+    },
+    {
+      "type": "Microsoft.Web/sites/basicPublishingCredentialsPolicies",
+      "apiVersion": "2024-11-01",
+      "name": "[concat(parameters('siteName'), '/ftp')]",
+      "dependsOn": ["[resourceId('Microsoft.Web/sites', parameters('siteName'))]"],
+      "properties": { "allow": false }
+    }
+  ],
+  "outputs": {}
+}

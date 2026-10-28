@@ -51,9 +51,9 @@ The [source-switch runbook](../usage/authenticated-case-workspace.md#protection-
 
 ## Next delivery gates
 
-1. Define the managed-ingress trust contract against the platform's real HTTPS-only/default-hostname/backend boundary. Keep current direct/loopback modes strict; no unrestricted automatic forwarding or header-based identity.
+1. The [managed-ingress verification contract](managed-ingress-verification.md) now defines exact-origin/peer/header requirements, private credential delivery and old-receipt retention evidence. Its [undeployed F1 envelope](../../infra/review-probe/README.md) has an offline constraint check, not platform validation. Implement/test the separate operator probe application next. Keep current direct/loopback modes strict; no unrestricted forwarding or header-based identity.
 2. Verify actual F1 credential/configuration permissions, delivery/rotation and protected-key retention privately, using a complete zero-overage resource proposal before any creation. Catalog success and local certificate tests do not supply that evidence.
 3. Select and implement an EF Code First server provider only when its platform/cost fit is established; preserve explicit lifecycle/adoption, bounded queries and retained history/key replay.
 4. Complete quota/pause/replacement, release, restricted diagnostics, workload and recovery acceptance. If the free topology cannot meet the operating targets, revise them explicitly or remain local.
 
-App Service and SQL are still assessment candidates, not a supported deployed stack. The next delivery slice is the managed-ingress design and restricted free-tier delivery/retention verification plan. No cloud resources are created or paid certificate/Key Vault/compute services assumed by the certificate implementation.
+App Service and SQL are still assessment candidates, not a supported deployed stack. The contract/retention plan and resource envelope are prepared. The next slice is a separate, locally tested operator probe application; actual Azure validation, eligibility, owner approval and evidence remain pending. No cloud resources are created or paid certificate/Key Vault/compute services assumed by the certificate implementation.

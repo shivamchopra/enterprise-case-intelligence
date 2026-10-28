@@ -18,6 +18,7 @@
   <ItemGroup>
     <Using Include="Xunit" />
     <Compile Include="../../tools/ReviewHostPreflight.cs" Link="Hosting/ReviewHostPreflight.cs" />
+    <None Include="../../infra/review-probe/azuredeploy.json" Link="Hosting/review-probe.azuredeploy.json" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="../../src/EnterpriseCaseIntelligence.Api/EnterpriseCaseIntelligence.Api.csproj" />
     <ProjectReference Include="../EnterpriseCaseIntelligence.UpgradeFixture/EnterpriseCaseIntelligence.UpgradeFixture.csproj" />
   </ItemGroup>
