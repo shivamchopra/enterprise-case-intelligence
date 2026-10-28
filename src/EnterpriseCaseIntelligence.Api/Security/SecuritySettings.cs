@@ -41,6 +41,7 @@ internal sealed class SecuritySettings : IDisposable
         }
         if (mode != "Oidc") throw new ArgumentException("Unknown security mode.");
         var proxyAddress = CaseIngress.ReadProxyAddress(configuration);
+        using var protection = ProtectionCertificate.Read(configuration);
         var authority = Https(Required("Authority"));
         var issuer = Required("Issuer");
         _ = Https(issuer);
@@ -50,9 +51,7 @@ internal sealed class SecuritySettings : IDisposable
         var revision = Required("SessionRevision");
         if (environment.Length > 80 || revision.Length > 80) throw new ArgumentException("Invalid isolation settings.");
         var keyDirectory = Required("KeyDirectory");
-        var certificatePath = Required("CertificatePath");
-        if (!Path.IsPathFullyQualified(keyDirectory) || !Directory.Exists(keyDirectory) ||
-            !Path.IsPathFullyQualified(certificatePath)) throw new ArgumentException("Invalid security paths.");
+        if (!Path.IsPathFullyQualified(keyDirectory) || !Directory.Exists(keyDirectory)) throw new ArgumentException("Invalid security paths.");
         var reader = Required("ReaderRole");
         var worker = Required("CaseworkerRole");
         var roleClaim = Required("RoleClaim");
@@ -60,11 +59,7 @@ internal sealed class SecuritySettings : IDisposable
             throw new ArgumentException("Invalid role mapping.");
         var clientId = Required("ClientId");
         var clientSecret = Required("ClientSecret");
-        // macOS does not support EphemeralKeySet; default loading creates a
-        // temporary native key that is released when the certificate is disposed.
-        var certificate = X509CertificateLoader.LoadPkcs12FromFile(certificatePath, configuration["Security:CertificatePassword"], OperatingSystem.IsMacOS() ? X509KeyStorageFlags.DefaultKeySet : X509KeyStorageFlags.EphemeralKeySet);
-        if (!certificate.HasPrivateKey || certificate.NotAfter.ToUniversalTime() <= DateTime.UtcNow || certificate.NotBefore.ToUniversalTime() > DateTime.UtcNow)
-        { certificate.Dispose(); throw new ArgumentException("Invalid protection certificate."); }
+        var certificate = protection.Load();
         return new()
         {
             ProxyAddress = proxyAddress,

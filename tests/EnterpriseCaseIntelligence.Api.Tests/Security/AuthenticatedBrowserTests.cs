@@ -7,9 +7,10 @@ namespace EnterpriseCaseIntelligence.Api.Tests.Security;
 [Trait("Category", "Browser")]
 public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassFixture<WorkspaceBrowser>
 {
-    private async Task<(IBrowserContext Context, IPage Page)> Open(SecurityHost host, bool proxy = false)
+    private async Task<(IBrowserContext Context, IPage Page)> Open(SecurityHost host, bool proxy = false, bool configurationCertificate = false)
     {
-        await host.Provider.StartBrowserEndpoint(); host.Start(network: true, proxy: proxy);
+        await host.Provider.StartBrowserEndpoint(); host.Start(network: true, proxy: proxy,
+            configurationOverrides: configurationCertificate ? host.ConfigurationCertificate() : null);
         if (proxy) await host.StartProxyAsync();
         var context = await driver.Browser.NewContextAsync(new() { IgnoreHTTPSErrors = true }); // Generated test certificate only.
         var page = await context.NewPageAsync(); page.SetDefaultTimeout(10_000);
@@ -26,12 +27,14 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task WorkerSignsInCreatesProgressesAndSignsOutWithRealCookiesAndCsrf(bool proxy)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task WorkerSignsInCreatesProgressesAndSignsOutWithRealCookiesAndCsrf(bool proxy, bool configurationCertificate)
     {
         await using var host = new SecurityHost(); host.Provider.Role = "Caseworker";
-        var (context, page) = await Open(host, proxy); await using var browserContext = context;
+        var (context, page) = await Open(host, proxy, configurationCertificate); await using var browserContext = context;
         var errors = new List<string>(); page.PageError += (_, error) => errors.Add(error);
         await Login(page);
         await Expect(page.Locator("#access-label")).ToHaveTextAsync("CASEWORKER");
@@ -78,13 +81,15 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ReaderHasNoMutationControlsAndDirectWritesAreDenied(bool proxy)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task ReaderHasNoMutationControlsAndDirectWritesAreDenied(bool proxy, bool configurationCertificate)
     {
         await using var host = new SecurityHost();
         new EnterpriseCaseIntelligence.Api.Cases.SqliteCaseStore(host.Database.Database).Create("Reader-visible fictional case", "Synthetic description.");
-        var (context, page) = await Open(host, proxy); await using var browserContext = context;
+        var (context, page) = await Open(host, proxy, configurationCertificate); await using var browserContext = context;
         await Login(page);
         await Expect(page.Locator("#access-label")).ToHaveTextAsync("READER");
         await page.Locator("#case-list button").ClickAsync();

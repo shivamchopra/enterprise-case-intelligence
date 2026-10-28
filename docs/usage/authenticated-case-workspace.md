@@ -30,8 +30,10 @@ Configuration uses ASP.NET Core providers; environment settings replace `:` with
 | `Security:EnvironmentId` | Stable unique environment discriminator, up to 80 characters |
 | `Security:SessionRevision` | Operator-controlled revocation revision, up to 80 characters |
 | `Security:KeyDirectory` | Existing absolute directory outside application publication output, durable across restart, accessible only to the runtime/operator |
-| `Security:CertificatePath` | Absolute path to a valid RSA PFX with private key for Data Protection encryption/decryption; keep separate from case files and publication output |
-| `Security:CertificatePassword` | PFX password when needed; supply externally |
+| `Security:CertificateSource` | Optional `File` default, or explicit `Configuration`; selected at startup with no fallback |
+| `Security:CertificatePath` | Required absolute RSA PFX path for `File`; must be unset for `Configuration`. Keep outside publication output/case files |
+| `Security:CertificatePfx` | Required single-line Base64, password-protected PFX for `Configuration`; must be unset for `File`. Supply privately, never in checked-in appsettings |
+| `Security:CertificatePassword` | Required nonblank password for `Configuration`; optional for existing file formats. Supply externally |
 | `Kestrel:Certificates:Default:Path`, `...:Password` | Externally supplied HTTPS server certificate configuration when using direct Kestrel hosting; independent of session-key protection |
 | `CaseStorage:DatabasePath` | Existing supported local format-4 store; one process per file |
 
@@ -42,6 +44,27 @@ dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release 
 ```
 
 Use a browser that trusts the server certificate. Disable the framework-wide automatic forwarding flag in every mode; only the explicit proxy path is supported. Production performs normal HTTPS metadata/backchannel validation; there is no certificate-validation bypass or test-login setting. Use a new shell/configuration when switching to LocalDemo, rather than leaving Oidc credentials/grants configured. This document establishes no safe cloud filesystem, public ingress or deployment principal.
+
+## Protection certificate sources
+
+[ADR 0013](../adr/0013-load-protection-certificates-from-private-configuration.md) preserves existing file setups and adds an opt-in configuration source. Both require a currently valid RSA private key and keep the existing certificate-encrypted key directory. There is no default/ephemeral-key fallback for Oidc.
+
+For `Configuration`, the secret provider must supply `Security:CertificatePfx` and `Security:CertificatePassword`. The decoded PFX is limited to **32 KiB**, with at most **43,692 Base64 characters**, no whitespace, one encrypted PKCS#8 private-key bag, ordinary certificate bags only and at most ten certificates. It must have password integrity and a valid MAC; the password must be nonblank and at most 1,024 characters. Framework KDF/MAC import limits remain enabled. Unsupported bags, unencrypted keys, wrong passwords, expired/future/non-RSA certificates or trailing data are refused with the generic startup diagnostic before store access. Invalid source selection/encoding is rejected before key-directory I/O.
+
+Set only the non-secret source choice in the shell; the two secret values must already be supplied through a restricted runtime provider/environment:
+
+```sh
+export Security__CertificateSource=Configuration
+unset Security__CertificatePath
+```
+
+`CertificatePath` must be **unset**, not an empty string. When returning to `File`, remove `CertificatePfx` completely and restore the absolute file path and its password as needed. An absent `CertificateSource` keeps the old `File` behavior; it never infers a configuration source from a PFX value.
+
+The source name does not protect configuration automatically. Keep all PFX/password values out of Git, published files, command arguments, terminal output and logs. Restrict the provider/environment and operator permissions. Import clears its owned decoded buffer and disposes rejected key handles; immutable provider strings and process environment copies cannot be promised erased. The application does not materialize a PFX file for the configuration source. macOS may use a temporary native private key released with the certificate; Windows/Linux use ephemeral import.
+
+To switch delivery sources while retaining sessions, stop the sole host, supply an encrypted export of the **same certificate and private key**, preserve the key directory/environment/revision and case store, remove the conflicting source setting, then restart. Verify an existing session and retained cases/history/replay. A different valid certificate cannot silently generate replacement session keys over the retained ring: every existing descriptor must decrypt before normal generation/probing. Restore the original configuration if startup is refused; do not delete keys or cases to solve it. Certificate replacement follows the separate revocation procedure below. Changes take effect only after restart.
+
+This capability is locally tested and does not establish actual App Service secret delivery, key retention or deployment compatibility.
 
 ## Browser and API behavior
 
@@ -66,7 +89,7 @@ At the supplied absolute session deadline, or on a 401/403 or sign-out, the brow
 
 ## Session-key operations and emergency revocation
 
-Keep the key directory, its environment discriminator and protection certificate/private key durable and permission-restricted across supported restarts. Startup exercises protection/unprotection before touching the case store. XML keys on disk are certificate-encrypted; case data is not thereby encrypted. Other processes with the key directory and private key can forge sessions, so both are secrets. Do not share them between environments or put them in a case-data backup/public build. Auth protocol/framework request logging is suppressed in the shipped defaults to avoid callback/token/query leakage; restricted security-event diagnostics and ingress retention remain future hosting work.
+Keep the key directory, its environment discriminator and protection certificate/private key durable and permission-restricted across supported restarts. Startup validates every retained key descriptor before normal key generation, then exercises protection/unprotection before touching the case store. XML keys on disk are certificate-encrypted; case data is not thereby encrypted. Other processes with the key directory and private key can forge sessions, so both are secrets. Do not share them between environments or put them in a case-data backup/public build. Auth protocol/framework request logging is suppressed in the shipped defaults to avoid callback/token/query leakage; restricted security-event diagnostics and ingress retention remain future hosting work.
 
 For an emergency application-wide session revocation, stop the sole API process, change `Security:SessionRevision`, restart with the same valid case store, and verify an old session now gets 401 while a new authorized sign-in works. Do not initialize, reset or rekey case/history/creation data. This invalidates cookies only on instances using the new revision; complete the operator-controlled restart before resuming access. Provider account/grant revocation and incident response remain separate operator actions.
 

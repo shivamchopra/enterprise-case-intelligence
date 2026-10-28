@@ -53,7 +53,16 @@ internal sealed class SecurityHost : IAsyncDisposable
         Directory.CreateDirectory(Keys);
     }
 
-    public void Start(bool network = false, string revision = "test-revision", string environment = "synthetic-tests", bool proxy = false, Action<HttpContext>? requestSetup = null)
+    public Dictionary<string, string?> ConfigurationCertificate() => new()
+    {
+        ["Security:CertificateSource"] = "Configuration",
+        ["Security:CertificatePath"] = null,
+        ["Security:CertificatePfx"] = Convert.ToBase64String(Certificate.Export(X509ContentType.Pfx, "synthetic-PFX-password")),
+        ["Security:CertificatePassword"] = "synthetic-PFX-password"
+    };
+
+    public void Start(bool network = false, string revision = "test-revision", string environment = "synthetic-tests", bool proxy = false, Action<HttpContext>? requestSetup = null,
+        IReadOnlyDictionary<string, string?>? configurationOverrides = null)
     {
         if (network)
         {
@@ -64,25 +73,30 @@ internal sealed class SecurityHost : IAsyncDisposable
         Backend = proxy ? new Uri($"http://127.0.0.1:{ReservePort()}") : null;
         Factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
-            builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            builder.ConfigureAppConfiguration((_, configuration) =>
             {
-                ["CaseStorage:DatabasePath"] = Database.Path,
-                ["Security:Mode"] = "Oidc",
-                ["Security:Ingress"] = proxy ? "LoopbackProxy" : "DirectHttps",
-                ["urls"] = Backend?.AbsoluteUri,
-                ["Security:Authority"] = Issuer,
-                ["Security:Issuer"] = Issuer,
-                ["Security:ClientId"] = ClientId,
-                ["Security:ClientSecret"] = "test-only-secret",
-                ["Security:PublicOrigin"] = Origin.AbsoluteUri,
-                ["Security:EnvironmentId"] = environment,
-                ["Security:SessionRevision"] = revision,
-                ["Security:KeyDirectory"] = Keys,
-                ["Security:CertificatePath"] = Path.Combine(Database.DirectoryPath, "test.pfx"),
-                ["Security:RoleClaim"] = "roles",
-                ["Security:ReaderRole"] = "Reader",
-                ["Security:CaseworkerRole"] = "Caseworker"
-            }));
+                var settings = new Dictionary<string, string?>
+                {
+                    ["CaseStorage:DatabasePath"] = Database.Path,
+                    ["Security:Mode"] = "Oidc",
+                    ["Security:Ingress"] = proxy ? "LoopbackProxy" : "DirectHttps",
+                    ["urls"] = Backend?.AbsoluteUri,
+                    ["Security:Authority"] = Issuer,
+                    ["Security:Issuer"] = Issuer,
+                    ["Security:ClientId"] = ClientId,
+                    ["Security:ClientSecret"] = "test-only-secret",
+                    ["Security:PublicOrigin"] = Origin.AbsoluteUri,
+                    ["Security:EnvironmentId"] = environment,
+                    ["Security:SessionRevision"] = revision,
+                    ["Security:KeyDirectory"] = Keys,
+                    ["Security:CertificatePath"] = Path.Combine(Database.DirectoryPath, "test.pfx"),
+                    ["Security:RoleClaim"] = "roles",
+                    ["Security:ReaderRole"] = "Reader",
+                    ["Security:CaseworkerRole"] = "Caseworker"
+                };
+                if (configurationOverrides is not null) foreach (var setting in configurationOverrides) settings[setting.Key] = setting.Value;
+                configuration.AddInMemoryCollection(settings);
+            });
             builder.ConfigureServices(services =>
             {
                 if (requestSetup is not null) services.AddSingleton<IStartupFilter>(new RequestSetupFilter(requestSetup));

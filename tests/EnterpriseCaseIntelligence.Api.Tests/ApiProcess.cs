@@ -10,7 +10,7 @@ internal sealed class ApiProcess : IDisposable
     private readonly TaskCompletionSource<Uri> _listening = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public Uri Address { get; private set; } = null!;
 
-    private ApiProcess(params string[] arguments)
+    private ApiProcess(IReadOnlyDictionary<string, string?>? environment, params string[] arguments)
     {
         var start = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet")
         {
@@ -23,6 +23,11 @@ internal sealed class ApiProcess : IDisposable
         // directory to verify asset publication rather than source-tree lookup.
         start.ArgumentList.Add(Environment.GetEnvironmentVariable("ECI_TEST_API_ASSEMBLY") ?? typeof(Program).Assembly.Location);
         foreach (var argument in arguments) start.ArgumentList.Add(argument);
+        if (environment is not null) foreach (var setting in environment)
+        {
+            if (setting.Value is null) start.Environment.Remove(setting.Key);
+            else start.Environment[setting.Key] = setting.Value;
+        }
         _process = new Process { StartInfo = start, EnableRaisingEvents = true };
         _process.OutputDataReceived += (_, args) => Record(args.Data);
         _process.ErrorDataReceived += (_, args) => Record(args.Data);
@@ -46,7 +51,7 @@ internal sealed class ApiProcess : IDisposable
 
     public static async Task<ApiProcess> StartAsync(string path)
     {
-        var process = new ApiProcess("--CaseStorage:DatabasePath", path, "--urls", "http://127.0.0.1:0",
+        var process = new ApiProcess(null, "--CaseStorage:DatabasePath", path, "--urls", "http://127.0.0.1:0",
             "--Security:Mode", "LocalDemo",
             "--Logging:LogLevel:Default", "Warning", "--Logging:LogLevel:Microsoft.Hosting.Lifetime", "Information");
         try
@@ -65,9 +70,12 @@ internal sealed class ApiProcess : IDisposable
         => await RunRawAsync(arguments.FirstOrDefault() is "init-store" or "inspect-store" or "upgrade-store" ? arguments :
             [.. arguments, "--Security:Mode", "LocalDemo", "--urls", "http://127.0.0.1:0"]);
 
-    public static async Task<(int ExitCode, string Output)> RunRawAsync(params string[] arguments)
+    public static Task<(int ExitCode, string Output)> RunRawAsync(params string[] arguments)
+        => RunWithEnvironmentAsync(null, arguments);
+
+    public static async Task<(int ExitCode, string Output)> RunWithEnvironmentAsync(IReadOnlyDictionary<string, string?>? environment, params string[] arguments)
     {
-        using var process = new ApiProcess(arguments);
+        using var process = new ApiProcess(environment, arguments);
         await process._process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(25));
         process._process.WaitForExit(); // Drain redirected output events before asserting diagnostics.
         lock (process._output) return (process._process.ExitCode, process._output.ToString());
