@@ -20,6 +20,7 @@ dotnet tool restore
 dotnet format EnterpriseCaseIntelligence.slnx --verify-no-changes --no-restore
 dotnet build EnterpriseCaseIntelligence.slnx --configuration Release --no-restore
 dotnet build tools/ReviewHostPreflight.cs --configuration Release
+dotnet run --file tools/ReviewHostPreflight.cs --configuration Release --no-build -- --proposal infra/review-probe/azuredeploy.json
 dotnet ef migrations has-pending-model-changes --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build
 # Once per Playwright update; Linux may require install --with-deps chromium.
 dotnet exec --runtimeconfig tests/EnterpriseCaseIntelligence.Api.Tests/bin/Release/net10.0/EnterpriseCaseIntelligence.Api.Tests.runtimeconfig.json tests/EnterpriseCaseIntelligence.Api.Tests/bin/Release/net10.0/Microsoft.Playwright.dll install chromium
@@ -34,7 +35,7 @@ The UpgradeFixture project under `tests/` is an executable fixture for determini
 
 Add tests when behavior changes. Update documentation when behavior or design changes, and add or update ADRs for meaningful architecture decisions. Keep planned functionality clearly distinguished from implemented functionality.
 
-The optional [hosting catalog checker](docs/tasks/app-service-compatibility.md#run-the-catalog-checker) is a .NET 10 file-based operator tool, not an API runtime dependency. CI builds its standalone entry point and tests its linked implementation with disposable responses; no real Azure CLI login is required. Catalog success never proves deployment readiness or free-tier eligibility.
+The optional [hosting catalog checker](docs/tasks/app-service-compatibility.md#run-the-catalog-checker) is a .NET 10 file-based operator tool, not an API runtime dependency. CI builds its standalone entry point and tests its linked implementation with disposable responses; no real Azure CLI login is required. The same tool checks the fixed [undeployed probe envelope](infra/review-probe/README.md) offline; negative tests reject paid/additional resources, weakened boundaries and secret-bearing template inputs/outputs. Neither catalog nor proposal success proves Azure/provider validation, deployment readiness, free-tier eligibility or owner approval.
 
 Never contribute credentials, secrets, proprietary code or real employer/customer data. Use synthetic concepts only. Report security concerns through the process in [SECURITY.md](SECURITY.md).
 

@@ -32,6 +32,8 @@ jobs:
         run: dotnet build EnterpriseCaseIntelligence.slnx --configuration Release --no-restore
       - name: Build read-only hosting catalog tool
         run: dotnet build tools/ReviewHostPreflight.cs --configuration Release
+      - name: Check undeployed F1 probe envelope offline
+        run: dotnet run --file tools/ReviewHostPreflight.cs --configuration Release --no-build -- --proposal infra/review-probe/azuredeploy.json
       - name: Verify EF model snapshot
         run: dotnet ef migrations has-pending-model-changes --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build
       - name: Test
