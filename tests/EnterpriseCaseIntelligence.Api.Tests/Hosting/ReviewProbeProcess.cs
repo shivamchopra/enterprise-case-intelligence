@@ -109,8 +109,12 @@ internal sealed class ReviewProbeProcess : IAsyncDisposable
     {
         var destination = Directory.CreateDirectory(Path.Combine(Root, "replacement-release")).FullName;
         var source = Path.GetDirectoryName(Artifact)!;
-        foreach (var name in new[] { "EnterpriseCaseIntelligence.ReviewProbe.dll", "EnterpriseCaseIntelligence.ReviewProbe.deps.json", "EnterpriseCaseIntelligence.ReviewProbe.runtimeconfig.json", "System.Security.Cryptography.Pkcs.dll" })
+        foreach (var name in new[] { "EnterpriseCaseIntelligence.ReviewProbe.dll", "EnterpriseCaseIntelligence.ReviewProbe.deps.json", "EnterpriseCaseIntelligence.ReviewProbe.runtimeconfig.json" })
             File.Copy(Path.Combine(source, name), Path.Combine(destination, name));
+        // The SDK can resolve PKCS from the installed shared framework and omit
+        // its app-local copy. Preserve exactly the source artifact's layout.
+        var pkcs = Path.Combine(source, "System.Security.Cryptography.Pkcs.dll");
+        if (File.Exists(pkcs)) File.Copy(pkcs, Path.Combine(destination, Path.GetFileName(pkcs)));
         var runtimes = Path.Combine(source, "runtimes");
         if (Directory.Exists(runtimes)) foreach (var file in Directory.GetFiles(runtimes, "*", SearchOption.AllDirectories))
         {
