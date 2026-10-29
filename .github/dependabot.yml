@@ -6,6 +6,7 @@ updates:
       - /src/EnterpriseCaseIntelligence.Domain
       - /tests/EnterpriseCaseIntelligence.Api.Tests
       - /tests/EnterpriseCaseIntelligence.Domain.Tests
+      - /tools/EnterpriseCaseIntelligence.ReviewProbe
     schedule:
       interval: weekly
     groups:

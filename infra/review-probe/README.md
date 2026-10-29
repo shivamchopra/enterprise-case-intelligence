@@ -1,6 +1,6 @@
 # Undeployed F1 probe resource envelope
 
-**Proposal only. Do not deploy this template yet.** The separate probe application and Azure-side validation are not implemented/performed. This envelope is not a deployment of the case API. It contains no database, identity registration, credential, key file, application package or deployment script.
+**Proposal only. Do not deploy this template yet.** The [separate probe application](../../docs/usage/operator-review-probe.md) is locally tested; Azure-side validation, private deployment tooling and exact eligibility remain pending. This envelope is not a deployment of the case API. It contains no database, identity registration, credential, key file, application package or deployment script.
 
 The [verification contract](../../docs/tasks/managed-ingress-verification.md) defines the required evidence and owner decision before any resource creation. Use only a fresh, isolated disposable resource group and new resource names; never point this proposal at an existing application/plan. Region, names, subscription, quotas, inherited policy/add-on effects and free-tier eligibility must be verified privately. No parameter defaults or outputs publish those values.
 

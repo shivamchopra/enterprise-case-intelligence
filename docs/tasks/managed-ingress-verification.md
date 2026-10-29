@@ -1,6 +1,6 @@
 # Verify managed ingress and protected-key delivery
 
-**Status: trust contract, credential/retention plan and undeployed resource envelope prepared; runtime/platform acceptance unverified.** No App Service ingress mode, cloud resource, case-store provider or production authentication shortcut is introduced. [ADR 0012](../adr/0012-gate-cloud-hosting-on-zero-recurring-cost.md)'s $0 recurring-cost boundary and [ADR 0013](../adr/0013-load-protection-certificates-from-private-configuration.md)'s protection rules remain.
+**Status: independent operator probe implemented/tested locally; trust contract and undeployed resource envelope prepared; runtime/platform acceptance unverified.** No App Service ingress mode, cloud resource, case-store provider or production authentication shortcut is introduced. [ADR 0012](../adr/0012-gate-cloud-hosting-on-zero-recurring-cost.md)'s $0 recurring-cost boundary and [ADR 0013](../adr/0013-load-protection-certificates-from-private-configuration.md)'s protection rules remain.
 
 ## Trust contract to prove
 
@@ -19,7 +19,7 @@ These are acceptance requirements, not implemented runtime settings. Do not conf
 
 ## Minimal probe, separate from the case application
 
-Use a dedicated, temporary .NET 10 operator probe to gather the missing evidence. **That probe application is the next implementation task, not included in this envelope.** It must contain no case/database routes, OIDC registration, real reviewer identity or shortcut that bypasses the case API's startup/security validation.
+Use a dedicated, temporary .NET 10 operator probe to gather the missing evidence. The [independent probe and private runbook](../usage/operator-review-probe.md), recorded by [ADR 0014](../adr/0014-isolate-managed-host-verification-in-an-operator-probe.md), now implement this tool locally. It is built/published separately from the case API and is not included in the resource envelope. It contains no case/database routes, OIDC registration, real reviewer identity or shortcut that bypasses the case API's startup/security validation.
 
 ```mermaid
 flowchart LR
@@ -35,7 +35,7 @@ Return only bounded observations needed by the operator: original scheme/peer, H
 
 ## Credential delivery and retention procedure
 
-1. Before any creation, finish the probe implementation/local tests, review the [resource envelope](../../infra/review-probe/README.md), privately verify exact F1 eligibility/quotas and obtain the owner's explicit decision for that concrete proposal. Use a fresh isolated group. No credit-funded or paid-tier fallback, SQL, Key Vault, monitoring add-on or custom domain is implied.
+1. Before any creation, use the locally tested independent probe, review the [resource envelope](../../infra/review-probe/README.md), privately verify exact F1 eligibility/quotas and obtain the owner's explicit decision for that concrete proposal. Use a fresh isolated group. No credit-funded or paid-tier fallback, SQL, Key Vault, monitoring add-on or custom domain is implied.
 2. Keep deployment/SCM/FTP basic authentication disabled. Use an authorized Entra/RBAC operator and supported tooling; inability to deploy/initialize through the free authenticated path is a failed gate, not permission to enable basic publishing or upgrade. [Deployment authentication](https://learn.microsoft.com/en-us/azure/app-service/configure-basic-auth-disable).
 3. Prepare the encrypted PFX/password and independent probe credential in a permission-restricted private configuration file (owner-only file, restricted directory). Use the existing `CertificateSource=Configuration` contract, omit CertificatePath, and supply all related settings in one controlled update. Do not pass values as command arguments, print app settings, enable CLI debug/request tracing, or include secrets in ARM parameters/outputs/artifacts. App settings' platform encryption does not remove operator/process access to their values. [App settings behavior](https://learn.microsoft.com/en-us/azure/app-service/configure-common#configure-app-settings).
 4. Explicitly initialize the probe's retained key directory through the approved operator path, outside `/home/site/wwwroot` and release/temporary paths. Never auto-initialize a missing mount/directory on restart. `/home` persistence and access isolation must be observed on the actual F1 code host; shared storage may be appropriate for framework key files but does not validate SQLite there. Verify credentials/configuration permissions and ordinary deployment tooling as part of this step. [Storage behavior](https://learn.microsoft.com/en-us/azure/app-service/configure-custom-container#use-persistent-shared-storage).
@@ -52,8 +52,8 @@ Return only bounded observations needed by the operator: original scheme/peer, H
 | MI-03 | Legitimate HTTPS and HTTP-with-forged-forwarding requests establish the actual edge/backend fence. **Pending.** |
 | MI-04 | Missing/multiple/conflicting forwarding headers and forged Host/client-principal inputs cannot change the origin or grant access. **Pending.** |
 | MI-05 | Observed original peers can support a bounded explicit allowlist across restart/replacement, or the mode remains unsupported. **Pending.** |
-| MI-06 | Configuration delivery, access permissions, private material hygiene, encrypted keys and old-receipt retention pass restart/release. **Pending.** |
-| MI-07 | Wrong credential/missing state fails without reset; deliberate revocation and recovery work. **Pending.** |
+| MI-06 | Configuration delivery, access permissions, private material hygiene, encrypted keys and old-receipt retention pass restart/release. **Local process/configuration and copied-artifact retention tests pass; actual F1 delivery/permissions/release pending.** |
+| MI-07 | Wrong credential/missing state fails without reset; deliberate revocation and recovery work. **Local disposable-process tests pass; actual platform behavior pending.** |
 | MI-08 | Only after evidence: select/implement ingress and a justified EF Code First server provider; then satisfy workload, logging, readiness and recovery requirements. **Pending.** |
 
 The envelope and offline checker do not authorize deployment or establish the whole stack's future billing. If any free-capability, trust or retention gate fails, keep the working application local. Do not mark Phase 8 hosted acceptance complete or replace the current strict modes with a permissive approximation.
