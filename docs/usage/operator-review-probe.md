@@ -4,6 +4,8 @@ The [standalone .NET 10 probe](../../tools/EnterpriseCaseIntelligence.ReviewProb
 
 **Cloud compatibility, eligibility, backend isolation and secure deployment remain unverified.** Do not deploy the case API or interpret a probe result as trusted ingress. The [managed-ingress gates](../tasks/managed-ingress-verification.md) and [$0 cost boundary](../tasks/zero-cost-review-hosting.md) still apply before Azure validation/creation review. No cloud actions run in these commands or CI.
 
+The [2026-10-29 deployment-path assessment](../tasks/free-tier-deployment-preflight.md) found storage-isolation and first-initialization gaps before creation review. The local commands below do not establish a working cloud bootstrap procedure; permission and missing-state checks remain enforced.
+
 ## Private preparation
 
 Use a new, independent disposable RSA protection certificate, environment/revision, random credential and key directory. Never reuse the existing local-review certificate, Entra credentials, session keys or case store. Keep configuration, key files, receipts and observations outside Git, build/publish directories and synchronized/shared folders. Restrict their containing directories to the operator/runtime; on Unix use directory mode `0700`, configuration-file mode `0600`, and equivalent private ACLs on Windows. The tool checks Unix file/directory mode bits, not ownership, Windows ACLs, ancestor permissions, backup access or cloud isolation; the operator must verify those separately.

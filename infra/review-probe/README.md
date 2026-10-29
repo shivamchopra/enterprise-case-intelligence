@@ -2,6 +2,8 @@
 
 **Proposal only. Do not deploy this template yet.** The [separate probe application](../../docs/usage/operator-review-probe.md) is locally tested; Azure-side validation, private deployment tooling and exact eligibility remain pending. This envelope is not a deployment of the case API. It contains no database, identity registration, credential, key file, application package or deployment script.
 
+The [2026-10-29 deployment-path assessment](../../docs/tasks/free-tier-deployment-preflight.md) identifies unresolved retained-storage permissions and first-initialization contracts. No creation request is ready until those are resolved and private eligibility evidence is complete.
+
 The [verification contract](../../docs/tasks/managed-ingress-verification.md) defines the required evidence and owner decision before any resource creation. Use only a fresh, isolated disposable resource group and new resource names; never point this proposal at an existing application/plan. Region, names, subscription, quotas, inherited policy/add-on effects and free-tier eligibility must be verified privately. No parameter defaults or outputs publish those values.
 
 | Proposed resource | Fixed boundary |
@@ -10,7 +12,7 @@ The [verification contract](../../docs/tasks/managed-ingress-verification.md) de
 | One Linux code site | .NET 10, HTTPS-only, site/SCM minimum TLS 1.2, no Always On, FTP disabled, remote debugging/request diagnostics disabled |
 | Two publishing policy children | SCM and FTP basic publishing credentials disabled; future deployment must use approved Entra/RBAC tooling |
 
-The two initial non-secret app settings enable App Service storage and explicitly disable unrestricted automatic forwarding. They do not initialize a key directory or establish a trusted proxy. All credentials must be supplied later through a separately reviewed private process; do not add them as template parameters or outputs. No paid monitoring, custom domain/certificate, networking, storage account, SQL resource or Key Vault is included. Any added resource/feature requires a new review and cost decision.
+The two initial non-secret app settings record storage intent and explicitly disable unrestricted automatic forwarding. Built-in code hosts ignore the storage flag; it is not proof of retained storage or access controls. They do not initialize a key directory or establish a trusted proxy. See the [storage assessment](../../docs/tasks/free-tier-deployment-preflight.md#blocker-1-retained-storage-and-permission-semantics). All credentials must be supplied later through a separately reviewed private process; do not add them as template parameters or outputs. No paid monitoring, custom domain/certificate, networking, storage account, SQL resource or Key Vault is included. Any added resource/feature requires a new review and cost decision.
 
 This is an initial-resource envelope, not a redeployment/rotation script. Reapplying its app-settings collection after private configuration could replace those values. Replacement probe binaries must use the reviewed artifact-release process while retaining configuration; later resource/configuration updates need an explicit safe merge/delivery design.
 
