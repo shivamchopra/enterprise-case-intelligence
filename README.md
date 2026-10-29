@@ -44,6 +44,7 @@ Enterprise case processes span legacy systems, fragmented information and manual
 | Explicit offline version-1/version-2/version-3 → version-4 upgrades, preserved histories and inspection after uncertain outcomes | [EF adoption tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseEfAdoptionTests.cs) · [Upgrade interruption tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseUpgradeProcessTests.cs) |
 | Real SQLite integration tests and child-process tests cover the workflow, failures, host isolation and restart recovery | [API tests](tests/EnterpriseCaseIntelligence.Api.Tests) |
 | Optional .NET 10 operator tool checks runtime/F1 catalogs and an undeployed probe resource envelope; deployment readiness remains false | [Checker](tools/ReviewHostPreflight.cs) · [Probe proposal](infra/review-probe/README.md) · [Verification contract](docs/tasks/managed-ingress-verification.md) |
+| Independent operator probe with private bearer access, raw transport observations and encrypted-key receipt checks across local restart/replacement | [Probe runbook](docs/usage/operator-review-probe.md) · [Process/client tests](tests/EnterpriseCaseIntelligence.Api.Tests/Hosting/ReviewProbeTests.cs) |
 | Restore, format verification, Release build and tests in CI; warnings treated as errors | [CI workflow](.github/workflows/ci.yml) · [Build configuration](Directory.Build.props) |
 | Architecture overview and accepted decisions; historical memory decision retained | [Architecture overview](docs/architecture/overview.md) · [ADR index](docs/adr/README.md) |
 
@@ -81,6 +82,9 @@ tests/
   EnterpriseCaseIntelligence.Api.Tests/  Endpoint, SQLite and process recovery tests
   EnterpriseCaseIntelligence.Domain.Tests/ Domain unit tests
   EnterpriseCaseIntelligence.UpgradeFixture/ Test-only upgrade interruption executable
+tools/
+  EnterpriseCaseIntelligence.ReviewProbe/ Independent diagnostic host/client, no case API
+  ReviewHostPreflight.cs                 Catalog and offline resource-envelope checks
 docs/
   architecture/                         Design and conceptual direction
   adr/                                  Architecture decisions
@@ -159,6 +163,7 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 - [ADR 0011](docs/adr/0011-use-entra-for-private-review-identity.md): Entra selection and private local role/revocation evidence, with credentials outside Git.
 - [ADR 0012](docs/adr/0012-gate-cloud-hosting-on-zero-recurring-cost.md): zero recurring hosting cost; continue locally while free-tier compatibility is assessed.
 - [ADR 0013](docs/adr/0013-load-protection-certificates-from-private-configuration.md): opt-in private-configuration certificates and retained-key compatibility validation.
+- [ADR 0014](docs/adr/0014-isolate-managed-host-verification-in-an-operator-probe.md): separate locally tested operator probe; cloud acceptance pending.
 
 ## Planned Evolution
 
@@ -169,7 +174,7 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 - **Now:** [authenticated Reader/Caseworker access](docs/usage/authenticated-case-workspace.md) and [same-host proxy support](docs/usage/proxy-case-workspace.md), plus [case title search](docs/requirements/phase-7-case-title-search.md#current-implementation-coverage) in the browser/API journey, alongside retry-safe creation, status history and process-recovery coverage.
 - **Completed:** [EF Core Code First adoption](docs/tasks/ef-core-code-first-adoption.md) with retained-data and migration-recovery coverage.
 - **Verified privately:** [real Entra Reader, Caseworker, unmapped-role and emergency session-revocation flows](docs/usage/entra-review-verification.md#local-verification-on-2026-10-26), using one approved account and a local synthetic store. Account details and credentials stay outside Git.
-- **Next — not implemented:** complete [secure review hosting](docs/requirements/phase-8-secure-hosting.md) through platform/storage/ingress decisions and tested operational recovery, then finish provider/multi-user checks on that environment. The [zero-cost assessment](docs/tasks/zero-cost-review-hosting.md) keeps development local and evaluates App Service F1 + Azure SQL free limits; that stack is not yet supported. The [compatibility assessment and read-only catalog checker](docs/tasks/app-service-compatibility.md) identify ingress, persistence and hosted key-delivery gaps. Protected-configuration certificate loading is locally verified. The [managed-ingress contract and undeployed probe envelope](docs/tasks/managed-ingress-verification.md) define the required evidence; a separate operator probe application must be implemented/tested before any cloud validation or creation request. The earlier VM option requires separately approved costs. No compute or public deployment is provisioned; local Entra evidence does not establish hosted acceptance.
+- **Next — not implemented:** complete [secure review hosting](docs/requirements/phase-8-secure-hosting.md) through platform/storage/ingress decisions and tested operational recovery, then finish provider/multi-user checks on that environment. The [zero-cost assessment](docs/tasks/zero-cost-review-hosting.md) keeps development local and evaluates App Service F1 + Azure SQL free limits; that stack is not yet supported. The [compatibility assessment and read-only catalog checker](docs/tasks/app-service-compatibility.md) identify ingress, persistence and hosted key-delivery gaps. Protected-configuration certificate loading is locally verified. The [managed-ingress contract and undeployed probe envelope](docs/tasks/managed-ingress-verification.md) define the required evidence; the [independent operator probe](docs/usage/operator-review-probe.md) now has local access/retention evidence. Next verify a concrete free-tier deployment path and exact eligibility privately, then review any creation request; actual managed ingress and cloud key retention remain unverified. The earlier VM option requires separately approved costs. No compute or public deployment is provisioned; local Entra evidence does not establish hosted acceptance.
 - **Deferred:** [storage readiness](docs/requirements/phase-6-storage-readiness.md), to revisit against the selected hosting/provider design. `/health` remains storage-independent liveness.
 - **Later:** extend the business workflow, establish secure hosting, then evaluate integration and AI against concrete scenarios. The [project roadmap](docs/roadmap.md) explains priorities and prerequisites; these capabilities are not implemented.
 

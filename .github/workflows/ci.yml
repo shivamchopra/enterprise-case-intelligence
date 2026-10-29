@@ -36,7 +36,11 @@ jobs:
         run: dotnet run --file tools/ReviewHostPreflight.cs --configuration Release --no-build -- --proposal infra/review-probe/azuredeploy.json
       - name: Verify EF model snapshot
         run: dotnet ef migrations has-pending-model-changes --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build
+      - name: Publish independent operator probe
+        run: dotnet publish tools/EnterpriseCaseIntelligence.ReviewProbe --configuration Release --no-build --no-restore --output "$RUNNER_TEMP/review-probe"
       - name: Test
+        env:
+          ECI_TEST_PROBE_ASSEMBLY: ${{ runner.temp }}/review-probe/EnterpriseCaseIntelligence.ReviewProbe.dll
         run: dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build --filter 'Category!=Browser'
 
   browser-workflow:

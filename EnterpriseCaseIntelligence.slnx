@@ -8,4 +8,7 @@
     <Project Path="tests/EnterpriseCaseIntelligence.Domain.Tests/EnterpriseCaseIntelligence.Domain.Tests.csproj" />
     <Project Path="tests/EnterpriseCaseIntelligence.UpgradeFixture/EnterpriseCaseIntelligence.UpgradeFixture.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/EnterpriseCaseIntelligence.ReviewProbe/EnterpriseCaseIntelligence.ReviewProbe.csproj" />
+  </Folder>
 </Solution>

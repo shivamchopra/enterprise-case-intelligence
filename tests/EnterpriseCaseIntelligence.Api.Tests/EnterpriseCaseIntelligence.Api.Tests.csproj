@@ -21,5 +21,6 @@
     <None Include="../../infra/review-probe/azuredeploy.json" Link="Hosting/review-probe.azuredeploy.json" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="../../src/EnterpriseCaseIntelligence.Api/EnterpriseCaseIntelligence.Api.csproj" />
     <ProjectReference Include="../EnterpriseCaseIntelligence.UpgradeFixture/EnterpriseCaseIntelligence.UpgradeFixture.csproj" />
+    <ProjectReference Include="../../tools/EnterpriseCaseIntelligence.ReviewProbe/EnterpriseCaseIntelligence.ReviewProbe.csproj" />
   </ItemGroup>
 </Project>
