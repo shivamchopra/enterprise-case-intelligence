@@ -4,7 +4,7 @@ The [standalone .NET 10 probe](../../tools/EnterpriseCaseIntelligence.ReviewProb
 
 **Cloud compatibility, eligibility, backend isolation and secure deployment remain unverified.** Do not deploy the case API or interpret a probe result as trusted ingress. The [managed-ingress gates](../tasks/managed-ingress-verification.md) and [$0 cost boundary](../tasks/zero-cost-review-hosting.md) still apply before Azure validation/creation review. No cloud actions run in these commands or CI.
 
-The [2026-10-29 deployment-path assessment](../tasks/free-tier-deployment-preflight.md) found storage-isolation and first-initialization gaps before creation review. The local commands below do not establish a working cloud bootstrap procedure; permission and missing-state checks remain enforced.
+The [2026-10-29 deployment-path assessment](../tasks/free-tier-deployment-preflight.md) found storage-isolation and first-initialization gaps before creation review. [ADR 0015](../adr/0015-prepare-probe-storage-before-explicit-initialization.md) now implements a locally tested preparation/initialization sequence. Actual cloud storage, command delivery and bootstrap acceptance remain unverified; permission and normal-startup missing-state checks remain enforced.
 
 ## Private preparation
 
@@ -18,15 +18,15 @@ Supply one private JSON configuration file through the **path-only** `ECI_PROBE_
 | `Probe:PublicOrigin` | Exact HTTPS origin, including a non-default port; no user information, path, query or fragment. For a future cloud probe, obtain the actual hostname privately from the control plane |
 | `Probe:OperatorCredential` | Lowercase hex of **32 cryptographically random bytes**, independently generated and kept private. Format checking cannot prove entropy; do not use repeated/example characters |
 | `Probe:EnvironmentId`, `Probe:Revision` | Independent 1–80 character ASCII letter/digit/hyphen/underscore identifiers; preserve for retained-receipt tests |
-| `Probe:KeyDirectory` | Existing absolute, owner-restricted directory outside the artifact and content root; prepare it **empty** for explicit initialization. Normal startup refuses missing/empty state |
-| `Security:CertificateSource` | Literal `Configuration` only |
+| `Probe:KeyDirectory` | Absolute path outside the artifact/content root. Preparation can report a missing directory; `init-keys` requires an existing private **empty** directory and `serve` requires initialized retained state |
+| `Security:CertificateSource` | Literal `Configuration` for initialization/serving/key verification; certificate settings can be omitted during initial preparation metadata checks |
 | `Security:CertificatePfx`, `Security:CertificatePassword` | Independent encrypted RSA PFX as single-line Base64 and its nonblank private password; [existing bounds/import rules](authenticated-case-workspace.md#protection-certificate-sources) apply. Omit `Security:CertificatePath` entirely |
 | `urls` (or `ASPNETCORE_URLS`) | One explicit HTTP/HTTPS binding, with a nonzero port. Use a loopback binding for local fixtures. A future managed-host HTTP backend is observation-only, never an asserted trusted origin |
 | `Kestrel:Certificates:Default:Path`, `...:Password` | Separate TLS server certificate when the probe itself serves HTTPS; ordinary client trust is required |
 
 Generate the operator credential with a cryptographic generator, for example .NET's `RandomNumberGenerator.GetBytes(32)` encoded with `Convert.ToHexStringLower`, writing it directly into restricted configuration. Export the independently generated protection certificate with a strong random password through a private certificate tool; do not put password values in command arguments. The runtime imports PFX bytes directly without writing a PFX file.
 
-All automatic forwarding flags must be absent/false. Hosting-startup assembly injection and configured Kestrel endpoint collections are refused. The probe never installs forwarding middleware, learns a trusted peer from requests or processes forwarded identity. Keep one process per key directory; an exclusive `.probe.lock` handle covers initialization, startup and runtime. A retained lock file is expected and must not be deleted to force a second writer.
+All automatic forwarding flags must be absent/false. Hosting-startup assembly injection and configured Kestrel endpoint collections are refused. The probe never installs forwarding middleware, learns a trusted peer from requests or processes forwarded identity. Keep one writer per key directory; an exclusive `.probe.lock` handle covers initialization and the entire `serve` lifetime. Preparation holds an existing lease only during a key-verification request, allowing the separate initializer to run while it is idle. A retained lock file is expected and must not be deleted to force a second writer.
 
 ## Build and run
 
@@ -48,6 +48,40 @@ dotnet /absolute/path/to/probe-artifact/EnterpriseCaseIntelligence.ReviewProbe.d
 Initialization refuses retained entries; startup refuses missing, empty, malformed, overlarge or incompatible key state rather than resetting it. The probe accepts at most 100 retained key files, each at most 64 KiB. Encrypted framework keys can still roll over normally within that single-process boundary. Startup verifies file/key count and every retained descriptor before a framework protection round trip. Wrong passwords or a different valid certificate cannot silently replace retained keys. Do not delete/reinitialize state to repair a failure; restore the original private configuration and retained files.
 
 The server emits no request, key-provider or startup-detail logs; failures print a generic message without the raw exception, path or private value. Exit codes are `0` for a completed operation/normal shutdown, `1` for unavailable/incompatible configuration, state or evidence, and `2` for invalid arguments. Runtime denials have an empty body and no redirect/cookie; successful JSON and denials are no-store. An invalid but syntactically valid receipt returns `retainedReceiptValid: false` in a successful verification response, so the operator must inspect that field.
+
+## Explicit preparation and initialization
+
+Use this phase when the operator command channel needs a running diagnostic process before keys exist. `prepare` is explicitly selected and never initializes keys. It requires the normal private `Probe` settings and binding, but can start without a directory or protection certificate. It serves only authenticated `GET /probe/setup`; normal observation/verification and all mutation routes are absent. The case application is not involved.
+
+With private configuration already supplied, run these commands in separate operator sessions as indicated:
+
+```sh
+# First session: runs the preparation-only diagnostic host.
+dotnet /absolute/path/to/probe-artifact/EnterpriseCaseIntelligence.ReviewProbe.dll prepare
+# Operator client: HTTPS only; save its private JSON response outside Git.
+dotnet /absolute/path/to/probe-artifact/EnterpriseCaseIntelligence.ReviewProbe.dll setup-status
+# Separate command in the intended runtime/filesystem view, once a private empty
+# directory is prepared and Configuration-source certificate settings are supplied.
+dotnet /absolute/path/to/probe-artifact/EnterpriseCaseIntelligence.ReviewProbe.dll init-keys
+# Independently check retained state; command submission/acceptance is not proof.
+dotnet /absolute/path/to/probe-artifact/EnterpriseCaseIntelligence.ReviewProbe.dll setup-status
+```
+
+Preparation does not create a directory or lease file and rejects release/content-root paths before hosting. A missing/unsafe path returns a bounded state without reading key contents or importing a certificate. The Unix mode flag checks group/other bits only; Windows returns `null`. Both `deploymentReady` and `platformIsolationVerified` are always false, including after a successful key check. Actual owner/ancestor/ACL, app/SCM isolation, storage persistence and cross-process lease behavior on the chosen host still need independent evidence. Do not deliver protection material or initialize an unsafe path; do not replace a failed check with `chmod` retries or an implicit managed-filesystem exception.
+
+| `state` | Meaning and operator action |
+| --- | --- |
+| `missing_directory` | The configured directory was not observed. This is not proof of a healthy mount or permission to create one. Inspection did not create it; establish the expected storage/access/isolation contract first. |
+| `unsafe_directory` | A directory link or group/other mode bits were found. No retained-key inspection or initialization is allowed. |
+| `not_initialized` | No retained entries were observed; inspection did not initialize anything. Use the separate `init-keys` command only on a deliberately prepared private empty directory. |
+| `unavailable` | Credentials, retained state, lease or filesystem access could not support verification. Inspect/recover privately; never delete/reinitialize state to turn this green. |
+| `keys_verified` | Every retained descriptor decrypted and an existing-key protection round trip succeeded while an exclusive existing lease was held, with automatic key generation disabled. This is current-state reconciliation, not a remote command exit-code claim or cloud approval. |
+
+Only `keys_verified` includes `retainedKeysVerified: true`, a bounded key count, aggregate `keyRingFingerprint` and opaque `receipt`. Other states include no successful key proof. A successful HTTP fetch/client exit `0` can still report a missing/unsafe/unavailable state; inspect the fields. Inspection opens only the initializer's existing lease file and refuses absent/incompatible state without generating, rolling over, repairing or resetting keys. Busy inspection/initialization can return unavailable; do not automatically retry a write or infer failure from an uncertain command acknowledgement.
+
+Keep the fingerprint and receipt private. Stop the preparation host, select the explicit `serve` command with the same certificate/environment/revision/key directory, then verify the **preparation receipt** using the normal `verify` client. Repeat after artifact replacement. A fresh round trip or mere key-file presence is insufficient evidence. File fingerprints help detect changes; expected future framework rollover can add keys while old retained receipts remain valid. No file-hash match substitutes for cryptographic receipt verification.
+
+The local tests use real child processes and a copied artifact to prove this sequence. No Azure startup setting, app setting, command channel or resource was changed. A future proposal must select `prepare` first, an authorized operator channel for directory preparation/explicit initialization, independently confirmed key state and a controlled restart to `serve`. The [deployment assessment](../tasks/free-tier-deployment-preflight.md) still requires exact free allocation/policy and owner creation approval. If the actual storage contract fails, remain local.
 
 ## Observe and verify privately
 

@@ -80,9 +80,9 @@ internal sealed class ReviewProbeProcess : IAsyncDisposable
         return (process.ExitCode, await output + await error);
     }
 
-    public async Task Start()
+    public async Task Start(string command = "serve")
     {
-        _process = Launch("serve");
+        _process = Launch(command);
         _stdout = _process.StandardOutput.ReadToEndAsync(); _stderr = _process.StandardError.ReadToEndAsync();
         using var client = Client(authenticated: false);
         var deadline = DateTime.UtcNow.AddSeconds(20);

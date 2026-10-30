@@ -9,13 +9,14 @@ internal static class ProbeClient
     internal static HttpClientHandler CreateHandler() => new() { AllowAutoRedirect = false, UseCookies = false };
     public static HttpClient CreateClient() => new(CreateHandler()) { Timeout = TimeSpan.FromSeconds(15) };
 
-    public static async Task<string> Send(IConfiguration configuration, string? receipt, HttpClient client)
+    public static async Task<string> Send(IConfiguration configuration, string? receipt, HttpClient client, bool setupStatus = false)
     {
         var origin = ProbeSettings.ReadOrigin(configuration["Probe:PublicOrigin"]);
         var credential = ProbeSettings.ReadCredential(configuration);
+        if (setupStatus && receipt is not null) throw new ArgumentException();
         if (receipt is not null && !ProbeEndpoint.ReceiptSyntax(receipt)) throw new ArgumentException();
         using var request = new HttpRequestMessage(receipt is null ? HttpMethod.Get : HttpMethod.Post,
-            new Uri(origin, receipt is null ? "/probe" : "/probe/verify"));
+            new Uri(origin, setupStatus ? "/probe/setup" : receipt is null ? "/probe" : "/probe/verify"));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credential);
         if (receipt is not null) { request.Content = new StringContent(receipt, Encoding.ASCII); request.Content.Headers.ContentType = new("text/plain"); }
         // The owned production client validates normal TLS, follows no redirects,
