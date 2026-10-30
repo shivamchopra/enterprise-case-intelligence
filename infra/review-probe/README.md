@@ -2,7 +2,7 @@
 
 **Proposal only. Do not deploy this template yet.** The [separate probe application](../../docs/usage/operator-review-probe.md) is locally tested; Azure-side validation, private deployment tooling and exact eligibility remain pending. This envelope is not a deployment of the case API. It contains no database, identity registration, credential, key file, application package or deployment script.
 
-The [2026-10-29 deployment-path assessment](../../docs/tasks/free-tier-deployment-preflight.md) identifies unresolved retained-storage permissions and first-initialization contracts. No creation request is ready until those are resolved and private eligibility evidence is complete.
+The [2026-10-29 deployment-path assessment](../../docs/tasks/free-tier-deployment-preflight.md) identifies unresolved retained-storage permissions and first-initialization contracts. The [guarded preparation sequence](../../docs/usage/operator-review-probe.md#explicit-preparation-and-initialization) is now locally tested; exact private eligibility and a complete preparation-only proposal are still required before any creation decision. Actual storage/isolation must pass before protection material or initialization is permitted.
 
 The [verification contract](../../docs/tasks/managed-ingress-verification.md) defines the required evidence and owner decision before any resource creation. Use only a fresh, isolated disposable resource group and new resource names; never point this proposal at an existing application/plan. Region, names, subscription, quotas, inherited policy/add-on effects and free-tier eligibility must be verified privately. No parameter defaults or outputs publish those values.
 

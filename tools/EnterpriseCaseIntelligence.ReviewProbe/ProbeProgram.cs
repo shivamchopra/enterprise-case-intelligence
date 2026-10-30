@@ -7,15 +7,15 @@ public static class ProbeProgram
         try
         {
             // No configuration values, URLs, paths or secrets accepted as arguments.
-            if (args.Length != 1 || args[0] is not ("serve" or "init-keys" or "observe" or "verify"))
-            { Console.Error.WriteLine("Use serve, init-keys, observe or verify with private configuration."); return 2; }
+            if (args.Length != 1 || args[0] is not ("prepare" or "setup-status" or "serve" or "init-keys" or "observe" or "verify"))
+            { Console.Error.WriteLine("Use prepare, setup-status, serve, init-keys, observe or verify with private configuration."); return 2; }
             var configuration = ReadConfiguration();
             using var configurationLifetime = configuration as IDisposable;
-            if (args[0] is "observe" or "verify")
+            if (args[0] is "observe" or "verify" or "setup-status")
             {
                 var receipt = args[0] == "verify" ? await ReadBounded(Console.In, 2048) : null;
                 using var client = ProbeClient.CreateClient();
-                var response = await ProbeClient.Send(configuration, receipt, client);
+                var response = await ProbeClient.Send(configuration, receipt, client, setupStatus: args[0] == "setup-status");
                 Console.WriteLine(response);
                 return 0;
             }
@@ -46,6 +46,16 @@ public static class ProbeProgram
                 options.Limits.MaxRequestHeaderCount = 32;
                 options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(10);
             });
+            ProbeStorage.ValidateLocation(settings.KeyDirectory, builder.Environment.ContentRootPath);
+            if (args[0] == "prepare")
+            {
+                // This phase has no Data Protection writer and no initialization
+                // endpoint. The operator runs init-keys as a separate command.
+                await using var preparation = builder.Build();
+                preparation.Run(context => ProbePreparation.Handle(context, configuration, settings, builder.Environment.ContentRootPath));
+                await preparation.RunAsync();
+                return 0;
+            }
             using var keys = new ProbeKeys(configuration, settings, args[0] == "init-keys", builder.Environment.ContentRootPath);
             if (args[0] == "init-keys") { Console.WriteLine("Independent probe keys initialized."); return 0; }
             await using var app = builder.Build();

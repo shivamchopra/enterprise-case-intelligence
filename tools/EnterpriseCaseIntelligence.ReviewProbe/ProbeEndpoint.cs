@@ -9,16 +9,10 @@ internal static class ProbeEndpoint
 
     public static async Task Handle(HttpContext context, ProbeSettings settings, ProbeKeys keys)
     {
-        context.Response.Headers.CacheControl = "no-store";
-        context.Response.Headers.Pragma = "no-cache";
-        context.Response.Headers.XContentTypeOptions = "nosniff";
-        context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'";
+        if (!Authorize(context, settings)) return;
         try
         {
-            // Authentication precedes route/body/header observations. No cookies,
-            // browser origins, URL credentials, CORS, identities or case routes.
-            if (!settings.Authenticated(context.Request)) { Deny(context, 401); return; }
-            if (context.Request.QueryString.HasValue || context.Request.Headers.ContainsKey("Origin")) { Deny(context, 400); return; }
+            // No cookies, browser origins, URL credentials, CORS, identities or cases.
             if (context.Request.Method == "GET" && context.Request.Path == "/probe")
             {
                 var peer = context.Connection.RemoteIpAddress;
@@ -57,7 +51,19 @@ internal static class ProbeEndpoint
         }
     }
 
-    private static void Deny(HttpContext context, int status)
+    internal static bool Authorize(HttpContext context, ProbeSettings settings)
+    {
+        context.Response.Headers.CacheControl = "no-store";
+        context.Response.Headers.Pragma = "no-cache";
+        context.Response.Headers.XContentTypeOptions = "nosniff";
+        context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'";
+        // Gate before storage inspection, route selection or body handling in both phases.
+        if (!settings.Authenticated(context.Request)) { Deny(context, 401); return false; }
+        if (context.Request.QueryString.HasValue || context.Request.Headers.ContainsKey("Origin")) { Deny(context, 400); return false; }
+        return true;
+    }
+
+    internal static void Deny(HttpContext context, int status)
     {
         context.Response.StatusCode = status;
         // An unread/rejected HTTP/1 body must not race connection reuse when the
