@@ -29,6 +29,7 @@
         "clientAffinityEnabled": false,
         "siteConfig": {
           "linuxFxVersion": "DOTNETCORE|10.0",
+          "appCommandLine": "dotnet /home/site/wwwroot/EnterpriseCaseIntelligence.ReviewProbe.dll prepare",
           "alwaysOn": false,
           "minTlsVersion": "1.2",
           "scmMinTlsVersion": "1.2",

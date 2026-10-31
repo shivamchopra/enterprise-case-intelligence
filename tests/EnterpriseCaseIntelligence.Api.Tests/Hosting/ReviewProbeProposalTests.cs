@@ -38,6 +38,12 @@ public sealed class ReviewProbeProposalTests
     [InlineData("secret-parameter")]
     [InlineData("secret-output")]
     [InlineData("resource-loop")]
+    [InlineData("missing-startup")]
+    [InlineData("implicit-startup")]
+    [InlineData("normal-serving")]
+    [InlineData("startup-initialization")]
+    [InlineData("startup-shell-command")]
+    [InlineData("case-api-startup")]
     public async Task PaidOrUnreviewedCapabilitiesAndWeakenedBoundariesAreRejected(string mutation)
     {
         var proposal = Proposal();
@@ -63,6 +69,12 @@ public sealed class ReviewProbeProposalTests
             case "secret-parameter": proposal["parameters"]!["password"] = new JsonObject { ["type"] = "secureString", ["defaultValue"] = "PRIVATE_PASSWORD" }; break;
             case "secret-output": proposal["outputs"]!["private"] = new JsonObject { ["type"] = "string", ["value"] = "PRIVATE_OUTPUT" }; break;
             case "resource-loop": plan["copy"] = new JsonObject { ["name"] = "PRIVATE_LOOP", ["count"] = 10 }; break;
+            case "missing-startup": config.AsObject().Remove("appCommandLine"); break;
+            case "implicit-startup": config["appCommandLine"] = "dotnet /home/site/wwwroot/EnterpriseCaseIntelligence.ReviewProbe.dll"; break;
+            case "normal-serving": config["appCommandLine"] = "dotnet /home/site/wwwroot/EnterpriseCaseIntelligence.ReviewProbe.dll serve"; break;
+            case "startup-initialization": config["appCommandLine"] = "dotnet /home/site/wwwroot/EnterpriseCaseIntelligence.ReviewProbe.dll init-keys"; break;
+            case "startup-shell-command": config["appCommandLine"] = "dotnet /home/site/wwwroot/EnterpriseCaseIntelligence.ReviewProbe.dll prepare; PRIVATE_COMMAND"; break;
+            case "case-api-startup": config["appCommandLine"] = "dotnet /home/site/wwwroot/EnterpriseCaseIntelligence.Api.dll"; break;
         }
         var (exit, report) = await Check(proposal.ToJsonString());
         Assert.Equal(1, exit);
