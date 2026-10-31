@@ -144,9 +144,10 @@ internal static class ReviewHostPreflight
         if (!Fields(properties, "serverFarmId", "httpsOnly", "clientAffinityEnabled", "siteConfig") || Text(properties, "serverFarmId") != farmId ||
             !Flag(properties, "httpsOnly", true) || !Flag(properties, "clientAffinityEnabled", false)) return false;
         var config = properties.GetProperty("siteConfig");
-        if (!Fields(config, "linuxFxVersion", "alwaysOn", "minTlsVersion", "scmMinTlsVersion", "ftpsState", "appSettings",
+        if (!Fields(config, "linuxFxVersion", "appCommandLine", "alwaysOn", "minTlsVersion", "scmMinTlsVersion", "ftpsState", "appSettings",
                 "remoteDebuggingEnabled", "httpLoggingEnabled", "detailedErrorLoggingEnabled", "requestTracingEnabled") ||
-            Text(config, "linuxFxVersion") != "DOTNETCORE|10.0" || !Flag(config, "alwaysOn", false) ||
+            Text(config, "linuxFxVersion") != "DOTNETCORE|10.0" ||
+            Text(config, "appCommandLine") != "dotnet /home/site/wwwroot/EnterpriseCaseIntelligence.ReviewProbe.dll prepare" || !Flag(config, "alwaysOn", false) ||
             !Flag(config, "remoteDebuggingEnabled", false) || !Flag(config, "httpLoggingEnabled", false) ||
             !Flag(config, "detailedErrorLoggingEnabled", false) || !Flag(config, "requestTracingEnabled", false) ||
             Text(config, "minTlsVersion") != "1.2" || Text(config, "scmMinTlsVersion") != "1.2" || Text(config, "ftpsState") != "Disabled") return false;
