@@ -111,6 +111,9 @@ function clearAccess(text) {
     byId("case-status").removeAttribute("data-status");
     byId("create-dialog").close();
     byId("create-form").reset();
+    byId("case-lookup-form").reset();
+    byId("case-lookup").setAttribute("aria-invalid", "false");
+    byId("case-lookup-error").textContent = "";
     byId("refresh-case").disabled = byId("refresh-history").disabled = true;
     byId("access-label").textContent = "ACCESS REQUIRED";
     message("access-message", text, true);
@@ -340,6 +343,7 @@ async function loadDetails(id) {
     try {
         const record = caseValue(await request("/cases/" + id));
         if (generation !== detailGeneration || id !== selectedId) return;
+        if (record.id !== id) throw new Error("Unexpected case ID");
         currentCase = record;
         byId("case-status").replaceWith(
             Object.assign(badge(record.status), { id: "case-status" }),
@@ -355,7 +359,7 @@ async function loadDetails(id) {
             message(
                 "detail-message",
                 error.status === 404
-                    ? "This case could not be found. Refresh the list."
+                    ? "This case could not be found. Check the ID or choose a case from the list."
                     : "Case details could not be loaded. Use Refresh case to try again.",
                 true,
             );
@@ -416,6 +420,9 @@ async function loadHistory(id) {
 function selectCase(id) {
     if (!canRead) return;
     selectedId = id;
+    byId("case-lookup").value = id;
+    byId("case-lookup").setAttribute("aria-invalid", "false");
+    byId("case-lookup-error").textContent = "";
     markSelection();
     byId("refresh-case").disabled = false;
     byId("refresh-history").disabled = false;
@@ -589,6 +596,22 @@ async function createCase(event) {
     }
 }
 
+byId("case-lookup-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!canRead) return;
+    const id = byId("case-lookup").value.trim().toLowerCase();
+    if (
+        !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id) ||
+        id === "00000000-0000-0000-0000-000000000000"
+    ) {
+        byId("case-lookup").setAttribute("aria-invalid", "true");
+        byId("case-lookup-error").textContent =
+            "Use a non-empty case ID: 32 hexadecimal characters with hyphens in the 8-4-4-4-12 format.";
+        byId("case-lookup").focus();
+        return;
+    }
+    selectCase(id);
+});
 byId("search-form").addEventListener("submit", (event) => {
     event.preventDefault();
     submittedTitle = byId("title-search").value || null;

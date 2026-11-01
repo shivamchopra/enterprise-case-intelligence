@@ -17,6 +17,10 @@ The Phase 6 priority was the user journey: a reviewer previously needed curl and
 | Operations | Liveness and offline inspection exist; readiness, hosted diagnostics and backup/restore are proposed, not implemented. | Select compatible hosting/storage and prove operating/recovery requirements before inviting users. |
 | Integration and AI | No external system, event workflow, retrieval or evaluation is implemented. | Define a useful scenario and acceptance evidence before selecting services or models. |
 
+## Current local delivery
+
+Free-host eligibility remains unconfirmed, so deployment stays on hold under the $0 boundary. Continue useful local product work rather than changing billing, requesting quotas or converting providers speculatively. The [known-ID lookup slice](tasks/open-case-by-id.md) now lets a Reader/Caseworker open current details/history without locating a title or traversing pages. It reuses existing authorized reads and preserves the filtered list and uncertain creation retry state. No cloud mutation or persistence change accompanies it. Resume hosting acceptance when eligible allocation and the complete cost/security evidence are available.
+
 ## Ordered direction
 
 1. **Completed: local browser case workspace.** Browse/filter → create → review details/history → progress status against retained local data. One application host and the existing API, domain and storage contracts remain. [Phase 6 coverage](requirements/phase-6-case-workspace.md#current-implementation-coverage) links real-browser tests and the reproducible local walkthrough.
