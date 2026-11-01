@@ -77,6 +77,33 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
         }
     }
 
+    public CaseSummary Summary()
+    {
+        lock (_gate)
+        {
+            using var connection = database.Open();
+            using var context = database.Context(connection);
+            // One database aggregate/read view, never materialize case records.
+            // A fourth group must be invalid: there are only three supported statuses.
+            var groups = context.Cases.AsNoTracking().GroupBy(row => row.Status)
+                .Select(group => new { Status = group.Key, Count = group.LongCount() })
+                .OrderBy(group => group.Status).Take(4).ToArray();
+            long newCases = 0, inReview = 0, closed = 0;
+            foreach (var group in groups)
+            {
+                if (group.Count <= 0) throw new InvalidDataException("Invalid stored count.");
+                switch (group.Status)
+                {
+                    case "New": newCases = group.Count; break;
+                    case "InReview": inReview = group.Count; break;
+                    case "Closed": closed = group.Count; break;
+                    default: throw new InvalidDataException("Invalid stored status.");
+                }
+            }
+            return new(newCases, inReview, closed);
+        }
+    }
+
     public IReadOnlyList<CaseHistoryEntry>? History(Guid id)
     {
         lock (_gate)
@@ -148,3 +175,7 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
 
 public sealed record CaseStatusChange(CaseSnapshot? Case, bool IsConflict);
 public sealed record CaseCreation(CaseSnapshot? Case, bool IsKeyReused);
+public sealed record CaseSummary(long New, long InReview, long Closed)
+{
+    public long Total => checked(New + InReview + Closed);
+}

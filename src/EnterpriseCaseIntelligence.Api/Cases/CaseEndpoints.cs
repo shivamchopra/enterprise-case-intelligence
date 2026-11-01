@@ -12,6 +12,7 @@ internal static class CaseEndpoints
     {
         endpoints.MapPost("/cases", CreateCase).RequireAuthorization(CaseSecurity.Write).WithMetadata(new CaseSecurity.CsrfRequired());
         endpoints.MapGet("/cases", ListCases).RequireAuthorization(CaseSecurity.Read);
+        endpoints.MapGet("/cases/summary", GetSummary).RequireAuthorization(CaseSecurity.Read);
         endpoints.MapGet("/cases/{id}", GetCase).RequireAuthorization(CaseSecurity.Read);
         endpoints.MapGet("/cases/{id}/history", GetHistory).RequireAuthorization(CaseSecurity.Read);
         endpoints.MapPut("/cases/{id}/status", ChangeStatus).RequireAuthorization(CaseSecurity.Write).WithMetadata(new CaseSecurity.CsrfRequired());
@@ -64,6 +65,11 @@ internal static class CaseEndpoints
         var page = store.List(limit, status, after, title);
         return Results.Ok(new { items = page.Items.Select(Representation).ToArray(), nextAfter = page.NextAfter });
     }
+
+    private static IResult GetSummary(HttpRequest request, SqliteCaseStore store)
+        => request.Query.Count > 0
+            ? Validation("query", "The query contains an unsupported parameter.")
+            : Results.Ok(store.Summary());
 
     private static bool TryReadLimit(string? value, out int limit)
     {
