@@ -51,6 +51,7 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
             Directory.CreateDirectory(directory);
             await Expect(page.Locator("#case-history li")).ToHaveCountAsync(2);
             await page.SetViewportSizeAsync(1440, 1100);
+            await page.EvaluateAsync("window.scrollTo(0, 0)");
             await page.ScreenshotAsync(new() { Path = Path.Combine(directory, "authenticated-case-workspace.png"), FullPage = true });
         }
         var heldLogout = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -88,11 +89,13 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
     public async Task ReaderHasNoMutationControlsAndDirectWritesAreDenied(bool proxy, bool configurationCertificate)
     {
         await using var host = new SecurityHost();
-        new EnterpriseCaseIntelligence.Api.Cases.SqliteCaseStore(host.Database.Database).Create("Reader-visible fictional case", "Synthetic description.");
+        var record = new EnterpriseCaseIntelligence.Api.Cases.SqliteCaseStore(host.Database.Database).Create("Reader-visible fictional case", "Synthetic description.");
         var (context, page) = await Open(host, proxy, configurationCertificate); await using var browserContext = context;
+        await Expect(page.Locator("#case-lookup-form")).Not.ToBeVisibleAsync();
         await Login(page);
         await Expect(page.Locator("#access-label")).ToHaveTextAsync("READER");
-        await page.Locator("#case-list button").ClickAsync();
+        await page.GetByLabel("Open case by ID").FillAsync(record.Id.ToString("D"));
+        await page.GetByLabel("Open case by ID").PressAsync("Enter");
         await Expect(page.Locator("#case-title")).ToHaveTextAsync("Reader-visible fictional case");
         await Expect(page.Locator("#case-history li")).ToHaveCountAsync(1);
         await Expect(page.Locator("#new-case")).Not.ToBeVisibleAsync();
@@ -101,6 +104,7 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
         Assert.Equal(403, status); Assert.Equal(1, host.Database.Count());
         await page.Locator("#sign-out").ClickAsync();
         await Expect(page.Locator("#sign-in")).ToBeVisibleAsync();
+        await Expect(page.GetByLabel("Open case by ID")).ToHaveValueAsync("");
     }
 
     [Fact]
@@ -135,6 +139,7 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
         await Expect(page.Locator("#sign-in")).ToBeVisibleAsync();
         await Expect(page.Locator("#case-title")).ToHaveTextAsync("");
         await Expect(page.Locator("#case-description")).ToHaveTextAsync("");
+        await Expect(page.GetByLabel("Open case by ID")).ToHaveValueAsync("");
         await Expect(page.Locator("#case-history li")).ToHaveCountAsync(0);
         await Expect(page.Locator("#protected-workspace")).Not.ToBeVisibleAsync();
     }
@@ -178,12 +183,17 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
         await Login(page);
         await page.Locator("#case-list button").ClickAsync();
         await Expect(page.Locator("#case-title")).ToHaveTextAsync("Idle synthetic case");
+        await page.GetByLabel("Open case by ID").FillAsync("not-a-case-id");
+        await page.GetByLabel("Open case by ID").PressAsync("Enter");
+        await Expect(page.Locator("#case-lookup-error")).ToContainTextAsync("8-4-4-4-12");
         host.Clock.Now = host.Clock.Now.AddMinutes(31);
         await page.Clock.FastForwardAsync((long)TimeSpan.FromMinutes(31).TotalMilliseconds);
         await Expect(page.Locator("#access-message")).ToContainTextAsync("Your session has expired");
         await Expect(page.Locator("#protected-workspace")).Not.ToBeVisibleAsync();
         await Expect(page.Locator("#case-title")).ToHaveTextAsync("");
         await Expect(page.Locator("#sign-in")).ToBeVisibleAsync();
+        await Expect(page.GetByLabel("Open case by ID")).ToHaveValueAsync("");
+        await Expect(page.Locator("#case-lookup-error")).ToHaveTextAsync("");
         var denied = await context.APIRequest.GetAsync(new Uri(host.Origin, "/cases").AbsoluteUri); Assert.Equal(401, denied.Status);
     }
 

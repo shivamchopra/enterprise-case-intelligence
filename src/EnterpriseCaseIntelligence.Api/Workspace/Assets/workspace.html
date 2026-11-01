@@ -162,13 +162,44 @@
                             Refresh case
                         </button>
                     </div>
+                    <form
+                        id="case-lookup-form"
+                        class="search-form"
+                        method="post"
+                        action="/workspace"
+                        novalidate
+                    >
+                        <label for="case-lookup">Open case by ID</label>
+                        <p id="case-lookup-hint" class="subtle">
+                            Paste the full case ID, including hyphens. Opens
+                            details and history without changing your list.
+                        </p>
+                        <div class="search-controls">
+                            <input
+                                id="case-lookup"
+                                type="text"
+                                maxlength="80"
+                                autocomplete="off"
+                                autocapitalize="off"
+                                spellcheck="false"
+                                aria-describedby="case-lookup-hint case-lookup-error"
+                            />
+                            <button type="submit">Open case</button>
+                        </div>
+                        <p
+                            id="case-lookup-error"
+                            class="field-error"
+                            aria-live="polite"
+                        ></p>
+                    </form>
                     <p
                         id="detail-message"
                         class="feedback"
                         role="status"
                         aria-live="polite"
                     >
-                        Select a case to review its details and history.
+                        Select a case or enter its ID to review details and
+                        history.
                     </p>
                     <div id="case-detail" hidden>
                         <div class="case-meta">
