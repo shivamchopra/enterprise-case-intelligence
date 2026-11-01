@@ -14,6 +14,7 @@ public sealed class CaseSecurityTests
     public static TheoryData<string, string> Routes => new()
     {
         { "GET", "/cases?limit=bad" }, { "GET", "/cases/invalid" }, { "GET", $"/cases/{Id}/history" },
+        { "GET", "/cases/summary?status=invalid" },
         { "POST", "/cases" }, { "PUT", $"/cases/{Id}/status" }
     };
     private static HttpRequestMessage Malformed(string method, string path) => new(new(method), path)
@@ -109,7 +110,7 @@ public sealed class CaseSecurityTests
         Assert.Equal(HttpStatusCode.Created, replay.StatusCode);
         Assert.Equal(record, await replay.Content.ReadFromJsonAsync<CaseValue>());
         using var reader = host.CreateClient(host.Ticket("Reader")); await Csrf(reader);
-        foreach (var path in new[] { "/cases?title=authenticated", $"/cases/{record.Id}", $"/cases/{record.Id}/history" })
+        foreach (var path in new[] { "/cases?title=authenticated", "/cases/summary", $"/cases/{record.Id}", $"/cases/{record.Id}/history" })
         {
             using var read = await reader.GetAsync(path); Assert.Equal(HttpStatusCode.OK, read.StatusCode);
         }

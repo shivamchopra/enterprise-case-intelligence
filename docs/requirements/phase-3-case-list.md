@@ -6,6 +6,8 @@
 
 The [durable local workflow](phase-2-durable-case-workflow.md) originally required a known ID to reopen each case. Phase 3 adds a bounded, optionally status-filtered list so a fictional service-desk staff member can find saved work and resume the existing retrieve/status workflow. It is a reference-project assumption, not a validated enterprise requirement.
 
+**Workload overview amendment:** [Overall counts](../tasks/case-workload-overview.md) now use a separate `GET /cases/summary` operation. The no-totals list contract remains unchanged: the list still has only `items` and `nextAfter`, and the overview is not a filtered/page count.
+
 The API implements creation, listing, retrieval by ID and status changes. [ADR 0004](../adr/0004-use-sqlite-for-the-durable-local-workflow.md) remains the accepted storage decision.
 
 ## Scope and operating assumptions

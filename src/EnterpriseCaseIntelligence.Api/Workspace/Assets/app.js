@@ -5,6 +5,7 @@ const statusNames = { New: "New", InReview: "In review", Closed: "Closed" };
 let listGeneration = 0;
 let detailGeneration = 0;
 let historyGeneration = 0;
+let overviewGeneration = 0;
 let nextAfter = null;
 let submittedTitle = null;
 let selectedId = null;
@@ -87,6 +88,10 @@ function clearAccess(text) {
     ++listGeneration;
     ++detailGeneration;
     ++historyGeneration;
+    ++overviewGeneration;
+    clearOverview();
+    message("overview-message", "");
+    byId("overview-counts").setAttribute("aria-busy", "false");
     canRead = canWrite = false;
     csrfToken = null;
     selectedId = currentCase = nextAfter = null;
@@ -166,7 +171,10 @@ async function refreshAccess() {
                   ? "Access denied. Ask the operator for a Reader or Caseworker grant, then sign out and sign in again."
                   : "Sign in to view cases. Signing in navigates away and loses any unfinished draft or retry context.",
         );
-        if (canRead) void loadList();
+        if (canRead) {
+            void loadList();
+            void loadOverview();
+        }
         updateDraftControls();
     } catch {
         if (generation === sessionGeneration) {
@@ -322,6 +330,48 @@ async function loadList(after = null) {
     }
 }
 
+function clearOverview() {
+    byId("overview-counts").hidden = true;
+    for (const field of ["new", "inReview", "closed", "total"])
+        byId("overview-" + field).textContent = "";
+}
+
+async function loadOverview() {
+    if (!canRead) return;
+    const generation = ++overviewGeneration;
+    clearOverview();
+    byId("overview-counts").setAttribute("aria-busy", "true");
+    message("overview-message", "Loading workload totals…");
+    try {
+        const summary = await request("/cases/summary");
+        if (generation !== overviewGeneration) return;
+        const fields = ["new", "inReview", "closed", "total"];
+        if (
+            !summary ||
+            fields.some(
+                (field) =>
+                    !Number.isSafeInteger(summary[field]) || summary[field] < 0,
+            ) ||
+            summary.new + summary.inReview + summary.closed !== summary.total
+        )
+            throw new Error("Invalid workload totals");
+        for (const field of fields)
+            byId("overview-" + field).textContent = String(summary[field]);
+        byId("overview-counts").hidden = false;
+        message("overview-message", "");
+    } catch {
+        if (generation === overviewGeneration)
+            message(
+                "overview-message",
+                "Workload totals could not be loaded. Use Refresh totals to try again.",
+                true,
+            );
+    } finally {
+        if (generation === overviewGeneration)
+            byId("overview-counts").setAttribute("aria-busy", "false");
+    }
+}
+
 function renderAction() {
     const button = byId("advance-case");
     button.hidden =
@@ -457,6 +507,7 @@ async function advanceCase() {
         );
         if (id === selectedId) selectCase(id);
         void loadList();
+        void loadOverview();
     } catch (error) {
         if (generation !== sessionGeneration) return;
         message(
@@ -559,6 +610,7 @@ async function createCase(event) {
         );
         selectCase(record.id);
         void loadList();
+        void loadOverview();
     } catch (error) {
         if (generation !== sessionGeneration) {
             uncertain = draft !== null;
@@ -627,6 +679,7 @@ byId("clear-search").addEventListener("click", () => {
 });
 byId("status-filter").addEventListener("change", () => void loadList());
 byId("refresh-list").addEventListener("click", () => void loadList());
+byId("refresh-overview").addEventListener("click", () => void loadOverview());
 byId("next-page").addEventListener("click", () => {
     if (nextAfter) void loadList(nextAfter);
 });
