@@ -65,6 +65,28 @@
                 aria-live="polite"
             ></p>
             <div id="protected-workspace" class="work-grid" hidden>
+                <section class="panel overview" aria-labelledby="overview-heading">
+                    <div class="panel-header">
+                        <div>
+                            <p class="eyebrow">ALL SAVED CASES</p>
+                            <h2 id="overview-heading">Workload overview</h2>
+                        </div>
+                        <button id="refresh-overview" class="quiet" type="button">
+                            Refresh totals
+                        </button>
+                    </div>
+                    <p id="overview-message" class="feedback" role="status" aria-live="polite"></p>
+                    <dl id="overview-counts" class="overview-counts" hidden>
+                        <div><dt>New</dt><dd id="overview-new"></dd></div>
+                        <div><dt>In review</dt><dd id="overview-inReview"></dd></div>
+                        <div><dt>Closed</dt><dd id="overview-closed"></dd></div>
+                        <div><dt>Total</dt><dd id="overview-total"></dd></div>
+                    </dl>
+                    <p class="overview-note subtle">
+                        Independent of list filters and paging. Counts are a separate
+                        read; refresh for current totals. No automatic polling.
+                    </p>
+                </section>
                 <section class="panel inbox" aria-labelledby="inbox-heading">
                     <div class="panel-header">
                         <div>

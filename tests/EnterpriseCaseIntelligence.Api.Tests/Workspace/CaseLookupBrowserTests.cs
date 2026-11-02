@@ -29,7 +29,7 @@ public sealed class CaseLookupBrowserTests(WorkspaceBrowser driver) : IClassFixt
         {
             var path = new Uri(request.Url).AbsolutePath;
             if (path == "/cases") listRequests.Add(request.Url);
-            if (path.StartsWith("/cases/", StringComparison.Ordinal)) reads.Add(request.Method + " " + path);
+            if (path.StartsWith("/cases/", StringComparison.Ordinal) && path != "/cases/summary") reads.Add(request.Method + " " + path);
         };
         await session.OpenAsync();
         await Expect(page.Locator("#case-list li")).ToHaveCountAsync(20);

@@ -211,6 +211,30 @@ h1 {
     overflow: hidden;
     min-width: 0;
 }
+.overview {
+    grid-column: 1 / -1;
+}
+.overview-counts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin: 0;
+    padding: 20px 24px;
+}
+.overview-counts dt {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+.overview-counts dd {
+    font-size: 1.8rem;
+    font-weight: 650;
+    margin: 4px 0 0;
+    overflow-wrap: anywhere;
+}
+.overview-note {
+    margin: 0;
+    padding: 0 24px 18px;
+}
 .panel-header {
     flex-wrap: wrap;
     display: flex;
@@ -577,6 +601,9 @@ form > .feedback:not(:empty) {
     }
 }
 @media (max-width: 850px) {
+    .overview-counts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
     .rail {
         position: static;
         width: 100%;

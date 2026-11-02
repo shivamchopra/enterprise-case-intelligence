@@ -46,6 +46,8 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
         await page.Locator("#advance-case").ClickAsync();
         await Expect(page.Locator("#case-status")).ToHaveTextAsync("In review");
         Assert.Equal(1, host.Database.Count());
+        await Expect(page.Locator("#overview-inReview")).ToHaveTextAsync("1");
+        await Expect(page.Locator("#overview-total")).ToHaveTextAsync("1");
         if (Environment.GetEnvironmentVariable("ECI_WORKSPACE_SCREENSHOTS") is { Length: > 0 } directory)
         {
             Directory.CreateDirectory(directory);
@@ -75,6 +77,7 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
         await Expect(page.Locator("#access-message")).ToContainTextAsync("Signed out of this application");
         await Expect(page.Locator("#case-title")).ToHaveTextAsync("");
         await Expect(page.Locator("#case-list li")).ToHaveCountAsync(0);
+        await Expect(page.Locator("#overview-total")).ToHaveTextAsync("");
         var denied = await context.APIRequest.GetAsync(new Uri(host.Origin, "/cases").AbsoluteUri);
         Assert.Equal(401, denied.Status);
         Assert.Equal(0, await page.EvaluateAsync<int>("localStorage.length + sessionStorage.length"));
@@ -94,6 +97,8 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
         await Expect(page.Locator("#case-lookup-form")).Not.ToBeVisibleAsync();
         await Login(page);
         await Expect(page.Locator("#access-label")).ToHaveTextAsync("READER");
+        await Expect(page.Locator("#overview-new")).ToHaveTextAsync("1");
+        await Expect(page.Locator("#overview-total")).ToHaveTextAsync("1");
         await page.GetByLabel("Open case by ID").FillAsync(record.Id.ToString("D"));
         await page.GetByLabel("Open case by ID").PressAsync("Enter");
         await Expect(page.Locator("#case-title")).ToHaveTextAsync("Reader-visible fictional case");
@@ -194,6 +199,7 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
         await Expect(page.Locator("#sign-in")).ToBeVisibleAsync();
         await Expect(page.GetByLabel("Open case by ID")).ToHaveValueAsync("");
         await Expect(page.Locator("#case-lookup-error")).ToHaveTextAsync("");
+        await Expect(page.Locator("#overview-total")).ToHaveTextAsync("");
         var denied = await context.APIRequest.GetAsync(new Uri(host.Origin, "/cases").AbsoluteUri); Assert.Equal(401, denied.Status);
     }
 

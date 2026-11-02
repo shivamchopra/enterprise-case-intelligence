@@ -6,6 +6,8 @@
 
 **Known-ID lookup amendment:** [Open case by ID](../tasks/open-case-by-id.md) adds explicit direct retrieval through the existing detail/history routes while preserving list state, authorization and memory-only creation retries.
 
+**Workload overview amendment:** [Overall saved-case counts](../tasks/case-workload-overview.md) add a separate authorized aggregate read and overview panel. The original no-totals scope below remains historical to the list view; overview totals are independent of filters/paging and do not add page counts.
+
 ## Scenario and outcome
 
 A fictional service-desk staff member should be able to find saved synthetic work, create a case, inspect its details and recorded history, and advance it from New to InReview to Closed without constructing HTTP requests. “Staff member” describes the demonstration scenario; no authenticated identity, role or ownership is implied.

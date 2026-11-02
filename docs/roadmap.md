@@ -19,7 +19,7 @@ The Phase 6 priority was the user journey: a reviewer previously needed curl and
 
 ## Current local delivery
 
-Free-host eligibility remains unconfirmed, so deployment stays on hold under the $0 boundary. Continue useful local product work rather than changing billing, requesting quotas or converting providers speculatively. The [known-ID lookup slice](tasks/open-case-by-id.md) now lets a Reader/Caseworker open current details/history without locating a title or traversing pages. It reuses existing authorized reads and preserves the filtered list and uncertain creation retry state. No cloud mutation or persistence change accompanies it. Resume hosting acceptance when eligible allocation and the complete cost/security evidence are available.
+Free-host eligibility remains unconfirmed, so deployment stays on hold under the $0 boundary. Continue useful local product work rather than changing billing, requesting quotas or converting providers speculatively. The [known-ID lookup slice](tasks/open-case-by-id.md) now lets a Reader/Caseworker open current details/history without locating a title or traversing pages. It reuses existing authorized reads and preserves the filtered list and uncertain creation retry state. The [workload overview](tasks/case-workload-overview.md) also gives Readers/Caseworkers overall New/InReview/Closed/total counts through a bounded aggregate, separate from list filters. No cloud mutation or persistence change accompanies these local slices. Resume hosting acceptance when eligible allocation and the complete cost/security evidence are available.
 
 ## Ordered direction
 

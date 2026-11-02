@@ -10,6 +10,8 @@ Initialization is an explicit `init-store` command, not an HTTP route. It refuse
 
 With the API running on loopback, open [http://localhost:5080/workspace](http://localhost:5080/workspace). Open the server URL rather than the source HTML file. A modern browser with JavaScript is required; there is no frontend server, account, Node runtime or external asset download. The API and curl workflow below remain available.
 
+The **Workload overview** shows New, In review, Closed and Total across all saved cases, independent of list title/status filters and paging. It loads after access is checked and after confirmed writes. Choose **Refresh totals** to see external changes; it does not poll. Counts and list/details/history are separate reads, so they need not describe the same instant. Unavailable totals are hidden with an explicit retry message, never replaced with zero.
+
 1. Choose **New case**. Enter title `Correct the sample guide` and description `Update the fictional example section.`, then choose **Create case**. The workspace reads the created ID for current state and shows recorded history.
 2. Choose **Start review**, then **Close case**. Success is shown after the server response; current details/history reload separately. Closed cases have no advance action.
 3. Enter `sample guide` under **Find cases** and choose **Search** (or Enter), then filter by **Closed**. Search matches literal title text with case sensitivity; `%`/`_` are ordinary characters. **Next page** retains title/status. Search, Clear, changing status filters or **Refresh list** starts at the beginning. Editing without submitting does not change the active search. **Clear search** removes title filtering and preserves status. Pages are ordered by ID, not creation time or priority. No total/count or traversal snapshot is promised.
@@ -25,6 +27,14 @@ Lookup rejects malformed IDs before making case requests and distinguishes a mis
 If a list, detail or history read fails, use its explicit **Refresh** control. A failure is not an empty result. If a write was confirmed and its follow-up read fails, the confirmation remains visible separately. A rejected/uncertain status action requires **Refresh case** before another action. Browser requests time out after 15 seconds; this does not prove that a server-side write was canceled. Details/history load independently and can reflect different observations.
 
 This explicit LocalDemo mode has no sign-in or staff permission checks and is not safe for network hosting. Oidc mode adds sign-in, Reader/Caseworker permissions and CSRF but still requires separate hosted acceptance. Keep the supported demonstration on loopback with synthetic data. `/health` still reports host liveness only; storage readiness remains deferred.
+
+## Inspect overall workload through HTTP
+
+```sh
+curl -sS http://localhost:5080/cases/summary
+```
+
+The response is exactly `new`, `inReview`, `closed` and `total` integer counts, with zeroes for an empty store. No query parameters are accepted. Reader/Caseworker access is required in Oidc mode; this example uses the explicit loopback LocalDemo host. Counts aggregate current recognized statuses; they do not inspect every case/history/key or prove store integrity. Use the documented offline inspector for that purpose.
 
 ## Find cases by title
 
