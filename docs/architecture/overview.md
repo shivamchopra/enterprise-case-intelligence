@@ -102,6 +102,10 @@ The workspace preserves Domain and persistence boundaries, existing HTTP contrac
 
 The [project roadmap](../roadmap.md) assesses workflow value, demonstration, security, operations, integration and AI together. EF Core remains the persistence approach when a feature needs persistence; it does not determine feature priority.
 
+## Proposed local case prioritization — not implemented
+
+The [Phase 9 proposal](../requirements/phase-9-case-prioritization.md) adds explicit Low/Normal/High priority choices and filtering, with separate current-priority resources that preserve the existing four-field case responses and original creation replay. [ADR 0016](../adr/0016-expose-case-priority-without-changing-creation-replay.md) is proposed, not accepted/implemented. The [delivery task](../tasks/case-prioritization.md) identifies the existing single-migration adapter and requires scaffolded EF/model/real-provider evidence for a physical priority model and explicit atomic adoption of supported formats 1–4. Format 5 is a target proposal; the runtime remains format 4. No new model, migration, endpoint or UI accompanies these documents. Existing status history does not become priority history or actor audit.
+
 ## Deferred local reliability proposal — not implemented
 
 The [storage-readiness proposal](../requirements/phase-6-storage-readiness.md) addresses the gap between a responsive host and available storage. It describes a separate `/health/ready` contract with fixed format/EF-metadata checks and a rollback-only write probe, finite work/waits and generic `200`/`503` output. It keeps `/health` storage-independent and leaves deep whole-store validation to the offline inspector. Revisit it with hosting requirements; it is no longer the next milestone. No readiness endpoint, storage-format change or monitoring deployment is implemented by the proposal.
