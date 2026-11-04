@@ -33,6 +33,10 @@ public class CaseHistoryFailureTests : CaseApiTest
         using var read = await Client.GetAsync(PathFor(created.Id) + "/history");
         await AssertProblemAsync(read, HttpStatusCode.InternalServerError, "internal_error");
         Assert.DoesNotContain("\"items\"", await read.Content.ReadAsStringAsync());
+        using (var priority = await Client.GetAsync(PathFor(created.Id) + "/priority"))
+            await AssertProblemAsync(priority, HttpStatusCode.InternalServerError, "internal_error");
+        using (var priority = await Client.PutAsJsonAsync(PathFor(created.Id) + "/priority", new { priority = "Normal" }))
+            await AssertProblemAsync(priority, HttpStatusCode.InternalServerError, "internal_error");
         foreach (var requested in new[] { "New", "Closed" })
         {
             using var write = await Client.PutAsJsonAsync(PathFor(created.Id) + "/status", new { status = requested });

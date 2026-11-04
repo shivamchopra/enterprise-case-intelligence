@@ -14,7 +14,7 @@ namespace EnterpriseCaseIntelligence.Api.Cases.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.13");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.14");
 
             modelBuilder.Entity("EnterpriseCaseIntelligence.Api.Cases.StoredCase", b =>
                 {
@@ -142,6 +142,27 @@ namespace EnterpriseCaseIntelligence.Api.Cases.Migrations
                         });
                 });
 
+            modelBuilder.Entity("EnterpriseCaseIntelligence.Api.Cases.StoredPriority", b =>
+                {
+                    b.Property<string>("CaseId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("case_id")
+                        .HasColumnOrder(0);
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("priority")
+                        .HasColumnOrder(1);
+
+                    b.HasKey("CaseId");
+
+                    b.ToTable("case_priorities", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_priorities_value", "priority IN ('Low', 'Normal', 'High')");
+                        });
+                });
+
             modelBuilder.Entity("EnterpriseCaseIntelligence.Api.Cases.StoredCreationKey", b =>
                 {
                     b.HasOne("EnterpriseCaseIntelligence.Api.Cases.StoredCase", null)
@@ -158,6 +179,20 @@ namespace EnterpriseCaseIntelligence.Api.Cases.Migrations
                         .HasForeignKey("CaseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("EnterpriseCaseIntelligence.Api.Cases.StoredPriority", b =>
+                {
+                    b.HasOne("EnterpriseCaseIntelligence.Api.Cases.StoredCase", null)
+                        .WithOne("PriorityState")
+                        .HasForeignKey("EnterpriseCaseIntelligence.Api.Cases.StoredPriority", "CaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("EnterpriseCaseIntelligence.Api.Cases.StoredCase", b =>
+                {
+                    b.Navigation("PriorityState");
                 });
 #pragma warning restore 612, 618
         }

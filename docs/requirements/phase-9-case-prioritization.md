@@ -1,12 +1,12 @@
-# Phase 9 proposal: prioritize saved synthetic cases
+# Phase 9: prioritize saved synthetic cases
 
-**Status: proposed for review — not implemented.** The current application remains format 4 with title search, known-ID lookup and workload counts. This proposal selects the next local business capability while [hosted acceptance](phase-8-secure-hosting.md) remains pending under the [$0 cost boundary](../tasks/zero-cost-review-hosting.md). It does not mark Phase 8 complete or authorize cloud work.
+**Status: backend implemented; browser priority controls pending.** Domain rules, separate priority resources, bounded API filtering and explicit format-5 upgrades are implemented. The browser behavior below remains the next slice. [Delivery evidence and remaining work](../tasks/case-prioritization.md) distinguish those boundaries. [Hosted acceptance](phase-8-secure-hosting.md) remains pending under the [$0 cost boundary](../tasks/zero-cost-review-hosting.md); this work does not authorize cloud changes.
 
 ## Scenario and outcome
 
 A fictional service-desk Caseworker needs to identify high-priority work and adjust its priority as the situation changes. A Reader needs to find that work and inspect the selected case's current priority. These are reference-project assumptions, not validated enterprise requirements. Priority expresses an explicit staff choice; it does not claim an SLA, urgency prediction, ownership or automatic ranking.
 
-The proposed values are exactly **Low**, **Normal** and **High**. Every newly created case starts at Normal. Existing cases receive Normal during an explicit offline upgrade; that is a newly assigned default, not evidence of their historical priority. Keep title/description immutable and the existing `New → InReview → Closed` lifecycle unchanged.
+The values are exactly **Low**, **Normal** and **High**. Every newly created case starts at Normal. Existing cases receive Normal during an explicit offline upgrade; that is a newly assigned default, not evidence of their historical priority. Keep title/description immutable and the existing `New → InReview → Closed` lifecycle unchanged.
 
 ## Business rules
 
@@ -23,7 +23,7 @@ One workspace-wide priority is shared by all authorized staff. There is no reser
 
 ## HTTP contract
 
-Preserve the exact existing four-field case representation (`id`, `title`, `description`, `status`) on creation, retrieval, listing and retained-key replay. Expose priority as a separate resource, as proposed in [ADR 0016](../adr/0016-expose-case-priority-without-changing-creation-replay.md).
+Preserve the exact existing four-field case representation (`id`, `title`, `description`, `status`) on creation, retrieval, listing and retained-key replay. Expose priority as a separate resource, as decided in [ADR 0016](../adr/0016-expose-case-priority-without-changing-creation-replay.md).
 
 | Operation | Proposed contract |
 | --- | --- |
@@ -45,7 +45,7 @@ A known creation key still compares only normalized immutable title/description 
 
 The client retrieves current priority separately after creation/replay. A creation key is not a priority-write key; priority writes do not consume or create bindings. After an uncertain priority response, read current case/priority before an explicit further write. A blind retry could replace another worker's later choice, so neither API nor UI promises exactly-once priority updates or automatic write replay.
 
-## Browser behavior
+## Browser behavior — pending implementation
 
 Add an All/Low/Normal/High priority filter beside existing list filters. Explain that filtering finds a chosen priority while ordering remains by ID. Next, list refresh and post-mutation refresh retain submitted title/status/priority; changing a filter starts from the first page. Keep lookup by known ID independent of list membership. The four-field list does not acquire per-row priority badges or automatic per-row fetches in this slice.
 
@@ -59,11 +59,11 @@ On denial, expiry, access refresh or sign-out, clear current priority/feedback a
 
 Keep Domain independent of EF/provider types. Model priority in C# and configure stored constraints through Fluent API. Scaffold EF Core migrations and check in their snapshot; do not maintain a parallel schema/data-upgrade SQL script. [The delivery task](../tasks/case-prioritization.md) records the current runner's single-migration assumption and the required real-provider proof before selecting the physical schema change.
 
-Propose **format 5** for the implemented capability, subject to verified generated operations. Explicit initialization creates the new format with no overwrite. Startup refuses older/unknown/corrupt formats without initialization, migration, repair or reset. Offline `upgrade-store` must continue to accept all supported formats 1/2/3/4 through validated, atomic procedures, preserve all old IDs/text/status/history/timestamps/keys and assign Normal once. No invented priority history or new status baseline for a format-2/3/4 case. Preserve format-1's existing honest status-baseline rule.
+**Format 5** implements this capability through a scaffolded required one-to-one priority table; the generated column/check candidate required a transaction-suppressed SQLite rebuild and was not selected. See ADR 0016 for the provider evidence. Explicit initialization creates the new format with no overwrite. Startup refuses older/unknown/corrupt formats without initialization, migration, repair or reset. Offline `upgrade-store` must continue to accept all supported formats 1/2/3/4 through validated, atomic procedures, preserve all old IDs/text/status/history/timestamps/keys and assign Normal once. No invented priority history or new status baseline for a format-2/3/4 case. Preserve format-1's existing honest status-baseline rule.
 
 Cover both freshly initialized and historically adopted format-4 layouts and supported EF metadata versions. Do not compare old source schemas against the latest model or remove old compatibility to make the new migration pass. A migration that cannot preserve transaction/STRICT/foreign-key guarantees needs a documented, tested design revision; it is not permission to reset a store, rewrite history or fall back to hand-written CRUD/DDL.
 
-## Proposed acceptance criteria
+## Acceptance criteria
 
 | ID | Required evidence before marking implemented |
 | --- | --- |
@@ -80,4 +80,4 @@ Cover both freshly initialized and historically adopted format-4 layouts and sup
 | CP-11 | Accessibility, narrow/zoomed layout, no executable/raw error rendering and protected-state clearing pass against published output. |
 | CP-12 | Existing case/history/creation/summary representations and lifecycle contracts remain, full gates pass and README/runbooks distinguish implementation from remaining hosting/operations work. |
 
-No new cloud resource, identity grant, service/broker, server database, AI capability, background job, ownership, deletion or actor audit is selected. The current runtime has **none of the priority endpoints, filter, UI, model or format-5 support** described above.
+No new cloud resource, identity grant, service/broker, server database, AI capability, background job, ownership, deletion or actor audit is selected. The current runtime includes the priority domain/store/API/filter/model and format-5 support. The selected-case priority UI and browser filter described above remain pending; CP-10/11 and their browser-specific CP-03/12 evidence must pass before the complete capability is claimed.

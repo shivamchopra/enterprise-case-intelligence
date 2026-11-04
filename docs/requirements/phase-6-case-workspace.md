@@ -1,5 +1,7 @@
 # Phase 6 requirements: local browser case workspace
 
+Current persistence is format 5 under [ADR 0016](../adr/0016-expose-case-priority-without-changing-creation-replay.md); the Phase 6 format references describe its original delivery. Priority is available through the API, with browser priority controls still pending.
+
 **Status: Reviewed requirements — local browser workflow implemented.** The [project assessment](../roadmap.md) prioritizes a complete local case journey. Phase 6 adds the workspace to the existing API/EF Core Code First baseline, without changing format 4. [ADR 0008](../adr/0008-serve-a-local-browser-case-workspace.md) records the same-host implementation and browser-test approach.
 
 **Phase 7 amendment:** [Title search](phase-7-case-title-search.md) adds explicit Search/Clear actions alongside the original status filter. The no-search scope below records the Phase 6 baseline; the current workspace retains submitted title text through paging, filters and refreshes.

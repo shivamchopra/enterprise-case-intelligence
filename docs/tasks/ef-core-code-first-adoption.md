@@ -2,6 +2,8 @@
 
 **Status: Implemented.** The owner selected EF Core Code First in PR #21. [ADR 0007](../adr/0007-adopt-ef-core-code-first.md) documents the conversion and format 4, including validated adoption of retained versions 1–3. The current runtime uses EF models, LINQ/tracked writes and scaffolded migrations.
 
+The implemented [format-5 priority amendment](../adr/0016-expose-case-priority-without-changing-creation-replay.md) now extends this historical format-4 adoption with a second scaffolded migration and explicit 1/2/3/4 → 5 upgrades. The original decision/evidence below remains preserved; use the current walkthrough for executable commands.
+
 ## Outcome
 
 Make the C# EF Core model and its migration history the source of truth for application tables and schema changes. Use EF APIs for ordinary queries and writes. Retain the current SQLite provider scope, synthetic workflow and application boundaries while preserving cases, histories and creation-key bindings already stored by previous versions.

@@ -4,6 +4,8 @@
 
 **Accepted — implemented.** The owner selected EF Core Code First in PR #21. This implements the [adoption task](../tasks/ef-core-code-first-adoption.md) for the existing Phase 5 workflow and introduces application store format 4.
 
+The implemented [format-5 priority amendment](0016-expose-case-priority-without-changing-creation-replay.md) now extends this historical format-4 adoption with a second scaffolded migration and explicit 1/2/3/4 → 5 upgrades. The original decision/evidence below remains preserved; use the current walkthrough for executable commands.
+
 Amends the data-access/schema-lifecycle parts of ADRs [0004](0004-use-sqlite-for-the-durable-local-workflow.md), [0005](0005-add-status-history-with-an-explicit-store-upgrade.md) and [0006](0006-bind-creation-keys-in-the-local-case-store.md). SQLite, the HTTP/domain contract, single-process operating scope and retained-file recovery limits remain in effect. The older records preserve the exact versions 1–3 that shipped.
 
 ## Decision

@@ -17,6 +17,7 @@
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
+    <None Update="Fixtures/FormatFour/*.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../../tools/ReviewHostPreflight.cs" Link="Hosting/ReviewHostPreflight.cs" />
     <None Include="../../infra/review-probe/azuredeploy.json" Link="Hosting/review-probe.azuredeploy.json" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="../../src/EnterpriseCaseIntelligence.Api/EnterpriseCaseIntelligence.Api.csproj" />

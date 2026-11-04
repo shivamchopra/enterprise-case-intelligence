@@ -18,15 +18,18 @@ public sealed class Case
 
     public CaseStatus Status { get; private set; }
 
-    private Case(Guid id, string title, string description, CaseStatus status)
+    public CasePriority Priority { get; private set; } = CasePriority.Normal;
+
+    private Case(Guid id, string title, string description, CaseStatus status, CasePriority priority)
     {
         Id = id;
         Title = title;
         Description = description;
         Status = status;
+        Priority = priority;
     }
 
-    public static Case Restore(Guid id, string title, string description, CaseStatus status)
+    public static Case Restore(Guid id, string title, string description, CaseStatus status, CasePriority priority = CasePriority.Normal)
     {
         if (id == Guid.Empty)
         {
@@ -38,6 +41,8 @@ public sealed class Case
             throw new ArgumentOutOfRangeException(nameof(status), "The case status is not recognized.");
         }
 
+        if (!Enum.IsDefined(priority)) throw new ArgumentOutOfRangeException(nameof(priority));
+
         var normalizedTitle = NormalizeRequiredText(title, 120, nameof(title));
         var normalizedDescription = NormalizeRequiredText(description, 2_000, nameof(description));
         if (title != normalizedTitle || description != normalizedDescription)
@@ -45,7 +50,15 @@ public sealed class Case
             throw new ArgumentException("Stored text must already be normalized.");
         }
 
-        return new Case(id, title, description, status);
+        return new Case(id, title, description, status, priority);
+    }
+
+    public void ChangePriority(CasePriority priority)
+    {
+        if (!Enum.IsDefined(priority)) throw new ArgumentOutOfRangeException(nameof(priority));
+        if (priority == Priority) return;
+        if (Status == CaseStatus.Closed) throw new InvalidOperationException("Closed cases cannot change priority.");
+        Priority = priority;
     }
 
     public void ChangeStatus(CaseStatus status)

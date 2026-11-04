@@ -44,7 +44,7 @@ public class CaseUpgradeProcessTests
         Assert.Contains("Case store version: 1.", inspected.Output);
         CaseStoreUpgradeTests.AssertLegacy(fixture, original);
         fixture.Database.Upgrade();
-        Assert.Equal(4, fixture.Database.Inspect());
+        Assert.Equal(5, fixture.Database.Inspect());
         var store = new SqliteCaseStore(fixture.Database);
         Assert.All(original, record => Assert.Single(store.History(record.Id)!));
     }
@@ -53,6 +53,7 @@ public class CaseUpgradeProcessTests
     [InlineData(1)]
     [InlineData(2)]
     [InlineData(3)]
+    [InlineData(4)]
     public async Task LostUpgradeCompletionMessageIsReconciledByInspectionWithoutRepeatingUpgrade(int version)
     {
         using var fixture = new TemporaryCaseDatabase(initialize: false);
@@ -60,7 +61,8 @@ public class CaseUpgradeProcessTests
         {
             1 => LegacyCaseStore.Initialize(fixture),
             2 => VersionTwoCaseStore.Initialize(fixture),
-            _ => VersionThreeCaseStore.Initialize(fixture).Cases
+            3 => VersionThreeCaseStore.Initialize(fixture).Cases,
+            _ => VersionFourCaseStore.Initialize(fixture).Cases
         };
         var history = version >= 2 ? VersionTwoCaseStore.HistoryFields(fixture) : [];
         using var process = StartFixture("lost-output", fixture.Path, "unused");
@@ -84,7 +86,7 @@ public class CaseUpgradeProcessTests
 
         var inspect = await ApiProcess.RunAsync("inspect-store", "--CaseStorage:DatabasePath", fixture.Path);
         Assert.Equal(0, inspect.ExitCode);
-        Assert.Contains("Case store version: 4.", inspect.Output);
+        Assert.Contains("Case store version: 5.", inspect.Output);
         var refused = await ApiProcess.RunAsync("upgrade-store", "--CaseStorage:DatabasePath", fixture.Path);
         Assert.Equal(1, refused.ExitCode);
         var store = new SqliteCaseStore(fixture.Database);
@@ -98,6 +100,61 @@ public class CaseUpgradeProcessTests
             var actual = VersionTwoCaseStore.HistoryFields(fixture);
             Assert.Equal(history.Length, actual.Length);
             for (var index = 0; index < history.Length; index++) Assert.Equal(history[index], actual[index]);
+        }
+    }
+
+    [Theory]
+    [InlineData("fresh", "priority-schema")]
+    [InlineData("fresh", "priority-row")]
+    [InlineData("fresh", "priority-metadata")]
+    [InlineData("adopted-3", "priority-schema")]
+    [InlineData("adopted-3", "priority-row")]
+    [InlineData("adopted-3", "priority-metadata")]
+    public async Task TerminationAtGeneratedSchemaBackfillOrMetadataRecoversFormatFour(string family, string stage)
+    {
+        using var fixture = new TemporaryCaseDatabase(false);
+        var (records, bindings) = VersionFourCaseStore.Initialize(fixture, family, 105);
+        var history = VersionTwoCaseStore.HistoryFields(fixture);
+        var pipeName = "eci-" + Guid.NewGuid().ToString("N")[..16];
+        using var pipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        using var process = StartFixture(stage, fixture.Path, pipeName);
+        var output = process.StandardOutput.ReadToEndAsync();
+        var error = process.StandardError.ReadToEndAsync();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        try
+        {
+            await pipe.WaitForConnectionAsync(deadline.Token);
+            var ready = new byte[1];
+            await pipe.ReadExactlyAsync(ready, deadline.Token);
+            Assert.Equal(1, ready[0]);
+            process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync(deadline.Token);
+        }
+        finally
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+            }
+        }
+        Assert.Empty(await output);
+        Assert.Empty(await error);
+        Assert.Equal(4, fixture.Database.Inspect());
+        Assert.Equal(0L, fixture.Scalar("SELECT count(*) FROM sqlite_schema WHERE name='case_priorities'"));
+        Assert.Equal(1L, fixture.Scalar("SELECT count(*) FROM __EFMigrationsHistory"));
+        LegacyCaseStore.AssertRecords(fixture, records);
+        var actual = VersionTwoCaseStore.HistoryFields(fixture);
+        Assert.Equal(history.Length, actual.Length);
+        for (var index = 0; index < history.Length; index++) Assert.Equal(history[index], actual[index]);
+        Assert.Equal((long)bindings.Count, fixture.Scalar("SELECT count(*) FROM case_creation_keys"));
+        fixture.Database.Upgrade();
+        Assert.Equal(5, fixture.Database.Inspect());
+        var store = new SqliteCaseStore(fixture.Database);
+        foreach (var (key, id) in bindings)
+        {
+            var record = records.Single(row => row.Id == id);
+            Assert.Equal(record with { Status = Domain.Cases.CaseStatus.New }, store.Create(record.Title, record.Description, key).Case);
         }
     }
 

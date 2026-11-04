@@ -32,4 +32,20 @@ internal static class LegacyCaseStore
 
         return records.ToArray();
     }
+    internal static void AssertRecords(TemporaryCaseDatabase fixture, CaseSnapshot[] expected)
+    {
+        using var connection = fixture.Database.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT id,title,description,status FROM cases ORDER BY id";
+        using var rows = command.ExecuteReader();
+        foreach (var record in expected)
+        {
+            Assert.True(rows.Read());
+            Assert.Equal(record.Id.ToString("D"), rows.GetString(0));
+            Assert.Equal(record.Title, rows.GetString(1));
+            Assert.Equal(record.Description, rows.GetString(2));
+            Assert.Equal(record.Status.ToString(), rows.GetString(3));
+        }
+        Assert.False(rows.Read());
+    }
 }

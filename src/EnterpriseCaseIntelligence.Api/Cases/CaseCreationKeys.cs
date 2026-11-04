@@ -15,10 +15,10 @@ internal static class CaseCreationKeys
         return Validate(context, rows[0].RequestKey, rows[0].CaseId);
     }
 
-    internal static Case Validate(CaseDbContext context, string key, string caseId)
+    internal static Case Validate(CaseDbContext context, string key, string caseId, bool priority = true)
     {
         CanonicalId(key);
-        var record = SqliteCaseStore.Read(context, CanonicalId(caseId)) ?? throw InvalidBinding();
+        var record = SqliteCaseStore.Read(context, CanonicalId(caseId), priority) ?? throw InvalidBinding();
         if (CaseHistory.Read(context, record)[0].Kind != "Created") throw InvalidBinding();
         return record;
     }
@@ -29,7 +29,7 @@ internal static class CaseCreationKeys
         context.SaveSingleChange();
     }
 
-    internal static void Inspect(CaseDbContext context)
+    internal static void Inspect(CaseDbContext context, bool priority = true)
     {
         string? after = null;
         while (true)
@@ -38,7 +38,7 @@ internal static class CaseCreationKeys
                 .Where(row => after == null || string.Compare(EF.Functions.Collate(row.RequestKey, "BINARY"), after) > 0)
                 .OrderBy(row => EF.Functions.Collate(row.RequestKey, "BINARY")).Take(100).ToArray();
             if (batch.Length == 0) return;
-            foreach (var row in batch) Validate(context, row.RequestKey, row.CaseId);
+            foreach (var row in batch) Validate(context, row.RequestKey, row.CaseId, priority);
             after = batch[^1].RequestKey;
         }
     }

@@ -2,7 +2,7 @@
 
 **Status: Deferred requirements — not implemented.** Originally proposed for Phase 6, this is retained for a future hosting/operability slice. The [project reassessment](../roadmap.md) prioritizes the [local browser workspace](phase-6-case-workspace.md) instead. The filename and P6 criterion IDs are retained for traceability to the reviewed proposal; they do not reserve the next phase.
 
-The proposal was written against Phase 5 with EF Core Code First and format 4; the current browser workspace reuses that storage baseline. This proposes a separate storage-readiness endpoint; `/health` currently reports host liveness only.
+The proposal was written against Phase 5 with EF Core Code First and format 4; the runtime has since moved to format 5 under [ADR 0016](../adr/0016-expose-case-priority-without-changing-creation-replay.md). This frozen format-4 probe design needs a current-format/provider amendment before implementation. This proposes a separate storage-readiness endpoint; `/health` currently reports host liveness only.
 
 [Phase 8 hosting requirements](phase-8-secure-hosting.md) revisit readiness after the platform/provider decision. This document's exact format-4/SQLite probe remains a candidate only if that storage design is retained; it is not a universal server-database probe or the next implementation task ahead of identity/access boundaries.
 

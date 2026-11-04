@@ -18,7 +18,7 @@ public class CaseStoreUpgradeTests
         Assert.Throws<InvalidDataException>(() => fixture.Database.ValidateStartup());
         var database = new CaseDatabase(fixture.Path, new FixedClock());
         database.Upgrade();
-        Assert.Equal(4, database.Inspect());
+        Assert.Equal(5, database.Inspect());
         database.ValidateStartup();
         var store = new SqliteCaseStore(database, new FixedClock());
         foreach (var record in records)
@@ -125,7 +125,7 @@ public class CaseStoreUpgradeTests
         Assert.Contains("Case store upgraded.", upgraded.Output);
         var current = await ApiProcess.RunAsync("inspect-store", "--CaseStorage:DatabasePath", fixture.Path);
         Assert.Equal(0, current.ExitCode);
-        Assert.Contains("Case store version: 4.", current.Output);
+        Assert.Contains("Case store version: 5.", current.Output);
         foreach (var output in new[] { inspect.Output, upgraded.Output, current.Output })
             Assert.DoesNotContain("Now listening on:", output);
         using (var factory = fixture.CreateFactory())
@@ -175,8 +175,7 @@ public class CaseStoreUpgradeTests
     {
         Assert.Equal(1, fixture.Database.Inspect());
         Assert.Equal(0L, fixture.Scalar("SELECT count(*) FROM sqlite_schema WHERE name='case_status_history'"));
-        var store = new SqliteCaseStore(fixture.Database);
-        Assert.All(expected, record => Assert.Equal(record, store.Find(record.Id)));
+        LegacyCaseStore.AssertRecords(fixture, expected);
     }
 
     private sealed class FixedClock : TimeProvider

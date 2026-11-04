@@ -51,9 +51,33 @@ curl --get http://localhost:5080/cases \
 
 The response remains exactly `items`/`nextAfter` with the usual four-field cases. If `nextAfter` is non-null, resend the same title/status with that value as `after`. To change search/filter or refresh current membership, omit `after`. Search filters before the bounded page/lookahead, without promising a bounded database scan or traversal snapshot. It changes no stored values or format. Search text appears in the API query string and may appear in HTTP diagnostics; use synthetic text. It is not added to the workspace page address or saved in browser storage.
 
+## Read, change and filter priority through HTTP
+
+Priority is currently an **API capability**; workspace priority controls are pending. Copy a synthetic case ID returned by creation into `CASE_ID`:
+
+```sh
+CASE_ID="<case-id-from-creation>"
+curl -sS "http://localhost:5080/cases/$CASE_ID/priority"
+curl -i -X PUT "http://localhost:5080/cases/$CASE_ID/priority" \
+  -H 'Content-Type: application/json' \
+  -d '{"priority":"High"}'
+curl --get http://localhost:5080/cases \
+  --data-urlencode 'priority=High' \
+  --data-urlencode 'title=sample guide' \
+  --data-urlencode 'status=New'
+```
+
+Read/write success returns exactly `{"caseId":"<id>","priority":"High"}` (with the current value). New cases start at Normal. Values are exactly Low, Normal or High; numbers, aliases, whitespace, different casing, extra/duplicate fields and query parameters on the priority resource are rejected. In Oidc mode, Reader/Caseworker may read and filter; only Caseworker may write, with the session CSRF token even for a no-op. These curl examples use explicit loopback LocalDemo.
+
+An actual change on Closed returns `409 case_closed`; its current value is a validated `200` no-op. Priority does not change status, text, history or creation-key ownership. Existing creation/list/detail/status/replay responses stay four-field; supplying priority on creation is rejected. Original keyed replay never resets current priority. Status history contains no priority changes, actor or priority timestamp.
+
+Omit `priority` for all priorities; otherwise supply it exactly once. Combine title/status/priority before the bounded page and keep all filters with `after`. Pages still sort by canonical ID, not priority. Summary counts remain status-only and independent of filters. A filtered list validates encountered rows/lookahead, not excluded rows; use the offline inspector for whole-store validation.
+
+After a lost/uncertain priority response, read current case and priority before choosing another explicit write. There is no priority retry key or automatic replay: a blind retry could overwrite another worker's later choice. Read failures do not prove a write failed. Missing cases return the normal `404`; unavailable/damaged retained state returns safe `500`, without inventing Normal or repairing records.
+
 ## Inspect and upgrade an older store
 
-Fresh `init-store` applies the checked-in EF Core migration and creates format 4 with case, history, creation-key and EF migration-history tables. Skip this upgrade section for a fresh version-4 store. For retained version-1, version-2 or version-3 data, build the current code first and **stop the API and every other process using that store**. `CASE_DB_PATH` must be the same absolute path selected during setup; neither inspection nor upgrade creates a missing file.
+Fresh `init-store` applies both checked-in EF migrations and creates format 5 with case, history, creation-key, priority and EF migration-history tables. Skip this upgrade section for a fresh version-5 store. For retained version-1/2/3/4 data, build the current code first and **stop the API and every other process using that store**. `CASE_DB_PATH` must select the same absolute path as setup; neither inspection nor upgrade creates a missing file.
 
 Inspect before deciding whether an upgrade is needed:
 
@@ -61,20 +85,22 @@ Inspect before deciding whether an upgrade is needed:
 dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- inspect-store --CaseStorage:DatabasePath "$CASE_DB_PATH"
 ```
 
-Success prints only `Case store version: 1.`, `Case store version: 2.`, `Case store version: 3.` or `Case store version: 4.` as the command result. The command validates schema, engine integrity and case values; versions 2–4 also validate all history chains, versions 3/4 validate every binding and its creation provenance, and version 4 validates EF migration metadata and model/snapshot agreement. It does not change committed application state, but SQLite may perform normal journal recovery. An inspection failure needs investigation, not initialization over the existing path.
+Success prints `Case store version: N.` where N is 1, 2, 3, 4 or 5. Inspection validates exact supported schema, engine integrity and every case; versions 2–5 also validate status history, versions 3–5 every binding/provenance, and versions 4/5 their supported EF metadata chain and current model/snapshot agreement. Format 5 requires a recognized priority record for every case. It does not change committed application state, but SQLite may perform journal recovery. Investigate failure; never initialize over the existing path.
 
-For **version 1, 2 or 3**, explicitly upgrade while hosting remains stopped:
+For **version 1, 2, 3 or 4**, explicitly upgrade while hosting remains stopped:
 
 ```sh
 dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- upgrade-store --CaseStorage:DatabasePath "$CASE_DB_PATH"
 dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- inspect-store --CaseStorage:DatabasePath "$CASE_DB_PATH"
 ```
 
-Expect `Case store upgraded.` and then `Case store version: 4.`. All three source formats upgrade directly in one transaction and preserve every case’s ID, text and status. Versions 2/3 retain every existing history value and timestamp; version 3 also retains all creation-key bindings. Version 1 receives one honest `Baseline` per old case, with its recording time during upgrade; earlier transitions and creation times remain unknown. No historical `Created` or transition entries are invented. Previously unbound cases remain unbound; keys are never inferred from IDs or text. The application validates the old schema and all data before recording its EF migration baseline. Existing application tables/values are retained; missing tables come from EF-generated migration operations.
+Expect `Case store upgraded.` and then `Case store version: 5.`. All four source formats upgrade directly in one transaction, preserving every ID, text and status. Versions 2/3/4 keep every history value/time; versions 3/4 keep every key binding. Version 1 receives one honest `Baseline` per old case recorded at upgrade; earlier transitions/creation times remain unknown. Other versions receive no new status baseline. Previously unbound cases stay unbound. Every old case receives Normal priority once; this is a new default, not historical priority evidence, and no priority/status event is invented.
 
-This changes the store format in place and is one-way. Older executables refuse version 4; there is no downgrade, automatic backup or restore command. A second upgrade refuses version 4 without adding baselines or bindings. Normal startup never upgrades automatically and refuses old-format stores. After successful inspection of version 4, start the API using the normal final README command, without a command mode.
+Source schema/data are fully validated before mutation. Existing application tables remain in place; missing tables use scaffolded EF operations. Legacy sources receive the validated initial EF baseline; format 4 keeps its metadata row/version. Generated priority-table creation, bounded tracked backfill, the second metadata row, target validation and format marker share the offline transaction. No parallel schema script or automatic startup migration is used.
 
-If upgrade fails, is interrupted or loses its completion output, the outcome is uncertain. With all processes stopped, run **only inspection first**. A valid version 1, 2 or 3 means the upgrade did not commit and may be retried deliberately; a valid version 4 means it committed and must not be repeated. Any unsupported/invalid result requires investigation. Never delete a journal, reset the file or force initialization to hide an error. These commands assume intact local storage, without a hardware/power-loss guarantee. The explicit transaction includes EF migration metadata; these commands do not create a persistent EF migration-lock table. Unexpected metadata or a lock table is refused for investigation, without automatic deletion. See [ADR 0007](../adr/0007-adopt-ef-core-code-first.md).
+This is a one-way in-place upgrade. Older executables refuse format 5; there is no downgrade, automatic backup or restore command. A repeated upgrade refuses format 5 without adding records. After successful inspection of 5, start the API with the normal README command and no command mode.
+
+If upgrade fails, is interrupted or loses completion output, stop all users and run **only inspection first**. A valid 1/2/3/4 means the upgrade did not commit and may be retried deliberately; a valid 5 means it committed and must not be repeated. Investigate any invalid/unsupported outcome. Never delete a journal, reset a file or force initialization. These commands assume intact local storage, without a hardware/power-loss guarantee. The transaction includes EF metadata and creates no persistent migration lock. Unexpected metadata/lock tables are refused without automatic deletion. See [ADR 0007](../adr/0007-adopt-ef-core-code-first.md) and its [format-5 amendment](../adr/0016-expose-case-priority-without-changing-creation-replay.md).
 
 ## Create a case
 
@@ -101,7 +127,7 @@ The double quotes around the UUID are required header characters. Repeat this co
 
 Equivalent JSON escapes/property order, surrounding trimmed text and uppercase UUID hex replay the same result. Changed normalized title/description returns `422 Unprocessable Content`, code `idempotency_key_reused`, without original values or a `Location`. Text comparison is ordinal; case, internal spaces and distinct Unicode sequences matter. Bad key/body input returns `400` before accessing storage; unsupported media types retain `415`, including for known keys.
 
-Omitting the header always creates independently. Different keys with identical text also create independently. After response loss, keep the same key/request: choosing a new key can create a duplicate. Bindings remain for the intact store’s lifetime, without expiry, release or cleanup. One store has one namespace; keys provide no identity or authorization. A selected damaged binding/target/history returns safe `500` rather than replay, mismatch or replacement. Lookup validates only the selected target; offline inspection validates the whole store. Arbitrary deletion/rekeying outside the application is not detectable as a previous use.
+Omitting the header always creates independently. Different keys with identical text also create independently. After response loss, keep the same key/request: choosing a new key can create a duplicate. Bindings remain for the intact store’s lifetime, without expiry, release or cleanup. One store has one namespace; keys provide no identity or authorization. A selected damaged binding/target/history/priority returns safe `500` rather than replay, mismatch or replacement. Lookup validates only the selected target; offline inspection validates the whole store. Arbitrary deletion/rekeying outside the application is not detectable as a previous use.
 
 ## Browse, retrieve and resume saved work
 
