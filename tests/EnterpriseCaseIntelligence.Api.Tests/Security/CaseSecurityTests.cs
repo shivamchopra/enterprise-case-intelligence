@@ -15,6 +15,8 @@ public sealed class CaseSecurityTests
     {
         { "GET", "/cases?limit=bad" }, { "GET", "/cases/invalid" }, { "GET", $"/cases/{Id}/history" },
         { "GET", "/cases/summary?status=invalid" },
+        { "GET", $"/cases/{Id}/priority?x=invalid" }, { "PUT", $"/cases/{Id}/priority" },
+        { "GET", "/cases?priority=invalid" },
         { "POST", "/cases" }, { "PUT", $"/cases/{Id}/status" }
     };
     private static HttpRequestMessage Malformed(string method, string path) => new(new(method), path)
@@ -62,6 +64,7 @@ public sealed class CaseSecurityTests
     [Theory]
     [InlineData("POST", "/cases")]
     [InlineData("PUT", "/cases/invalid/status")]
+    [InlineData("PUT", "/cases/invalid/priority")]
     public async Task ReaderCannotWriteEvenWithValidCsrfAndMalformedInput(string method, string path)
     {
         await using var host = new SecurityHost(); host.Start();
@@ -73,6 +76,7 @@ public sealed class CaseSecurityTests
     [Theory]
     [InlineData("POST", "/cases")]
     [InlineData("PUT", "/cases/invalid/status")]
+    [InlineData("PUT", "/cases/invalid/priority")]
     [InlineData("POST", "/auth/logout")]
     public async Task AuthorizedWriteRequiresCsrfBeforeBinding(string method, string path)
     {

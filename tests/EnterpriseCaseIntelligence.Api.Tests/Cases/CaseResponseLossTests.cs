@@ -39,7 +39,7 @@ public class CaseResponseLossTests : CaseApiTest
             Assert.Equal(2, Database.Count());
             Assert.Equal(2L, Database.Scalar("SELECT count(DISTINCT id) FROM cases WHERE status='New'"));
             Assert.Equal(2L, Database.Scalar("SELECT count(*) FROM case_status_history WHERE sequence=1 AND kind='Created'"));
-            Assert.Equal(4, Database.Database.Inspect());
+            Assert.Equal(5, Database.Database.Inspect());
         }
         else
         {
@@ -87,6 +87,36 @@ public class CaseResponseLossTests : CaseApiTest
         Assert.Single(new SqliteCaseStore(Database.Database).History(original.Id)!);
         using var repeat = await CaseKeyApiTests.SendAsync(reader, json, [$"\"{key:D}\""]);
         Assert.Equal(original, await ReadCaseAsync(repeat));
+    }
+
+    [Fact]
+    public async Task LostPriorityResponseIsReconciledByReadWithoutOverwritingALaterChoice()
+    {
+        var record = await CreateAsync();
+        Factory.Dispose();
+        var filter = new LoseResponseFilter();
+        using (var factory = Database.CreateFactory().WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services => services.AddSingleton<IStartupFilter>(filter))))
+        using (var client = factory.CreateClient())
+        {
+            var failure = await Assert.ThrowsAnyAsync<Exception>(async () =>
+            {
+                using var response = await client.PutAsJsonAsync(PathFor(record.Id) + "/priority", new { priority = "High" });
+            });
+            Assert.Contains("SIMULATED_RESPONSE_LOSS", failure.ToString());
+            Assert.True(filter.SuppressedSuccess);
+        }
+        var store = new SqliteCaseStore(Database.Database);
+        Assert.Equal(Domain.Cases.CasePriority.High, store.Priority(record.Id)!.Priority);
+        store.ChangePriority(record.Id, Domain.Cases.CasePriority.Low);
+        using var reopened = Database.CreateFactory();
+        using var reader = reopened.CreateClient();
+        using var read = await reader.GetAsync(PathFor(record.Id) + "/priority");
+        Assert.Equal(HttpStatusCode.OK, read.StatusCode);
+        using var json = System.Text.Json.JsonDocument.Parse(await read.Content.ReadAsStringAsync());
+        Assert.Equal("Low", json.RootElement.GetProperty("priority").GetString());
+        Assert.Equal(Domain.Cases.CasePriority.Low, store.Priority(record.Id)!.Priority);
+        Assert.Single(store.History(record.Id)!);
     }
 
     private sealed class LoseResponseFilter : IStartupFilter

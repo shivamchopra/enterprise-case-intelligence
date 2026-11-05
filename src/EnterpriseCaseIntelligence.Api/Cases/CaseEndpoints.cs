@@ -14,6 +14,8 @@ internal static class CaseEndpoints
         endpoints.MapGet("/cases", ListCases).RequireAuthorization(CaseSecurity.Read);
         endpoints.MapGet("/cases/summary", GetSummary).RequireAuthorization(CaseSecurity.Read);
         endpoints.MapGet("/cases/{id}", GetCase).RequireAuthorization(CaseSecurity.Read);
+        endpoints.MapGet("/cases/{id}/priority", GetPriority).RequireAuthorization(CaseSecurity.Read);
+        endpoints.MapPut("/cases/{id}/priority", ChangePriority).RequireAuthorization(CaseSecurity.Write).WithMetadata(new CaseSecurity.CsrfRequired());
         endpoints.MapGet("/cases/{id}/history", GetHistory).RequireAuthorization(CaseSecurity.Read);
         endpoints.MapPut("/cases/{id}/status", ChangeStatus).RequireAuthorization(CaseSecurity.Write).WithMetadata(new CaseSecurity.CsrfRequired());
     }
@@ -22,12 +24,13 @@ internal static class CaseEndpoints
     {
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
         CaseStatus? status = null;
+        CasePriority? priority = null;
         Guid? after = null;
         string? title = null;
         var limit = 20;
         foreach (var (name, values) in request.Query)
         {
-            if (name is not ("status" or "limit" or "after" or "title"))
+            if (name is not ("status" or "limit" or "after" or "title" or "priority"))
             {
                 errors["query"] = ["The query contains an unsupported parameter."];
                 continue;
@@ -46,6 +49,10 @@ internal static class CaseEndpoints
                     try { title = CaseTitleFilter.Normalize(value ?? ""); }
                     catch (ArgumentException) { errors[name] = ["Use 1 to 120 characters of valid text after trimming."]; }
                     break;
+                case "priority":
+                    priority = ReadPriority(value);
+                    if (priority is null) errors[name] = ["Use Low, Normal or High."];
+                    break;
                 case "status":
                     status = ReadStatus(value);
                     if (status is null) errors[name] = ["Use New, InReview or Closed."];
@@ -62,7 +69,7 @@ internal static class CaseEndpoints
 
         if (errors.Count > 0) return Validation(errors);
 
-        var page = store.List(limit, status, after, title);
+        var page = store.List(limit, status, after, title, priority);
         return Results.Ok(new { items = page.Items.Select(Representation).ToArray(), nextAfter = page.NextAfter });
     }
 
@@ -85,6 +92,39 @@ internal static class CaseEndpoints
         "Closed" => CaseStatus.Closed,
         _ => null
     };
+
+    private static CasePriority? ReadPriority(string? value) => value switch
+    {
+        "Low" => CasePriority.Low,
+        "Normal" => CasePriority.Normal,
+        "High" => CasePriority.High,
+        _ => null
+    };
+
+    private static object PriorityRepresentation(CasePrioritySnapshot value) => new { caseId = value.CaseId, priority = value.Priority.ToString() };
+
+    private static IResult GetPriority(string id, HttpRequest request, SqliteCaseStore store)
+    {
+        if (!TryReadId(id, out var caseId)) return Validation("id", "Use a non-empty hyphenated UUID.");
+        if (request.Query.Count > 0) return Validation("query", "The query contains an unsupported parameter.");
+        var value = store.Priority(caseId);
+        return value is null ? MissingCase() : Results.Ok(PriorityRepresentation(value));
+    }
+
+    private static async Task<IResult> ChangePriority(string id, HttpRequest request, SqliteCaseStore store, CancellationToken cancellationToken)
+    {
+        if (!TryReadId(id, out var caseId)) return Validation("id", "Use a non-empty hyphenated UUID.");
+        if (request.Query.Count > 0) return Validation("query", "The query contains an unsupported parameter.");
+        var (body, error) = await ReadBodyAsync(request, cancellationToken);
+        if (error is not null) return error;
+        var (values, errors) = ReadStrings(body!.Value, "priority");
+        if (errors.Count > 0) return Validation(errors);
+        var priority = ReadPriority(values["priority"]);
+        if (priority is null) return Validation("priority", "Use Low, Normal or High.");
+        var result = store.ChangePriority(caseId, priority.Value);
+        if (result.IsConflict) return Problem(409, "Conflict", "case_closed");
+        return result.Value is null ? MissingCase() : Results.Ok(PriorityRepresentation(result.Value));
+    }
 
     private static async Task<IResult> CreateCase(HttpRequest request, SqliteCaseStore store, CancellationToken cancellationToken)
     {

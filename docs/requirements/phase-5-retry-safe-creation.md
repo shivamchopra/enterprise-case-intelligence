@@ -1,8 +1,8 @@
 # Phase 5 requirements: retry-safe case creation
 
-**Status: Reviewed and implemented.** Requirements were reviewed in PR #18 and [ADR 0006](../adr/0006-bind-creation-keys-in-the-local-case-store.md) in PR #19. The API supports optional durable creation keys, now with EF-managed format 4; see [current implementation coverage](#current-implementation-coverage).
+**Status: Reviewed and implemented.** Requirements were reviewed in PR #18 and [ADR 0006](../adr/0006-bind-creation-keys-in-the-local-case-store.md) in PR #19. The API supports optional durable creation keys, now with EF-managed format 5; see [current implementation coverage](#current-implementation-coverage).
 
-[EF Core adoption / ADR 0007](../adr/0007-adopt-ef-core-code-first.md) now provides format 4 and direct adoption of retained versions 1–3 while preserving this workflow contract. Historical format references below describe their original phase.
+[EF Core adoption / ADR 0007](../adr/0007-adopt-ef-core-code-first.md), amended by [ADR 0016](../adr/0016-expose-case-priority-without-changing-creation-replay.md), now provides format 5 and direct adoption of retained versions 1–4 while preserving this workflow contract. Historical format references below describe their original phase.
 
 ## Workflow assessment and outcome
 
@@ -92,7 +92,7 @@ Deleting/replacing/losing a store, unsupported concurrent processes, different s
 
 Phase 4 initialized/hosted version 2 and explicitly upgraded version 1. [ADR 0006](../adr/0006-bind-creation-keys-in-the-local-case-store.md), reviewed in PR #19, selects version 3 with atomic bindings and direct offline upgrades from both source formats. Every original case value and version-2 history value is preserved. Version 1 retains the honest-baseline rule, without inventing earlier transitions. All old cases start without bindings; keys are never inferred from IDs, titles or history.
 
-The original ADR 0006 selected format 3. The current EF implementation in ADR 0007 hosts only format 4 and never upgrades, repairs or resets during normal startup. Initialization refuses every existing file. `inspect-store` validates versions 1/2/3/4; `upgrade-store` adopts a valid 1/2/3 source into 4 in one transaction and refuses version 4. Stop all store users first. After an uncertain outcome, inspect before another mutation: valid 1/2/3 is an uncommitted source, valid 4 is committed. See the [current walkthrough](../usage/local-case-workflow.md#inspect-and-upgrade-an-older-store).
+The original ADR 0006 selected format 3. EF adoption (ADR 0007) and the priority amendment (ADR 0016) now host only format 5 and never upgrade, repair or reset during normal startup. Initialization refuses every existing file. `inspect-store` validates versions 1/2/3/4/5; `upgrade-store` adopts a valid 1/2/3/4 source into 5 in one transaction and refuses 5. Stop all store users first. After an uncertain outcome, inspect before another mutation: valid 1/2/3/4 is an uncommitted source, valid 5 is committed. Existing cases receive Normal once without changing creation replay or history. See the [current walkthrough](../usage/local-case-workflow.md#inspect-and-upgrade-an-older-store).
 
 ## Acceptance criteria
 

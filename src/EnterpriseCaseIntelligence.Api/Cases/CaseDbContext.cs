@@ -13,6 +13,7 @@ public sealed class CaseDbContext(DbContextOptions<CaseDbContext> options) : DbC
     public DbSet<StoredCase> Cases => Set<StoredCase>();
     public DbSet<StoredHistory> History => Set<StoredHistory>();
     public DbSet<StoredCreationKey> CreationKeys => Set<StoredCreationKey>();
+    public DbSet<StoredPriority> Priorities => Set<StoredPriority>();
     public DbSet<StoredMigration> MigrationHistory => Set<StoredMigration>();
 
     internal static DbContextOptions<CaseDbContext> Options(SqliteConnection connection, bool migrating = false)
@@ -46,6 +47,13 @@ public sealed class CaseDbContext(DbContextOptions<CaseDbContext> options) : DbC
         cases.Property(row => row.Title).HasColumnName("title").HasColumnOrder(1).IsRequired();
         cases.Property(row => row.Description).HasColumnName("description").HasColumnOrder(2).IsRequired();
         cases.Property(row => row.Status).HasColumnName("status").HasColumnOrder(3).IsRequired();
+
+        var priorities = model.Entity<StoredPriority>();
+        priorities.ToTable("case_priorities", table => table.HasCheckConstraint("CK_priorities_value", "priority IN ('Low', 'Normal', 'High')"));
+        priorities.HasKey(row => row.CaseId);
+        priorities.HasOne<StoredCase>().WithOne(row => row.PriorityState).HasForeignKey<StoredPriority>(row => row.CaseId).OnDelete(DeleteBehavior.Restrict);
+        priorities.Property(row => row.CaseId).HasColumnName("case_id").HasColumnOrder(0).ValueGeneratedNever();
+        priorities.Property(row => row.Priority).HasColumnName("priority").HasColumnOrder(1).IsRequired();
 
         var history = model.Entity<StoredHistory>();
         history.ToTable("case_status_history", table =>
@@ -104,6 +112,13 @@ public sealed class StoredCase
     public string Title { get; set; } = "";
     public string Description { get; set; } = "";
     public string Status { get; set; } = "";
+    public StoredPriority? PriorityState { get; set; }
+}
+
+public sealed class StoredPriority
+{
+    public string CaseId { get; set; } = "";
+    public string Priority { get; set; } = "";
 }
 
 public sealed class StoredHistory

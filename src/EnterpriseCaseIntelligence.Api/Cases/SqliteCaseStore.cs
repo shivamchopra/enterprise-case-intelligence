@@ -30,6 +30,8 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
 
             context.Cases.Add(new StoredCase { Id = record.Id.ToString("D"), Title = record.Title, Description = record.Description, Status = "New" });
             context.SaveSingleChange();
+            context.Priorities.Add(new StoredPriority { CaseId = record.Id.ToString("D"), Priority = record.Priority.ToString() });
+            context.SaveSingleChange();
             CaseHistory.Insert(context, record.Id, CaseHistory.Record(1, "Created", null, record.Status, _clock));
             if (key is { } unbound) CaseCreationKeys.Insert(context, unbound, record.Id);
             transaction.Commit();
@@ -48,11 +50,13 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
         }
     }
 
-    public CasePage List(int limit, CaseStatus? status = null, Guid? after = null, string? title = null)
+    public CasePage List(int limit, CaseStatus? status = null, Guid? after = null, string? title = null, CasePriority? priority = null)
     {
         if (limit is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(limit));
         if (status is { } requested && !Enum.IsDefined(requested)) throw new ArgumentOutOfRangeException(nameof(status));
         if (after == Guid.Empty) throw new ArgumentException("Use a non-empty identifier boundary.", nameof(after));
+        if (priority is { } requestedPriority && !Enum.IsDefined(requestedPriority)) throw new ArgumentOutOfRangeException(nameof(priority));
+        var priorityText = priority?.ToString();
         var titleText = title is null ? null : CaseTitleFilter.Normalize(title);
         var statusText = status?.ToString();
         var boundary = after?.ToString("D");
@@ -60,9 +64,10 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
         {
             using var connection = database.Open();
             using var context = database.Context(connection);
-            var rows = context.Cases.AsNoTracking()
+            var rows = context.Cases.AsNoTracking().Include(row => row.PriorityState)
                 .Where(row => (statusText == null || row.Status == statusText) &&
                     (titleText == null || row.Title.Contains(titleText)) &&
+                    (priorityText == null || (row.PriorityState != null && row.PriorityState.Priority == priorityText)) &&
                     (boundary == null || string.Compare(EF.Functions.Collate(row.Id, "BINARY"), boundary) > 0))
                 .OrderBy(row => EF.Functions.Collate(row.Id, "BINARY")).Take(limit + 1).ToArray();
             // Validate lookahead as well; materialized damaged rows cannot become partial success.
@@ -127,7 +132,7 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
             using var transaction = connection.BeginTransaction(deferred: false);
             using var context = database.Context(connection, transaction);
             var canonical = id.ToString("D");
-            var row = context.Cases.SingleOrDefault(row => row.Id == canonical);
+            var row = context.Cases.Include(row => row.PriorityState).SingleOrDefault(row => row.Id == canonical);
             if (row is null) return new(null, false);
             var record = Restore(row);
             var history = CaseHistory.Read(context, record);
@@ -145,14 +150,57 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
         }
     }
 
-    internal static Case? Read(CaseDbContext context, Guid id)
+    public CasePrioritySnapshot? Priority(Guid id)
     {
-        var canonical = id.ToString("D");
-        var row = context.Cases.AsNoTracking().SingleOrDefault(row => row.Id == canonical);
-        return row is null ? null : Restore(row);
+        lock (_gate)
+        {
+            using var connection = database.Open();
+            using var transaction = connection.BeginTransaction(deferred: true);
+            using var context = database.Context(connection, transaction);
+            var record = Read(context, id);
+            if (record is null) return null;
+            CaseHistory.Read(context, record);
+            transaction.Commit();
+            return new(record.Id, record.Priority);
+        }
     }
 
-    internal static Case Restore(StoredCase row)
+    public CasePriorityChange ChangePriority(Guid id, CasePriority priority)
+    {
+        if (!Enum.IsDefined(priority)) throw new ArgumentOutOfRangeException(nameof(priority));
+        lock (_gate)
+        {
+            using var connection = database.Open();
+            using var transaction = connection.BeginTransaction(deferred: false);
+            using var context = database.Context(connection, transaction);
+            var canonical = id.ToString("D");
+            var row = context.Cases.Include(row => row.PriorityState).SingleOrDefault(row => row.Id == canonical);
+            if (row is null) return new(null, false);
+            var record = Restore(row);
+            CaseHistory.Read(context, record);
+            var previous = record.Priority;
+            try { record.ChangePriority(priority); }
+            catch (InvalidOperationException) { return new(null, true); }
+            if (record.Priority != previous)
+            {
+                row.PriorityState!.Priority = record.Priority.ToString();
+                context.SaveSingleChange();
+            }
+            transaction.Commit();
+            return new(new(id, record.Priority), false);
+        }
+    }
+
+    internal static Case? Read(CaseDbContext context, Guid id, bool priority = true)
+    {
+        var canonical = id.ToString("D");
+        var query = context.Cases.AsNoTracking();
+        if (priority) query = query.Include(row => row.PriorityState);
+        var row = query.SingleOrDefault(row => row.Id == canonical);
+        return row is null ? null : Restore(row, priority);
+    }
+
+    internal static Case Restore(StoredCase row, bool priority = true)
     {
         try
         {
@@ -165,7 +213,14 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
             };
             if (!Guid.TryParseExact(row.Id, "D", out var id) || row.Id != id.ToString("D"))
                 throw new InvalidDataException("Invalid stored identifier.");
-            return Case.Restore(id, row.Title, row.Description, status);
+            var currentPriority = !priority ? CasePriority.Normal : row.PriorityState?.Priority switch
+            {
+                "Low" => CasePriority.Low,
+                "Normal" => CasePriority.Normal,
+                "High" => CasePriority.High,
+                _ => throw new InvalidDataException("Invalid stored priority.")
+            };
+            return Case.Restore(id, row.Title, row.Description, status, currentPriority);
         }
         catch (ArgumentException) { throw new InvalidDataException("Invalid stored case values."); }
     }
@@ -173,6 +228,8 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
     private static CaseSnapshot Snapshot(Case record) => new(record.Id, record.Title, record.Description, record.Status);
 }
 
+public sealed record CasePrioritySnapshot(Guid CaseId, CasePriority Priority);
+public sealed record CasePriorityChange(CasePrioritySnapshot? Value, bool IsConflict);
 public sealed record CaseStatusChange(CaseSnapshot? Case, bool IsConflict);
 public sealed record CaseCreation(CaseSnapshot? Case, bool IsKeyReused);
 public sealed record CaseSummary(long New, long InReview, long Closed)

@@ -15,10 +15,13 @@ public class CaseKeyFailureTests : CaseApiTest
     [InlineData("cases", "BEFORE", "IGNORE")]
     [InlineData("cases", "AFTER", "ABORT")]
     [InlineData("case_status_history", "BEFORE", "IGNORE")]
+    [InlineData("case_priorities", "BEFORE", "ABORT")]
+    [InlineData("case_priorities", "AFTER", "ABORT")]
+    [InlineData("case_priorities", "BEFORE", "IGNORE")]
     [InlineData("case_status_history", "AFTER", "ABORT")]
     [InlineData("case_creation_keys", "BEFORE", "IGNORE")]
     [InlineData("case_creation_keys", "AFTER", "ABORT")]
-    public async Task EveryWriteBoundaryRollsBackAllThreeRecordsAndRetryCanBind(string table, string timing, string failure)
+    public async Task EveryWriteBoundaryRollsBackAllRequiredRecordsAndRetryCanBind(string table, string timing, string failure)
     {
         var raise = failure == "IGNORE" ? "RAISE(IGNORE)" : "RAISE(ABORT, 'SYNTHETIC_SENSITIVE_MARKER')";
         Database.Execute($"CREATE TRIGGER fail_key {timing} INSERT ON {table} BEGIN SELECT {raise}; END");
@@ -27,14 +30,14 @@ public class CaseKeyFailureTests : CaseApiTest
         Database.Execute("DROP TRIGGER fail_key");
         Database.Database.ValidateStartup();
         // Independent reopened connections, rather than an in-memory success/failure result.
-        foreach (var name in new[] { "cases", "case_status_history", "case_creation_keys" })
+        foreach (var name in new[] { "cases", "case_priorities", "case_status_history", "case_creation_keys" })
             Assert.Equal(0L, Database.Scalar($"SELECT count(*) FROM {name}"));
         using var retry = await Send();
         Assert.Equal(HttpStatusCode.Created, retry.StatusCode);
         var created = await ReadCaseAsync(retry);
         Assert.Single(new SqliteCaseStore(new CaseDatabase(Database.Path)).History(created.Id)!);
-        Assert.Equal(4, new CaseDatabase(Database.Path).Inspect());
-        foreach (var name in new[] { "cases", "case_status_history", "case_creation_keys" })
+        Assert.Equal(5, new CaseDatabase(Database.Path).Inspect());
+        foreach (var name in new[] { "cases", "case_priorities", "case_status_history", "case_creation_keys" })
             Assert.Equal(1L, Database.Scalar($"SELECT count(*) FROM {name}"));
     }
 
@@ -54,6 +57,7 @@ public class CaseKeyFailureTests : CaseApiTest
         }
         Assert.Equal(0, Database.Count());
         Assert.Equal(0L, Database.Scalar("SELECT count(*) FROM case_creation_keys"));
+        Assert.Equal(0L, Database.Scalar("SELECT count(*) FROM case_priorities"));
         using var retry = await Send();
         Assert.Equal(HttpStatusCode.Created, retry.StatusCode);
         Assert.Equal(1, Database.Count());
@@ -147,7 +151,7 @@ public class CaseKeyFailureTests : CaseApiTest
             var key = Guid.Parse($"{index + 1:x8}-aaaa-4bbb-8ccc-dddddddddddd");
             last = store.Create("Synthetic batch", "Synthetic inspection", key).Case;
         }
-        Assert.Equal(4, Database.Database.Inspect());
+        Assert.Equal(5, Database.Database.Inspect());
         // This remains a valid case/history chain; only its binding provenance is invalid.
         Database.Execute("UPDATE case_status_history SET kind='Baseline' WHERE case_id=$id", ("$id", last!.Id.ToString("D")));
         Assert.Throws<InvalidDataException>(() => Database.Database.Inspect());
