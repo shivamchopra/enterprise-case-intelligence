@@ -47,7 +47,7 @@ public sealed class CaseLookupBrowserTests(WorkspaceBrowser driver) : IClassFixt
         await Expect(page.Locator("#case-history li")).ToHaveCountAsync(3);
         await Expect(page.GetByLabel("Open case by ID")).ToHaveValueAsync(target.ToString("D"));
         Assert.Equal(before, listRequests.Count);
-        Assert.Equal(new[] { $"GET /cases/{target:D}", $"GET /cases/{target:D}/history" }, reads.Order(StringComparer.Ordinal));
+        Assert.Equal(new[] { $"GET /cases/{target:D}", $"GET /cases/{target:D}/history", $"GET /cases/{target:D}/priority" }, reads.Order(StringComparer.Ordinal));
         Assert.Equal(visibleIds, await page.Locator("#case-list button").EvaluateAllAsync<string[]>("buttons => buttons.map(b => b.dataset.id)"));
         await Expect(page.Locator("#case-list button[aria-pressed='true']")).ToHaveCountAsync(0);
         await page.Locator("#next-page").ClickAsync();
@@ -156,7 +156,7 @@ public sealed class CaseLookupBrowserTests(WorkspaceBrowser driver) : IClassFixt
         await page.RouteAsync($"**/cases/{first:D}**", async route =>
         {
             var response = await route.FetchAsync();
-            if (Interlocked.Increment(ref count) == 2) held.TrySetResult();
+            if (Interlocked.Increment(ref count) == 3) held.TrySetResult();
             await release.Task.WaitAsync(TimeSpan.FromSeconds(15));
             if (fail) await route.FulfillAsync(new() { Status = 500, Body = "SYNTHETIC_SENSITIVE_MARKER" });
             else await route.FulfillAsync(new() { Response = response });
@@ -164,6 +164,7 @@ public sealed class CaseLookupBrowserTests(WorkspaceBrowser driver) : IClassFixt
         });
         var detailDone = page.WaitForResponseAsync(response => new Uri(response.Url).AbsolutePath == $"/cases/{first:D}");
         var historyDone = page.WaitForResponseAsync(response => new Uri(response.Url).AbsolutePath == $"/cases/{first:D}/history");
+        var priorityDone = page.WaitForResponseAsync(response => new Uri(response.Url).AbsolutePath == $"/cases/{first:D}/priority");
         try
         {
             await Lookup(page, first.ToString("D"));
@@ -173,7 +174,7 @@ public sealed class CaseLookupBrowserTests(WorkspaceBrowser driver) : IClassFixt
             await Expect(page.Locator("#case-history li")).ToHaveCountAsync(1);
         }
         finally { release.TrySetResult(); }
-        await Task.WhenAll(detailDone, historyDone);
+        await Task.WhenAll(detailDone, historyDone, priorityDone);
         await page.EvaluateAsync("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
         await Expect(page.Locator("#case-title")).ToHaveTextAsync("Latest list selection");
         await Expect(page.GetByLabel("Open case by ID")).ToHaveValueAsync(second.ToString("D"));

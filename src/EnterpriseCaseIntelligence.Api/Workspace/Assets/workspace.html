@@ -148,6 +148,15 @@
                             <option value="Closed">Closed</option>
                         </select>
                     </div>
+                    <div class="filter-row">
+                        <label for="priority-filter">Priority</label>
+                        <select id="priority-filter">
+                            <option value="">All priorities</option>
+                            <option value="Low">Low</option>
+                            <option value="Normal">Normal</option>
+                            <option value="High">High</option>
+                        </select>
+                    </div>
                     <p
                         id="list-message"
                         class="feedback"
@@ -242,6 +251,27 @@
                             >
                         </div>
                     </div>
+                    <section id="priority-section" class="priority-section" aria-labelledby="priority-heading" hidden>
+                        <div class="history-header">
+                            <h3 id="priority-heading">Case priority</h3>
+                            <button id="refresh-priority" class="quiet" type="button" disabled>Refresh priority</button>
+                        </div>
+                        <p class="subtle">Current staff choice. Priority changes have no recorded history or actor identity.</p>
+                        <p id="priority-message" class="feedback" role="status" aria-live="polite"></p>
+                        <p id="priority-value" aria-live="polite" hidden>Current priority: <strong id="case-priority"></strong></p>
+                        <form id="priority-form" method="post" action="/workspace" novalidate hidden>
+                            <label for="priority-choice">Change priority</label>
+                            <div class="priority-controls">
+                                <select id="priority-choice" aria-describedby="priority-hint">
+                                    <option value="Low">Low</option>
+                                    <option value="Normal">Normal</option>
+                                    <option value="High">High</option>
+                                </select>
+                                <button id="save-priority" type="submit">Save priority</button>
+                            </div>
+                            <p id="priority-hint" class="subtle">Choose a value and save explicitly. Refresh case for current status before acting.</p>
+                        </form>
+                    </section>
                     <section
                         class="history-section"
                         aria-labelledby="history-heading"
@@ -258,8 +288,8 @@
                             </button>
                         </div>
                         <p class="subtle">
-                            Recorded changes, without actor identity. Details
-                            and history load separately.
+                            Recorded status changes, without actor identity. Details,
+                            priority and history load separately.
                         </p>
                         <p
                             id="history-message"

@@ -428,7 +428,8 @@ textarea {
     font-size: 0.8rem;
     color: var(--muted);
 }
-.history-section {
+.history-section,
+.priority-section {
     border-top: 1px solid var(--line);
     padding: 23px 24px;
 }
@@ -450,7 +451,8 @@ textarea {
     font-size: 0.8rem;
     color: var(--muted);
 }
-.history-section > .feedback:not(:empty) {
+.history-section > .feedback:not(:empty),
+.priority-section > .feedback:not(:empty) {
     padding: 12px 0;
 }
 .timeline {
@@ -656,5 +658,31 @@ form > .feedback:not(:empty) {
 @media (prefers-reduced-motion: no-preference) {
     button {
         transition: background 0.12s ease;
+    }
+}
+
+.priority-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+.priority-controls select {
+    min-width: 0;
+}
+#priority-form > label {
+    margin: 12px 0 7px;
+}
+
+@media (max-width: 480px) {
+    .filter-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+    }
+    .filter-row select {
+        flex: none;
+        width: 100%;
+        max-width: none;
     }
 }

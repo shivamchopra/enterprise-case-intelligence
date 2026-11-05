@@ -102,13 +102,13 @@ The workspace preserves Domain and persistence boundaries, existing HTTP contrac
 
 The [project roadmap](../roadmap.md) assesses workflow value, demonstration, security, operations, integration and AI together. EF Core remains the persistence approach when a feature needs persistence; it does not determine feature priority.
 
-## Case prioritization — backend implemented, workspace pending
+## Case prioritization — implemented local workflow
 
 The [Phase 9 contract](../requirements/phase-9-case-prioritization.md) supplies Low/Normal/High choices through Reader-authorized `GET /cases/{id}/priority`, CSRF-protected Caseworker `PUT` and optional list filtering. Creation defaults to Normal. Closed allows a validated same-value no-op and rejects a different priority. Existing four-field case/creation/replay/status representations and status-only workload summary remain unchanged. Priority has no actor or audit history.
 
 [ADR 0016](../adr/0016-expose-case-priority-without-changing-creation-replay.md) records the real-provider reason for a scaffolded one-to-one STRICT priority table: the column/check candidate required transaction-suppressed foreign-key changes during SQLite rebuild. The supported two-migration chain, bounded source/backfill/target checks and one offline transaction preserve formats 1–4 on explicit upgrade to 5. Left-joined selected/list cases detect missing priority instead of dropping the parent. Ordinary operations never repair damaged state. Priority/status writers serialize through the existing lock and SQLite transaction; independent-writer tests cover both Close orderings. A lost priority response requires reading current state before another explicit choice, because blind replay could overwrite another worker.
 
-The [delivery task](../tasks/case-prioritization.md) tracks backend evidence and the next selected-case/filter/edit workspace slice. Browser priority controls, no per-row fetches, session clearing and uncertainty/generation handling remain to be implemented and verified. Hosted acceptance remains separate.
+The workspace combines the priority filter with submitted title/status and continuation, and loads priority only for the selected case. Independent generation/error/refresh state rejects stale selection/session responses and malformed or mismatched values. Reader sees current priority; Caseworker can explicitly save a different value after current case/status and priority load successfully. Closed exposes no different-priority action. Pending status/priority writes block competing actions. Confirmed writes refresh current views and the first filtered page separately from overall status totals. Uncertain writes invalidate case and priority reads before another action, including the same case reselected during access refresh. No automatic write replay occurs and frozen creation draft/key state is preserved. The [delivery task](../tasks/case-prioritization.md) maps published browser, real-cookie direct/proxy security, keyboard/mobile and backend evidence. Hosted acceptance remains separate.
 
 ## Deferred local reliability proposal — not implemented
 
