@@ -43,6 +43,17 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
         await page.GetByLabel("Description").FillAsync("Synthetic secure browser journey.");
         await page.Locator("#create-submit").ClickAsync();
         await Expect(page.Locator("#case-title")).ToHaveTextAsync("Authenticated fictional case");
+        await Expect(page.Locator("#case-priority")).ToHaveTextAsync("Normal");
+        var priorityTokens = new List<string>();
+        page.Request += (_, request) =>
+        {
+            if (request.Method == "PUT" && new Uri(request.Url).AbsolutePath.EndsWith("/priority", StringComparison.Ordinal))
+                priorityTokens.Add(request.Headers.GetValueOrDefault("x-eci-csrf", ""));
+        };
+        await page.GetByLabel("Change priority").SelectOptionAsync("High");
+        await page.Locator("#save-priority").ClickAsync();
+        await Expect(page.Locator("#case-priority")).ToHaveTextAsync("High");
+        Assert.NotEmpty(Assert.Single(priorityTokens));
         await page.Locator("#advance-case").ClickAsync();
         await Expect(page.Locator("#case-status")).ToHaveTextAsync("In review");
         Assert.Equal(1, host.Database.Count());
@@ -72,12 +83,16 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
             await page.Locator("#refresh-access").DispatchEventAsync("click");
             Assert.Equal(0, sessionChecks);
             await Expect(page.Locator("#case-title")).ToHaveTextAsync("");
+            await Expect(page.Locator("#case-priority")).ToHaveTextAsync("");
+            await Expect(page.Locator("#priority-choice")).ToHaveValueAsync("");
         }
         finally { releaseLogout.TrySetResult(); }
         await Expect(page.Locator("#access-message")).ToContainTextAsync("Signed out of this application");
         await Expect(page.Locator("#case-title")).ToHaveTextAsync("");
         await Expect(page.Locator("#case-list li")).ToHaveCountAsync(0);
         await Expect(page.Locator("#overview-total")).ToHaveTextAsync("");
+        await Expect(page.Locator("#case-priority")).ToHaveTextAsync("");
+        await Expect(page.Locator("#priority-choice")).ToHaveValueAsync("");
         var denied = await context.APIRequest.GetAsync(new Uri(host.Origin, "/cases").AbsoluteUri);
         Assert.Equal(401, denied.Status);
         Assert.Equal(0, await page.EvaluateAsync<int>("localStorage.length + sessionStorage.length"));
@@ -93,6 +108,7 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
     {
         await using var host = new SecurityHost();
         var record = new EnterpriseCaseIntelligence.Api.Cases.SqliteCaseStore(host.Database.Database).Create("Reader-visible fictional case", "Synthetic description.");
+        new EnterpriseCaseIntelligence.Api.Cases.SqliteCaseStore(host.Database.Database).ChangePriority(record.Id, EnterpriseCaseIntelligence.Domain.Cases.CasePriority.High);
         var (context, page) = await Open(host, proxy, configurationCertificate); await using var browserContext = context;
         await Expect(page.Locator("#case-lookup-form")).Not.ToBeVisibleAsync();
         await Login(page);
@@ -105,11 +121,19 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
         await Expect(page.Locator("#case-history li")).ToHaveCountAsync(1);
         await Expect(page.Locator("#new-case")).Not.ToBeVisibleAsync();
         await Expect(page.Locator("#advance-case")).Not.ToBeVisibleAsync();
+        await Expect(page.Locator("#case-priority")).ToHaveTextAsync("High");
+        await Expect(page.Locator("#priority-form")).Not.ToBeVisibleAsync();
+        await page.GetByLabel("Priority", new() { Exact = true }).SelectOptionAsync("High");
+        await Expect(page.Locator("#case-list li")).ToHaveCountAsync(1);
+        var priorityStatus = await page.EvaluateAsync<int>("async () => { const session = await (await fetch('/auth/session')).json(); return (await fetch('/cases/" + record.Id.ToString("D") + "/priority', {method:'PUT',headers:{'Content-Type':'application/json','X-ECI-CSRF':session.csrfToken},body:JSON.stringify({priority:'High'})})).status; }");
+        Assert.Equal(403, priorityStatus);
         var status = await page.EvaluateAsync<int>("async () => (await fetch('/cases', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title:'Forbidden',description:'Fictional'})})).status");
         Assert.Equal(403, status); Assert.Equal(1, host.Database.Count());
         await page.Locator("#sign-out").ClickAsync();
         await Expect(page.Locator("#sign-in")).ToBeVisibleAsync();
         await Expect(page.GetByLabel("Open case by ID")).ToHaveValueAsync("");
+        await Expect(page.Locator("#case-priority")).ToHaveTextAsync("");
+        await Expect(page.Locator("#priority-choice")).ToHaveValueAsync("");
     }
 
     [Fact]
@@ -122,12 +146,18 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
         var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        await page.RouteAsync("**/history", async route =>
+        var heldReads = 0;
+        var finishedReads = 0;
+        async Task DelayRead(IRoute route)
         {
-            var response = await route.FetchAsync(); held.TrySetResult();
+            var response = await route.FetchAsync();
+            if (Interlocked.Increment(ref heldReads) == 2) held.TrySetResult();
             await release.Task.WaitAsync(TimeSpan.FromSeconds(15));
-            await route.FulfillAsync(new() { Response = response }); completed.TrySetResult();
-        });
+            await route.FulfillAsync(new() { Response = response }); await response.DisposeAsync();
+            if (Interlocked.Increment(ref finishedReads) == 2) completed.TrySetResult();
+        }
+        await page.RouteAsync("**/history", DelayRead);
+        await page.RouteAsync("**/priority", DelayRead);
         try
         {
             await page.Locator("#case-list button").ClickAsync();
@@ -144,6 +174,8 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
         await Expect(page.Locator("#sign-in")).ToBeVisibleAsync();
         await Expect(page.Locator("#case-title")).ToHaveTextAsync("");
         await Expect(page.Locator("#case-description")).ToHaveTextAsync("");
+        await Expect(page.Locator("#case-priority")).ToHaveTextAsync("");
+        await Expect(page.Locator("#priority-choice")).ToHaveValueAsync("");
         await Expect(page.GetByLabel("Open case by ID")).ToHaveValueAsync("");
         await Expect(page.Locator("#case-history li")).ToHaveCountAsync(0);
         await Expect(page.Locator("#protected-workspace")).Not.ToBeVisibleAsync();
@@ -182,12 +214,15 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
     public async Task IdlePageClearsProtectedViewsAtTheAbsoluteSessionDeadline()
     {
         await using var host = new SecurityHost();
-        new EnterpriseCaseIntelligence.Api.Cases.SqliteCaseStore(host.Database.Database).Create("Idle synthetic case", "Fictional description.");
+        var idleStore = new EnterpriseCaseIntelligence.Api.Cases.SqliteCaseStore(host.Database.Database);
+        var idle = idleStore.Create("Idle synthetic case", "Fictional description.");
+        idleStore.ChangePriority(idle.Id, EnterpriseCaseIntelligence.Domain.Cases.CasePriority.High);
         var (context, page) = await Open(host); await using var browserContext = context;
         await page.Clock.InstallAsync();
         await Login(page);
         await page.Locator("#case-list button").ClickAsync();
         await Expect(page.Locator("#case-title")).ToHaveTextAsync("Idle synthetic case");
+        await Expect(page.Locator("#case-priority")).ToHaveTextAsync("High");
         await page.GetByLabel("Open case by ID").FillAsync("not-a-case-id");
         await page.GetByLabel("Open case by ID").PressAsync("Enter");
         await Expect(page.Locator("#case-lookup-error")).ToContainTextAsync("8-4-4-4-12");
@@ -200,6 +235,8 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
         await Expect(page.GetByLabel("Open case by ID")).ToHaveValueAsync("");
         await Expect(page.Locator("#case-lookup-error")).ToHaveTextAsync("");
         await Expect(page.Locator("#overview-total")).ToHaveTextAsync("");
+        await Expect(page.Locator("#case-priority")).ToHaveTextAsync("");
+        await Expect(page.Locator("#priority-choice")).ToHaveValueAsync("");
         var denied = await context.APIRequest.GetAsync(new Uri(host.Origin, "/cases").AbsoluteUri); Assert.Equal(401, denied.Status);
     }
 

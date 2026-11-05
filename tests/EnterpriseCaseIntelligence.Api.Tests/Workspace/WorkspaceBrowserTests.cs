@@ -356,13 +356,14 @@ public sealed class WorkspaceBrowserTests(WorkspaceBrowser driver) : IClassFixtu
             if (!new Uri(route.Request.Url).AbsolutePath.StartsWith($"/cases/{first:D}", StringComparison.Ordinal))
             { await route.ContinueAsync(); return; }
             var response = await route.FetchAsync();
-            if (Interlocked.Increment(ref heldReads) == 2) held.TrySetResult();
+            if (Interlocked.Increment(ref heldReads) == 3) held.TrySetResult();
             await release.Task.WaitAsync(TimeSpan.FromSeconds(15));
             await route.FulfillAsync(new() { Response = response });
             await response.DisposeAsync();
         });
         var obsoleteDone = page.WaitForResponseAsync(response => new Uri(response.Url).AbsolutePath == $"/cases/{first:D}");
         var obsoleteHistoryDone = page.WaitForResponseAsync(response => new Uri(response.Url).AbsolutePath == $"/cases/{first:D}/history");
+        var obsoletePriorityDone = page.WaitForResponseAsync(response => new Uri(response.Url).AbsolutePath == $"/cases/{first:D}/priority");
         try
         {
             await page.Locator($"button[data-id='{first:D}']").ClickAsync();
@@ -373,6 +374,7 @@ public sealed class WorkspaceBrowserTests(WorkspaceBrowser driver) : IClassFixtu
         finally { release.TrySetResult(); }
         await obsoleteDone;
         await obsoleteHistoryDone;
+        await obsoletePriorityDone;
         // Let browser fetch continuations finish before checking the final view.
         await page.EvaluateAsync("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
         await Expect(page.Locator("#case-title")).ToHaveTextAsync("Latest selection");

@@ -2,15 +2,19 @@
 
 const byId = (id) => document.getElementById(id);
 const statusNames = { New: "New", InReview: "In review", Closed: "Closed" };
+const priorityNames = ["Low", "Normal", "High"];
 let listGeneration = 0;
 let detailGeneration = 0;
 let historyGeneration = 0;
 let overviewGeneration = 0;
+let priorityGeneration = 0;
 let nextAfter = null;
 let submittedTitle = null;
 let selectedId = null;
 let currentCase = null;
 let changingStatus = false;
+let changingPriority = false;
+let currentPriority = null;
 let draft = null;
 let creating = false;
 let uncertain = false;
@@ -57,7 +61,7 @@ async function request(path, options = {}) {
     if (response.status === 401 || response.status === 403) {
         clearAccess(
             response.status === 401
-                ? "Sign in to continue. An unfinished creation may already have committed. Signing in leaves this page and loses its retry context; reconcile saved cases before creating again."
+                ? "Sign in to continue. An unfinished write may already have committed. Signing in leaves this page and loses creation retry context; reconcile saved cases before writing again."
                 : "Access denied. Your current session has no permission for this action. Refresh access or sign out.",
         );
         byId("sign-in").hidden = response.status !== 401;
@@ -89,6 +93,10 @@ function clearAccess(text) {
     ++detailGeneration;
     ++historyGeneration;
     ++overviewGeneration;
+    ++priorityGeneration;
+    clearPriority();
+    byId("priority-section").hidden = true;
+    message("priority-message", "");
     clearOverview();
     message("overview-message", "");
     byId("overview-counts").setAttribute("aria-busy", "false");
@@ -120,6 +128,7 @@ function clearAccess(text) {
     byId("case-lookup").setAttribute("aria-invalid", "false");
     byId("case-lookup-error").textContent = "";
     byId("refresh-case").disabled = byId("refresh-history").disabled = true;
+    byId("refresh-priority").disabled = true;
     byId("access-label").textContent = "ACCESS REQUIRED";
     message("access-message", text, true);
     renderAction();
@@ -265,6 +274,8 @@ async function loadList(after = null) {
     const filter = byId("status-filter").value;
     const query = new URLSearchParams();
     if (filter) query.set("status", filter);
+    const priority = byId("priority-filter").value;
+    if (priority) query.set("priority", priority);
     if (submittedTitle !== null) query.set("title", submittedTitle);
     if (after) query.set("after", after);
     byId("search-error").textContent = "";
@@ -302,7 +313,7 @@ async function loadList(after = null) {
             "list-message",
             cases.length
                 ? ""
-                : "No cases match this view. Clear or change the search/status, or create a synthetic case.",
+                : "No cases match this view. Clear or change the search/status/priority, or create a synthetic case.",
         );
     } catch (error) {
         if (generation === listGeneration) {
@@ -376,19 +387,21 @@ function renderAction() {
     const button = byId("advance-case");
     button.hidden =
         !canWrite || !currentCase || currentCase.status === "Closed";
-    button.disabled = changingStatus;
+    button.disabled = changingStatus || changingPriority || currentPriority === null;
     button.textContent = changingStatus
         ? "Saving…"
         : currentCase?.status === "New"
           ? "Start review"
           : "Close case";
     byId("closed-note").hidden = currentCase?.status !== "Closed";
+    renderPriority();
 }
 
 async function loadDetails(id) {
     const generation = ++detailGeneration;
     currentCase = null;
     byId("case-detail").hidden = true;
+    renderAction();
     message("detail-message", "Loading case details…");
     try {
         const record = caseValue(await request("/cases/" + id));
@@ -414,6 +427,132 @@ async function loadDetails(id) {
                 true,
             );
         }
+    }
+}
+
+function clearPriority() {
+    currentPriority = null;
+    byId("case-priority").textContent = "";
+    byId("priority-value").hidden = true;
+    byId("priority-form").hidden = true;
+    byId("priority-choice").selectedIndex = -1;
+    byId("priority-section").setAttribute("aria-busy", "false");
+}
+
+function priorityValue(value, id) {
+    if (
+        !value ||
+        value.caseId !== id ||
+        !priorityNames.includes(value.priority) ||
+        Object.keys(value).sort().join(",") !== "caseId,priority"
+    )
+        throw new Error("Invalid priority response");
+    return value.priority;
+}
+
+function renderPriority() {
+    const pending = changingStatus || changingPriority;
+    byId("priority-form").hidden =
+        !canWrite || !currentCase || currentPriority === null ||
+        currentCase.status === "Closed";
+    byId("priority-choice").disabled = pending;
+    byId("save-priority").disabled =
+        pending || currentPriority === null ||
+        byId("priority-choice").value === currentPriority;
+    byId("save-priority").textContent = changingPriority ? "Saving…" : "Save priority";
+    byId("refresh-priority").disabled = !canRead || !selectedId || pending;
+}
+
+async function loadPriority(id) {
+    if (!canRead) return;
+    const generation = ++priorityGeneration;
+    clearPriority();
+    renderAction();
+    byId("priority-section").setAttribute("aria-busy", "true");
+    message("priority-message", "Loading case priority…");
+    try {
+        const priority = priorityValue(
+            await request("/cases/" + id + "/priority"), id,
+        );
+        if (generation !== priorityGeneration || id !== selectedId) return;
+        currentPriority = priority;
+        byId("case-priority").textContent = priority;
+        byId("priority-value").hidden = false;
+        byId("priority-choice").value = priority;
+        message("priority-message", "");
+    } catch (error) {
+        if (generation === priorityGeneration && id === selectedId)
+            message(
+                "priority-message",
+                error.status === 404
+                    ? "This case could not be found. Check the ID or choose a case from the list."
+                    : "Case priority could not be loaded. Use Refresh priority to try again.",
+                true,
+            );
+    } finally {
+        if (generation === priorityGeneration && id === selectedId) {
+            byId("priority-section").setAttribute("aria-busy", "false");
+            renderAction();
+        }
+    }
+}
+
+function requireCurrentState(id) {
+    if (id !== selectedId) return;
+    ++detailGeneration;
+    ++priorityGeneration;
+    currentCase = null;
+    byId("case-detail").hidden = true;
+    clearPriority();
+    message("detail-message", "Refresh case to read current state before another action.", true);
+    message("priority-message", "Refresh case and priority before another action.", true);
+    renderAction();
+}
+
+async function savePriority(event) {
+    event.preventDefault();
+    const priority = byId("priority-choice").value;
+    if (
+        !canWrite || !currentCase || currentPriority === null ||
+        changingStatus || changingPriority || currentCase.status === "Closed" ||
+        !priorityNames.includes(priority) || priority === currentPriority
+    ) return;
+    const generation = sessionGeneration;
+    const id = currentCase.id;
+    const title = currentCase.title;
+    changingPriority = true;
+    renderAction();
+    message("mutation-message", "Saving priority change…");
+    try {
+        const value = await request("/cases/" + id + "/priority", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ priority }),
+        });
+        if (priorityValue(value, id) !== priority) throw new Error("Unconfirmed priority");
+        message(
+            "mutation-message",
+            `Priority change confirmed for “${title}”. Refreshing current views; any read failure below does not undo this change.`,
+        );
+        if (id === selectedId) selectCase(id);
+        void loadList();
+        void loadOverview();
+    } catch (error) {
+        if (generation !== sessionGeneration) return;
+        message(
+            "mutation-message",
+            error.status === 409
+                ? "This case is closed and the priority change was rejected. Refresh case before choosing another action."
+                : "The priority change could not be confirmed. Refresh case and priority to reconcile before choosing another action.",
+            true,
+        );
+        requireCurrentState(id);
+    } finally {
+        // Access may have refreshed while this write was in flight. Even an ignored
+        // old-session result can leave a newly selected copy of this case stale.
+        if (generation !== sessionGeneration) requireCurrentState(id);
+        changingPriority = false;
+        renderAction();
     }
 }
 
@@ -478,13 +617,15 @@ function selectCase(id) {
     byId("refresh-history").disabled = false;
     void loadDetails(id);
     void loadHistory(id);
+    byId("priority-section").hidden = false;
+    void loadPriority(id);
 }
 
 async function advanceCase() {
     if (
         !canWrite ||
         !currentCase ||
-        changingStatus ||
+        changingStatus || changingPriority || currentPriority === null ||
         currentCase.status === "Closed"
     )
         return;
@@ -514,21 +655,13 @@ async function advanceCase() {
             "mutation-message",
             error.status === 409
                 ? "The case has changed and this action was rejected. Refresh the case before choosing another action."
-                : "The status change could not be confirmed. Refresh the case and history to reconcile before trying again.",
+                : "The status change could not be confirmed. Refresh case, priority and history to reconcile before trying again.",
             true,
         );
-        // An uncertain or rejected action must not remain available from stale data.
-        if (id === selectedId) {
-            ++detailGeneration;
-            currentCase = null;
-            byId("case-detail").hidden = true;
-            message(
-                "detail-message",
-                "Refresh case to read current state before another action.",
-                true,
-            );
-        }
+        // Status and priority both need fresh observations after an uncertain write.
+        requireCurrentState(id);
     } finally {
+        if (generation !== sessionGeneration) requireCurrentState(id);
         changingStatus = false;
         renderAction();
     }
@@ -678,6 +811,12 @@ byId("clear-search").addEventListener("click", () => {
     void loadList();
 });
 byId("status-filter").addEventListener("change", () => void loadList());
+byId("priority-filter").addEventListener("change", () => void loadList());
+byId("priority-choice").addEventListener("change", renderPriority);
+byId("priority-form").addEventListener("submit", (event) => void savePriority(event));
+byId("refresh-priority").addEventListener("click", () => {
+    if (canRead && selectedId && !changingStatus && !changingPriority) void loadPriority(selectedId);
+});
 byId("refresh-list").addEventListener("click", () => void loadList());
 byId("refresh-overview").addEventListener("click", () => void loadOverview());
 byId("next-page").addEventListener("click", () => {

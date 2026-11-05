@@ -1,8 +1,9 @@
 # 0016: Expose case priority without changing creation replay
 
-- Status: Accepted — backend implemented; workspace controls pending
+- Status: Accepted — backend and browser workflow implemented
 - Date: 2026-11-02
 - Implementation amendment: 2026-11-03
+- Workspace completion: 2026-11-04
 
 ## Context
 
@@ -33,4 +34,10 @@ Priority captures current triage choice, not priority history or actor attributi
 - Priority sorting, ownership and SLA automation need additional rules and pagination/concurrency evidence. The first slice supplies a High filter, not an automatically ordered work queue.
 - A model change now has a concrete business purpose, so EF migration/adoption work is justified. It does not select SQL Server/Azure SQL, introduce another production layer or relax the $0 hosting boundary.
 
-[The delivery task](../tasks/case-prioritization.md) defines the implementation gates. ADR 0007 remains the historical accepted EF adoption decision; this record is its format-5 compatibility amendment. Browser priority behavior remains selected but unimplemented, with acceptance tracked separately from the tested backend.
+[The delivery task](../tasks/case-prioritization.md) defines the implementation gates. ADR 0007 remains the historical accepted EF adoption decision; this record is its format-5 compatibility amendment. The browser workflow is implemented and tested against published assets, with authenticated coverage through direct HTTPS and the loopback proxy for both certificate sources.
+
+## Browser completion
+
+The workspace combines the optional priority filter with submitted title/status and ID continuation. Selection/lookup fetches only the selected case's priority, with its own generation, loading/error/refresh state and strict response/identity validation. No list-row priority fetches or badges are added. Reader sees current priority; Caseworker editing needs successful current details and priority, excludes differing Closed actions and requires explicit Save. Pending priority/status writes disable competing actions, while changing selection remains available.
+
+Confirmed priority writes refresh selected details/history/priority, the first filtered page and independent status totals. Failed/uncertain priority or status writes invalidate both current case and priority plus outstanding reads; another action requires fresh observations. A write settling after access refresh also invalidates the same reselected case, without displaying old-session feedback. Old successes/failures cannot restore stale selection/session state. No automatic write retry or creation-draft/key replacement occurs. Late responses, concurrent Close, lost committed output, failed post-success reads, frozen creation replay and access clearing have real-browser coverage.

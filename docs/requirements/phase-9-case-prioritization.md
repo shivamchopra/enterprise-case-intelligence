@@ -1,6 +1,6 @@
 # Phase 9: prioritize saved synthetic cases
 
-**Status: backend implemented; browser priority controls pending.** Domain rules, separate priority resources, bounded API filtering and explicit format-5 upgrades are implemented. The browser behavior below remains the next slice. [Delivery evidence and remaining work](../tasks/case-prioritization.md) distinguish those boundaries. [Hosted acceptance](phase-8-secure-hosting.md) remains pending under the [$0 cost boundary](../tasks/zero-cost-review-hosting.md); this work does not authorize cloud changes.
+**Status: reviewed and implemented for the local workflow.** Domain/store/API rules, explicit format-5 upgrades and browser priority filtering/read/edit/reconciliation are implemented. [Delivery evidence](../tasks/case-prioritization.md) maps CP-01–12 to passing tests. [Hosted acceptance](phase-8-secure-hosting.md) remains pending under the [$0 cost boundary](../tasks/zero-cost-review-hosting.md); this work does not authorize cloud changes.
 
 ## Scenario and outcome
 
@@ -45,7 +45,7 @@ A known creation key still compares only normalized immutable title/description 
 
 The client retrieves current priority separately after creation/replay. A creation key is not a priority-write key; priority writes do not consume or create bindings. After an uncertain priority response, read current case/priority before an explicit further write. A blind retry could replace another worker's later choice, so neither API nor UI promises exactly-once priority updates or automatic write replay.
 
-## Browser behavior — pending implementation
+## Browser behavior
 
 Add an All/Low/Normal/High priority filter beside existing list filters. Explain that filtering finds a chosen priority while ordering remains by ID. Next, list refresh and post-mutation refresh retain submitted title/status/priority; changing a filter starts from the first page. Keep lookup by known ID independent of list membership. The four-field list does not acquire per-row priority badges or automatic per-row fetches in this slice.
 
@@ -65,7 +65,7 @@ Cover both freshly initialized and historically adopted format-4 layouts and sup
 
 ## Acceptance criteria
 
-| ID | Required evidence before marking implemented |
+| ID | Acceptance requirement (evidence linked in the delivery task) |
 | --- | --- |
 | CP-01 | Domain covers all priorities/statuses, invalid enum values, Closed no-op versus change, immutable text and independent status transitions. |
 | CP-02 | New priority reads/writes have exact responses, strict ID/query/body/media validation and safe missing/unavailable/corrupt outcomes. Invalid inputs precede I/O. |
@@ -80,4 +80,4 @@ Cover both freshly initialized and historically adopted format-4 layouts and sup
 | CP-11 | Accessibility, narrow/zoomed layout, no executable/raw error rendering and protected-state clearing pass against published output. |
 | CP-12 | Existing case/history/creation/summary representations and lifecycle contracts remain, full gates pass and README/runbooks distinguish implementation from remaining hosting/operations work. |
 
-No new cloud resource, identity grant, service/broker, server database, AI capability, background job, ownership, deletion or actor audit is selected. The current runtime includes the priority domain/store/API/filter/model and format-5 support. The selected-case priority UI and browser filter described above remain pending; CP-10/11 and their browser-specific CP-03/12 evidence must pass before the complete capability is claimed.
+No new cloud resource, identity grant, service/broker, server database, AI capability, background job, ownership, deletion or actor audit is selected. The current runtime includes the priority Domain/store/API/filter/model, format-5 support and selected-case browser workflow described above. This is current triage state, without a priority audit, staff ownership or hosted acceptance.
