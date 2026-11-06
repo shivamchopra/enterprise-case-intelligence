@@ -22,6 +22,7 @@ dotnet build EnterpriseCaseIntelligence.slnx --configuration Release --no-restor
 dotnet build tools/ReviewHostPreflight.cs --configuration Release
 dotnet run --file tools/ReviewHostPreflight.cs --configuration Release --no-build -- --proposal infra/review-probe/azuredeploy.json
 dotnet ef migrations has-pending-model-changes --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build
+dotnet ef migrations has-pending-model-changes --project tools/EnterpriseCaseIntelligence.RecordsIntake --configuration Release --no-build
 # Once per Playwright update; Linux may require install --with-deps chromium.
 dotnet exec --runtimeconfig tests/EnterpriseCaseIntelligence.Api.Tests/bin/Release/net10.0/EnterpriseCaseIntelligence.Api.Tests.runtimeconfig.json tests/EnterpriseCaseIntelligence.Api.Tests/bin/Release/net10.0/Microsoft.Playwright.dll install chromium
 dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build
@@ -33,7 +34,9 @@ The independent [operator probe](docs/usage/operator-review-probe.md) is built w
 
 Workspace tests use the pinned Microsoft.Playwright library and its Chromium download. After installing it, the normal test command includes the real-browser journey. For a browser-free backend check use `--filter 'Category!=Browser'`; browser coverage is still required before submitting UI changes. CI runs backend checks and a separate `Category=Browser` job: LocalDemo journeys use the published API; authenticated journeys use direct HTTPS and a real HTTPS-to-HTTP proxy fixture with test-only OIDC metadata/backchannel injection. The application itself needs neither Chromium nor Node. See [ADR 0008](docs/adr/0008-serve-a-local-browser-case-workspace.md) for the boundary and test approach.
 
-The UpgradeFixture project under `tests/` is an executable fixture for deterministic upgrade interruption and lost-completion tests. Keep its pipe barriers/failure controls out of production commands. Use frozen version-1/2/3 fixtures and the captured released format-4 and format-5 catalogs for compatibility tests; never run upgrade validation against user data.
+The [records intake executable](docs/usage/local-records-intake.md) uses its own Code First SQLite model and snapshot. CI publishes the tool and sets `ECI_TEST_INTAKE_ASSEMBLY` for two-file tests that invoke the published command. Controlled loopback responses verify transport limits and concurrent retries.
+
+The UpgradeFixture project under `tests/` is an executable fixture for deterministic upgrade, closure and intake interruption tests. Keep its pipe barriers/failure controls out of production commands. Use frozen version-1/2/3 fixtures and the captured released format-4 and format-5 catalogs for compatibility tests; never run upgrade validation against user data.
 
 Add tests when behavior changes. Update documentation when behavior or design changes, and add or update ADRs for meaningful architecture decisions. Keep planned functionality clearly distinguished from implemented functionality.
 
@@ -47,4 +50,4 @@ For a model change, restore the pinned local tool, update the Fluent API model a
 dotnet ef migrations add DescriptiveChange --project src/EnterpriseCaseIntelligence.Api --output-dir Cases/Migrations
 ```
 
-Inspect the generated operations and snapshot, and test the compatibility/version amendment against retained files. The design-time factory uses only an in-memory SQLite configuration; it never selects a user store. Apply changes through the application's explicit offline commands in the walkthrough. See [ADR 0007](docs/adr/0007-adopt-ef-core-code-first.md) for transaction ownership and documented SQL exceptions.
+For receipt schema changes, use `--project tools/EnterpriseCaseIntelligence.RecordsIntake --output-dir Migrations`. Inspect the generated operations and snapshot, and test the compatibility/version amendment against retained files. The design-time factory uses only an in-memory SQLite configuration; it never selects a user store. Apply changes through the application's explicit offline commands in the walkthrough. See [ADR 0007](docs/adr/0007-adopt-ef-core-code-first.md) for transaction ownership and documented SQL exceptions.

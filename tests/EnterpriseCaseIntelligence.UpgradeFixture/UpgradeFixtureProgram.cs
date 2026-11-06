@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO.Pipes;
 using EnterpriseCaseIntelligence.Api.Cases;
 using EnterpriseCaseIntelligence.Domain.Cases;
+using EnterpriseCaseIntelligence.RecordsIntake;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EnterpriseCaseIntelligence.UpgradeFixture;
@@ -11,6 +12,15 @@ public static class UpgradeFixtureProgram
 {
     public static int Main(string[] args)
     {
+        if (args is [var receiptMode, var receiptPipe, .. var command] &&
+            receiptMode is "receipt-row" or "receipt-checkpoint" or "receipt-committed")
+        {
+            using var barrier = new StoreBarrier(receiptMode, receiptPipe);
+            using var interruptedOutput = new ReceiptOutputBarrier(barrier);
+            var output = receiptMode == "receipt-committed" ? (TextWriter)interruptedOutput : Console.Out;
+            return IntakeCommand.RunAsync(command, output, Console.Error).GetAwaiter().GetResult();
+        }
+
         if (args is [var closeMode, var closePath, var closePipe, var id] &&
             closeMode is "close-status" or "close-history" or "close-notice" or "close-committed")
         {
@@ -61,6 +71,8 @@ public static class UpgradeFixtureProgram
                 "close-status" => sql.StartsWith("UPDATE \"cases\"", StringComparison.Ordinal),
                 "close-history" => sql.StartsWith("INSERT INTO \"case_status_history\"", StringComparison.Ordinal),
                 "close-notice" => sql.StartsWith("INSERT INTO \"case_closure_notices\"", StringComparison.Ordinal),
+                "receipt-row" => sql.StartsWith("INSERT INTO \"closure_receipts\"", StringComparison.Ordinal),
+                "receipt-checkpoint" => sql.StartsWith("UPDATE \"receipt_checkpoint\"", StringComparison.Ordinal),
                 _ => false
             };
             if (matches) Stop();
@@ -78,6 +90,15 @@ public static class UpgradeFixtureProgram
         public void OnCompleted() { }
         public void OnError(Exception error) { }
         public void Dispose() { foreach (var subscription in _subscriptions) subscription.Dispose(); }
+    }
+
+    private sealed class ReceiptOutputBarrier(StoreBarrier barrier) : StringWriter
+    {
+        public override Task WriteLineAsync(string? value)
+        {
+            barrier.Stop();
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class BarrierClock(string pipeName) : TimeProvider

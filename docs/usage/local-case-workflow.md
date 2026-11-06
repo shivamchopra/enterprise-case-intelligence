@@ -119,7 +119,7 @@ Compare the notice's history sequence and timestamp with the case history. Repea
 curl --fail-with-body "http://localhost:5080/integrations/case-closures?streamId=${STREAM_ID}&after=${AFTER}"
 ```
 
-An empty continuation keeps the same cursor. After a different case closes, the same continuation returns the new notice. Preserve the stream ID with the cursor when saving a checkpoint. A replacement file returns `409 handoff_source_changed` for the old stream, while an unknown positive position on the same stream returns `409 handoff_checkpoint_unknown`. For a lost close response, read the retained case/history or repeat the Closed request, then check the feed. [Phase 10 pull contract](../requirements/phase-10-case-closure-handoff.md#pull-contract)
+An empty continuation keeps the same cursor. After a different case closes, the same continuation returns the new notice. Preserve the stream ID with the cursor when saving a checkpoint. A replacement file returns `409 handoff_source_changed` for the old stream, while an unknown positive position on the same stream returns `409 handoff_checkpoint_unknown`. For a lost close response, read the retained case/history or repeat the Closed request, then check the feed. [Phase 10 pull contract](../requirements/phase-10-case-closure-handoff.md#pull-contract) · [Run the records intake](local-records-intake.md)
 
 ## Create a case
 
