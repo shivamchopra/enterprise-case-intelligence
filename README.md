@@ -98,7 +98,7 @@ docs/
 
 ## Getting Started
 
-Prerequisite: a stable **.NET 10 SDK** satisfying [global.json](global.json): 10.0.300 or a later stable patch/feature band within .NET 10.0. The SQLite native engine comes through NuGet. Commands below use a POSIX shell; choose an absolute path on an ordinary local filesystem, outside network shares or synchronization-managed folders.
+Use **.NET SDK 10.0.403** or a later stable .NET 10 SDK. This baseline includes the .NET 10.0.14 security fixes. The SQLite native engine comes through NuGet. Commands below use a POSIX shell. Choose an absolute path on an ordinary local filesystem outside network shares or synchronization-managed folders. [SDK pin](global.json) · [Microsoft release notes](https://github.com/dotnet/core/blob/main/release-notes/10.0/10.0.14/10.0.14.md)
 
 ```sh
 git clone https://github.com/shivamchopra/enterprise-case-intelligence.git
@@ -182,7 +182,8 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 - **Next — not implemented:** complete [secure review hosting](docs/requirements/phase-8-secure-hosting.md), including compatible storage/ingress, operational recovery and hosted provider/multi-user checks. The [$0 cost boundary](docs/tasks/zero-cost-review-hosting.md) keeps development local while App Service F1 + Azure SQL free limits are assessed; that stack is not supported yet. The [independent operator probe](docs/usage/operator-review-probe.md) has local preparation, access and retained-key receipt evidence. Its [preparation-only deployment proposal](docs/tasks/preparation-only-deployment-proposal.md) now fixes initial startup and defines resource/configuration/release/removal boundaries. Fresh private reads still do not establish eligible allocation; resolve eligibility/policy evidence before creation review. Actual platform storage/isolation must pass before key initialization; cloud ingress and key retention remain unverified. No cloud compute or public deployment is provisioned. The earlier VM option requires separately approved costs; local Entra evidence does not establish hosted acceptance.
 - **Case prioritization — implemented locally:** [Low/Normal/High rules, priority resources and list filtering](docs/requirements/phase-9-case-prioritization.md), with a scaffolded EF Code First format-5 migration, explicit retained-store upgrades and browser filter/read/edit controls. The [delivery task](docs/tasks/case-prioritization.md) maps domain/provider/API/process/browser acceptance, including uncertain writes and protected-state clearing. Priority expresses current staff choice without actor history, SLA or automatic priority ordering.
 - **Deferred:** [storage readiness](docs/requirements/phase-6-storage-readiness.md), to revisit against the selected hosting/provider design. `/health` remains storage-independent liveness.
-- **Later:** extend the business workflow, establish secure hosting, then evaluate integration and AI against concrete scenarios. The [project roadmap](docs/roadmap.md) explains priorities and prerequisites; these capabilities are not implemented.
+- **Case closure handoff** is the next proposed local milestone. A separate synthetic records intake process receives committed closures. The design covers an ordered feed, durable receipts and recovery after interruption. [Phase 10 contract](docs/requirements/phase-10-case-closure-handoff.md) · [ADR 0017](docs/adr/0017-use-a-transactional-closure-feed.md)
+- **Later:** evaluate AI against a concrete case scenario and revisit hosted delivery when the hosting prerequisites are met. [Project roadmap](docs/roadmap.md)
 
 ## Security and Privacy
 

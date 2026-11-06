@@ -28,3 +28,4 @@ Future meaningful choices should receive ADRs when they are evaluated and select
 | [0014: Isolate managed-host verification in an operator probe](0014-isolate-managed-host-verification-in-an-operator-probe.md) | Accepted — locally verified; cloud acceptance pending |
 | [0015: Prepare probe storage before explicit initialization](0015-prepare-probe-storage-before-explicit-initialization.md) | Accepted — locally verified; platform storage/deployment acceptance pending |
 | [0016: Expose case priority without changing creation replay](0016-expose-case-priority-without-changing-creation-replay.md) | Accepted — backend, format 5 and browser workflow implemented |
+| [0017 Use a transactional closure feed](0017-use-a-transactional-closure-feed.md) | Proposed |
