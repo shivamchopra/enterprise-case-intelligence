@@ -19,7 +19,7 @@ Map the [existing application settings](authenticated-case-workspace.md#provider
 | `Security:RoleClaim` | `roles` |
 | `Security:ReaderRole`, `Security:CaseworkerRole` | `Reader`, `Caseworker` respectively, with exact case |
 | `Security:PublicOrigin` | Browser-facing HTTPS origin; callback registration and tested proxy host must match exactly |
-| Remaining session/store settings | Existing certificate-protected key directory, environment/revision and supported format-5 store (upgrade older retained data offline); select DirectHttps or the explicit LoopbackProxy contract |
+| Remaining session/store settings | Existing certificate-protected key directory, environment/revision and supported format-6 store (upgrade older retained data offline); select DirectHttps or the explicit LoopbackProxy contract |
 
 For a local private smoke test, use a browser that trusts the HTTPS server certificate and the app's existing direct-HTTPS setup. Do not disable metadata/backchannel TLS checks or add an impersonation endpoint/header. For proxy testing, complete the actual proxy installation/contract first. Do not change or initialize an existing case store to solve an identity configuration failure.
 

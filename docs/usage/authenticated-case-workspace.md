@@ -35,7 +35,7 @@ Configuration uses ASP.NET Core providers; environment settings replace `:` with
 | `Security:CertificatePfx` | Required single-line Base64, password-protected PFX for `Configuration`; must be unset for `File`. Supply privately, never in checked-in appsettings |
 | `Security:CertificatePassword` | Required nonblank password for `Configuration`; optional for existing file formats. Supply externally |
 | `Kestrel:Certificates:Default:Path`, `...:Password` | Externally supplied HTTPS server certificate configuration when using direct Kestrel hosting; independent of session-key protection |
-| `CaseStorage:DatabasePath` | Existing supported local format-5 store (explicitly upgrade retained formats 1–4 offline); one process per file |
+| `CaseStorage:DatabasePath` | Existing supported local format-6 store (explicitly upgrade retained formats 1–5 offline); one process per file |
 
 With those settings supplied privately and the retained store already initialized, start using the configured HTTPS origin:
 

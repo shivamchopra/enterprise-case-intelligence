@@ -20,6 +20,65 @@ internal static class CaseEndpoints
         endpoints.MapPut("/cases/{id}/status", ChangeStatus).RequireAuthorization(CaseSecurity.Write).WithMetadata(new CaseSecurity.CsrfRequired());
     }
 
+    public static void MapClosureFeed(this IEndpointRouteBuilder endpoints)
+        => endpoints.MapGet("/integrations/case-closures", GetClosures).RequireAuthorization(CaseSecurity.Read);
+
+    private static IResult GetClosures(HttpRequest request, SqliteCaseStore store)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        var limit = 20;
+        Guid? streamId = null;
+        long after = 0;
+        foreach (var (name, values) in request.Query)
+        {
+            if (name is not ("limit" or "streamId" or "after"))
+            {
+                errors["query"] = ["The query contains an unsupported parameter."];
+                continue;
+            }
+            if (values.Count != 1)
+            {
+                errors[name] = ["Supply each parameter once."];
+                continue;
+            }
+            var value = values[0];
+            switch (name)
+            {
+                case "limit":
+                    if (!TryReadLimit(value, out limit)) errors[name] = ["Use an integer from 1 to 100 without padding."];
+                    break;
+                case "streamId":
+                    if (CaseClosures.TryCanonicalId(value, out var stream)) streamId = stream;
+                    else errors[name] = ["Use a non-empty lowercase hyphenated UUID."];
+                    break;
+                case "after":
+                    if (!long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out after) ||
+                        value != after.ToString(CultureInfo.InvariantCulture)) errors[name] = ["Use a nonnegative Int64 position without padding."];
+                    break;
+            }
+        }
+        if (request.Query.ContainsKey("streamId") != request.Query.ContainsKey("after"))
+            errors["query"] = ["Supply streamId and after together."];
+        if (errors.Count > 0) return Validation(errors);
+
+        var (page, conflict) = store.ReadClosures(limit, streamId, after);
+        if (conflict is not null) return Problem(409, "Conflict", conflict);
+        return Results.Ok(new
+        {
+            streamId = page!.StreamId,
+            items = page.Items.Select(item => new
+            {
+                position = item.Position.ToString(CultureInfo.InvariantCulture),
+                type = CaseClosures.EventType,
+                item.CaseId,
+                item.HistorySequence,
+                item.ClosedAtUtc
+            }),
+            nextAfter = page.NextAfter.ToString(CultureInfo.InvariantCulture),
+            page.HasMore
+        });
+    }
+
     private static IResult ListCases(HttpRequest request, SqliteCaseStore store)
     {
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);

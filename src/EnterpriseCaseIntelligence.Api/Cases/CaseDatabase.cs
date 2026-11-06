@@ -37,8 +37,9 @@ public sealed class CaseDatabase
         using var transaction = connection.BeginTransaction(deferred: false);
         using var context = Context(connection, transaction, migrating: true);
         context.Database.Migrate();
-        Execute(connection, "PRAGMA user_version=5", transaction);
-        if (ValidateFormat(connection, transaction) != 5) throw new InvalidDataException("Invalid initialized store.");
+        CaseClosures.Initialize(context);
+        Execute(connection, "PRAGMA user_version=6", transaction);
+        if (ValidateFormat(connection, transaction) != 6) throw new InvalidDataException("Invalid initialized store.");
         transaction.Commit();
     }
 
@@ -47,13 +48,13 @@ public sealed class CaseDatabase
         using var connection = Open();
         using (var validation = connection.BeginTransaction(deferred: true))
         {
-            if (ValidateFormat(connection, validation) != 5) throw new InvalidDataException("Upgrade the older store explicitly.");
+            if (ValidateFormat(connection, validation) != 6) throw new InvalidDataException("Upgrade the older store explicitly.");
             validation.Commit();
         }
 
         // Exercise journal creation, then roll back without changing committed metadata.
         using var transaction = connection.BeginTransaction(deferred: false);
-        Execute(connection, "PRAGMA user_version=5", transaction);
+        Execute(connection, "PRAGMA user_version=6", transaction);
         transaction.Rollback();
     }
 
@@ -63,8 +64,9 @@ public sealed class CaseDatabase
         using var transaction = connection.BeginTransaction(deferred: true);
         var version = ValidateFormat(connection, transaction);
         using var context = Context(connection, transaction);
-        ValidateCases(context, version >= 2, priority: version == 5);
-        if (version >= 3) CaseCreationKeys.Inspect(context, priority: version == 5);
+        ValidateCases(context, version >= 2, priority: version >= 5);
+        if (version >= 3) CaseCreationKeys.Inspect(context, priority: version >= 5);
+        if (version >= 6) CaseClosures.Inspect(context);
         transaction.Commit();
         return version;
     }
@@ -74,10 +76,10 @@ public sealed class CaseDatabase
         using var connection = Open();
         using var transaction = connection.BeginTransaction(deferred: false);
         var version = ValidateFormat(connection, transaction);
-        if (version is not (1 or 2 or 3 or 4)) throw new InvalidDataException("Only older stores can be upgraded.");
+        if (version is not (1 or 2 or 3 or 4 or 5)) throw new InvalidDataException("Only older stores can be upgraded.");
         using var context = Context(connection, transaction);
-        ValidateCases(context, history: version >= 2, priority: false);
-        if (version >= 3) CaseCreationKeys.Inspect(context, priority: false);
+        ValidateCases(context, history: version >= 2, priority: version >= 5);
+        if (version >= 3) CaseCreationKeys.Inspect(context, priority: version >= 5);
         if (version < 4) CaseMigrations.CreateMissingTables(context, version);
         if (version == 1)
         {
@@ -100,31 +102,37 @@ public sealed class CaseDatabase
             CaseCreationKeys.Inspect(context, priority: false);
             CaseMigrations.RecordValidatedBaseline(context);
         }
-        CaseMigrations.AddPriorityTable(context);
-        string? boundary = null;
-        while (true)
+        if (version < 5)
         {
-            var batch = ReadBatch(context, boundary, priority: false);
-            if (batch.Length == 0) break;
-            foreach (var record in batch)
+            CaseMigrations.AddPriorityTable(context);
+            string? boundary = null;
+            while (true)
             {
-                context.Priorities.Add(new StoredPriority { CaseId = record.Id.ToString("D"), Priority = "Normal" });
-                context.SaveSingleChange();
-                context.ChangeTracker.Clear();
+                var batch = ReadBatch(context, boundary, priority: false);
+                if (batch.Length == 0) break;
+                foreach (var record in batch)
+                {
+                    context.Priorities.Add(new StoredPriority { CaseId = record.Id.ToString("D"), Priority = "Normal" });
+                    context.SaveSingleChange();
+                    context.ChangeTracker.Clear();
+                }
+                boundary = batch[^1].Id.ToString("D");
             }
-            boundary = batch[^1].Id.ToString("D");
+            CaseMigrations.RecordPriority(context);
+            ValidateCases(context, history: true, priority: true);
+            CaseCreationKeys.Inspect(context);
         }
-        CaseMigrations.RecordPriority(context);
-        ValidateCases(context, history: true, priority: true);
-        CaseCreationKeys.Inspect(context);
-        Execute(connection, "PRAGMA user_version=5", transaction);
-        if (ValidateFormat(connection, transaction) != 5) throw new InvalidDataException("Invalid upgraded store.");
+        CaseMigrations.AddClosureTables(context);
+        CaseClosures.Initialize(context);
+        CaseMigrations.RecordClosures(context);
+        Execute(connection, "PRAGMA user_version=6", transaction);
+        if (ValidateFormat(connection, transaction) != 6) throw new InvalidDataException("Invalid upgraded store.");
         transaction.Commit();
     }
 
     private long ValidateFormat(SqliteConnection connection, SqliteTransaction transaction)
     {
-        if (Scalar(connection, "PRAGMA user_version", transaction) is not long version || version is not (1 or 2 or 3 or 4 or 5))
+        if (Scalar(connection, "PRAGMA user_version", transaction) is not long version || version is not (1 or 2 or 3 or 4 or 5 or 6))
             throw new InvalidDataException("Unsupported case store version.");
         using var context = Context(connection, transaction);
         var legacy = new Dictionary<string, string>(StringComparer.Ordinal) { ["cases"] = LegacyCaseSchema.Cases };
@@ -148,6 +156,7 @@ public sealed class CaseDatabase
             if (expected.Count != 0) throw new InvalidDataException("Unsupported case store schema.");
         }
         if (version >= 4) CaseMigrations.ValidateMetadata(context, version);
+        if (version >= 6) CaseClosures.ReadStream(context);
 
         if (!Equals(Scalar(connection, "PRAGMA integrity_check", transaction), "ok"))
         {

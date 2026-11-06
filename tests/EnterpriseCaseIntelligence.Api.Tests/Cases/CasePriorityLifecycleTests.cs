@@ -30,11 +30,11 @@ public class CasePriorityLifecycleTests
         Assert.Equal(before, File.ReadAllBytes(fixture.Path));
         var database = new CaseDatabase(fixture.Path, new ForbiddenClock());
         database.Upgrade();
-        Assert.Equal(5, database.Inspect());
+        Assert.Equal(6, database.Inspect());
         database.ValidateStartup();
         foreach (var (name, schema) in oldSchemas) Assert.Equal(schema, Schemas(fixture)[name]);
         Assert.Equal(patch, fixture.Scalar("SELECT ProductVersion FROM __EFMigrationsHistory ORDER BY MigrationId LIMIT 1"));
-        Assert.Equal(2L, fixture.Scalar("SELECT count(*) FROM __EFMigrationsHistory"));
+        Assert.Equal(3L, fixture.Scalar("SELECT count(*) FROM __EFMigrationsHistory"));
         Assert.Equal((long)count, fixture.Scalar("SELECT count(*) FROM case_priorities WHERE priority='Normal'"));
         AssertHistory(history, VersionTwoCaseStore.HistoryFields(fixture));
         var store = new SqliteCaseStore(database, new ForbiddenClock());
@@ -58,8 +58,8 @@ public class CasePriorityLifecycleTests
     {
         using var context = new CaseDbContextFactory().CreateDbContext([]);
         var assembly = context.GetService<IMigrationsAssembly>();
-        Assert.Equal(2, assembly.Migrations.Count);
-        var migration = assembly.CreateMigration(assembly.Migrations.Last().Value, context.Database.ProviderName!);
+        var priority = assembly.Migrations.Single(entry => entry.Key.EndsWith("_AddCasePriority", StringComparison.Ordinal));
+        var migration = assembly.CreateMigration(priority.Value, context.Database.ProviderName!);
         var table = Assert.IsType<CreateTableOperation>(Assert.Single(migration.UpOperations));
         Assert.Equal("case_priorities", table.Name);
         var commands = context.GetService<IMigrationsSqlGenerator>().Generate(migration.UpOperations, migration.TargetModel);
@@ -117,7 +117,7 @@ public class CasePriorityLifecycleTests
         Assert.Equal(schemas, Schemas(fixture));
         AssertHistory(history, VersionTwoCaseStore.HistoryFields(fixture));
         fixture.Database.Upgrade();
-        Assert.Equal(5, fixture.Database.Inspect());
+        Assert.Equal(6, fixture.Database.Inspect());
     }
 
     private static Dictionary<string, string> Schemas(TemporaryCaseDatabase fixture)

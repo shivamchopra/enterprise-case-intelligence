@@ -49,6 +49,56 @@ namespace EnterpriseCaseIntelligence.Api.Cases.Migrations
                         });
                 });
 
+            modelBuilder.Entity("EnterpriseCaseIntelligence.Api.Cases.StoredClosureNotice", b =>
+                {
+                    b.Property<long>("Position")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("position")
+                        .HasColumnOrder(0);
+
+                    b.Property<string>("CaseId")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("case_id")
+                        .HasColumnOrder(1);
+
+                    b.Property<long>("HistorySequence")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("history_sequence")
+                        .HasColumnOrder(2);
+
+                    b.HasKey("Position");
+
+                    b.HasAlternateKey("CaseId", "HistorySequence");
+
+                    b.ToTable("case_closure_notices", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_closure_position", "position > 0");
+                        });
+                });
+
+            modelBuilder.Entity("EnterpriseCaseIntelligence.Api.Cases.StoredClosureStream", b =>
+                {
+                    b.Property<int>("Slot")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("slot")
+                        .HasColumnOrder(0);
+
+                    b.Property<string>("StreamId")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("stream_id")
+                        .HasColumnOrder(1);
+
+                    b.HasKey("Slot");
+
+                    b.ToTable("case_closure_stream", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_closure_stream_slot", "slot = 1");
+                        });
+                });
+
             modelBuilder.Entity("EnterpriseCaseIntelligence.Api.Cases.StoredCreationKey", b =>
                 {
                     b.Property<string>("RequestKey")
@@ -161,6 +211,15 @@ namespace EnterpriseCaseIntelligence.Api.Cases.Migrations
                         {
                             t.HasCheckConstraint("CK_priorities_value", "priority IN ('Low', 'Normal', 'High')");
                         });
+                });
+
+            modelBuilder.Entity("EnterpriseCaseIntelligence.Api.Cases.StoredClosureNotice", b =>
+                {
+                    b.HasOne("EnterpriseCaseIntelligence.Api.Cases.StoredHistory", null)
+                        .WithOne()
+                        .HasForeignKey("EnterpriseCaseIntelligence.Api.Cases.StoredClosureNotice", "CaseId", "HistorySequence")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("EnterpriseCaseIntelligence.Api.Cases.StoredCreationKey", b =>

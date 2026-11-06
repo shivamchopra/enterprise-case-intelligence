@@ -78,30 +78,48 @@ After a lost/uncertain priority response, read current case and priority before 
 
 ## Inspect and upgrade an older store
 
-Fresh `init-store` applies both checked-in EF migrations and creates format 5 with case, history, creation-key, priority and EF migration-history tables. Skip this upgrade section for a fresh version-5 store. For retained version-1/2/3/4 data, build the current code first and **stop the API and every other process using that store**. `CASE_DB_PATH` must select the same absolute path as setup; neither inspection nor upgrade creates a missing file.
+Fresh `init-store` applies the checked-in EF migrations and creates format 6 with an empty closure stream. For retained formats 1–5, build the current code and **stop the API and every other process using that store**. Set `CASE_DB_PATH` to the same absolute path used for setup.
 
-Inspect before deciding whether an upgrade is needed:
+Inspect the retained file before deciding whether to upgrade.
 
 ```sh
 dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- inspect-store --CaseStorage:DatabasePath "$CASE_DB_PATH"
 ```
 
-Success prints `Case store version: N.` where N is 1, 2, 3, 4 or 5. Inspection validates exact supported schema, engine integrity and every case; versions 2–5 also validate status history, versions 3–5 every binding/provenance, and versions 4/5 their supported EF metadata chain and current model/snapshot agreement. Format 5 requires a recognized priority record for every case. It does not change committed application state, but SQLite may perform journal recovery. Investigate failure; never initialize over the existing path.
+Success prints `Case store version: N.` for supported formats 1–6. Inspection checks the exact schema, SQLite integrity and all retained application state for the detected format. SQLite may recover an interrupted journal during inspection. Investigate any inspection failure before proceeding.
 
-For **version 1, 2, 3 or 4**, explicitly upgrade while hosting remains stopped:
+For **formats 1–5**, run the explicit upgrade and inspect again while hosting remains stopped.
 
 ```sh
 dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- upgrade-store --CaseStorage:DatabasePath "$CASE_DB_PATH"
 dotnet run --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build -- inspect-store --CaseStorage:DatabasePath "$CASE_DB_PATH"
 ```
 
-Expect `Case store upgraded.` and then `Case store version: 5.`. All four source formats upgrade directly in one transaction, preserving every ID, text and status. Versions 2/3/4 keep every history value/time; versions 3/4 keep every key binding. Version 1 receives one honest `Baseline` per old case recorded at upgrade; earlier transitions/creation times remain unknown. Other versions receive no new status baseline. Previously unbound cases stay unbound. Every old case receives Normal priority once; this is a new default, not historical priority evidence, and no priority/status event is invented.
+Expect `Case store upgraded.` and then `Case store version: 6.`. Each source upgrades directly in one transaction. Format 1 receives a `Baseline` history row per case. Formats 2–5 keep exact histories and formats 3–5 retain creation-key bindings. Formats 1–4 receive the Normal priority default. Format 5 keeps its existing priorities. The closure stream begins empty, including when the store already contains Closed cases. A later closure on a retained open case appends a notice.
 
-Source schema/data are fully validated before mutation. Existing application tables remain in place; missing tables use scaffolded EF operations. Legacy sources receive the validated initial EF baseline; format 4 keeps its metadata row/version. Generated priority-table creation, bounded tracked backfill, the second metadata row, target validation and format marker share the offline transaction. No parallel schema script or automatic startup migration is used.
+The upgrade is one-way. After successful inspection of format 6, start the API with the normal README command. After a failure, interruption or lost completion message, stop every store user and **inspect first**. Valid format 1–5 means you can deliberately retry the upgrade. Valid format 6 confirms commit. Investigate other outcomes while preserving the file and its journal. [EF adoption](../adr/0007-adopt-ef-core-code-first.md) · [Priority migration](../adr/0016-expose-case-priority-without-changing-creation-replay.md) · [Closure migration](../adr/0017-use-a-transactional-closure-feed.md)
 
-This is a one-way in-place upgrade. Older executables refuse format 5; there is no downgrade, automatic backup or restore command. A repeated upgrade refuses format 5 without adding records. After successful inspection of 5, start the API with the normal README command and no command mode.
+## Read the local closure feed
 
-If upgrade fails, is interrupted or loses completion output, stop all users and run **only inspection first**. A valid 1/2/3/4 means the upgrade did not commit and may be retried deliberately; a valid 5 means it committed and must not be repeated. Investigate any invalid/unsupported outcome. Never delete a journal, reset a file or force initialization. These commands assume intact local storage, without a hardware/power-loss guarantee. The transaction includes EF metadata and creates no persistent migration lock. Unexpected metadata/lock tables are refused without automatic deletion. See [ADR 0007](../adr/0007-adopt-ef-core-code-first.md) and its [format-5 amendment](../adr/0016-expose-case-priority-without-changing-creation-replay.md).
+Run the API in LocalDemo against a fresh disposable store and request the feed. The initial page has an empty `items` array, a stream ID and `nextAfter` of `"0"`.
+
+```sh
+curl --fail-with-body http://localhost:5080/integrations/case-closures
+```
+
+Create a synthetic case using the commands below, advance it to InReview and close it. Read the feed with a one-item page and retain its `streamId` and `nextAfter` values.
+
+```sh
+curl --fail-with-body 'http://localhost:5080/integrations/case-closures?limit=1'
+```
+
+Compare the notice's history sequence and timestamp with the case history. Repeat the Closed request and confirm the page still shows one notice. Set `STREAM_ID` and `AFTER` to the returned values, restart the API with the same file and continue after that notice.
+
+```sh
+curl --fail-with-body "http://localhost:5080/integrations/case-closures?streamId=${STREAM_ID}&after=${AFTER}"
+```
+
+An empty continuation keeps the same cursor. After a different case closes, the same continuation returns the new notice. Preserve the stream ID with the cursor when saving a checkpoint. A replacement file returns `409 handoff_source_changed` for the old stream, while an unknown positive position on the same stream returns `409 handoff_checkpoint_unknown`. For a lost close response, read the retained case/history or repeat the Closed request, then check the feed. [Phase 10 pull contract](../requirements/phase-10-case-closure-handoff.md#pull-contract)
 
 ## Create a case
 

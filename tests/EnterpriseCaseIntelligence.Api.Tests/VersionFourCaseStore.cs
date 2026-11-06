@@ -9,12 +9,16 @@ internal static class VersionFourCaseStore
     // initializer and each supported 1/2/3 adoption path. Never derive these from the new model.
     internal static (CaseSnapshot[] Cases, Dictionary<Guid, Guid> Bindings) Initialize(
         TemporaryCaseDatabase fixture, string family = "fresh", int count = 7, string encoding = "UTF-8", string patch = "10.0.14")
+        => InitializeFromCatalog(fixture, family, count, encoding, patch, "FormatFour");
+
+    internal static (CaseSnapshot[] Cases, Dictionary<Guid, Guid> Bindings) InitializeFromCatalog(
+        TemporaryCaseDatabase fixture, string family, int count, string encoding, string patch, string catalog)
     {
         using var source = new TemporaryCaseDatabase(false);
         var data = VersionThreeCaseStore.Initialize(source, count, encoding);
         var history = VersionTwoCaseStore.HistoryFields(source);
         var schemas = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(
-            Path.Combine(AppContext.BaseDirectory, "Fixtures", "FormatFour", family + ".json")))!;
+            Path.Combine(AppContext.BaseDirectory, "Fixtures", catalog, family + ".json")))!;
         using (new FileStream(fixture.Path, FileMode.CreateNew)) { }
         fixture.Execute($"PRAGMA encoding=\"{encoding}\"");
         foreach (var name in new[] { "cases", "case_status_history", "case_creation_keys", "__EFMigrationsHistory" }) fixture.Execute(schemas[name]);

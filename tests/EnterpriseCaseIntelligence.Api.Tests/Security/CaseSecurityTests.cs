@@ -251,6 +251,29 @@ public sealed class CaseSecurityTests
         using var otherHost = await client.GetAsync("https://untrusted.example/cases"); Assert.Equal(HttpStatusCode.BadRequest, otherHost.StatusCode);
     }
 
+    [Theory]
+    [InlineData("Reader")]
+    [InlineData("Caseworker")]
+    public async Task ClosureFeedRouteIsAbsentFromOidcHost(string role)
+    {
+        await using var host = new SecurityHost(); host.Start();
+        using var client = host.CreateClient(host.Ticket(role));
+        using var response = await client.GetAsync("/integrations/case-closures");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task LocalDemoDeniesClosureFeedToNonLoopbackPeerBeforeStorage()
+    {
+        using var database = new TemporaryCaseDatabase();
+        using var factory = database.CreateFactory(peer: IPAddress.Parse("198.51.100.9"));
+        using var client = factory.CreateClient();
+        File.Delete(database.Path);
+        using var response = await client.GetAsync("/integrations/case-closures");
+        await Denial(response, 403);
+        Assert.False(File.Exists(database.Path));
+    }
+
     [Fact]
     public async Task LocalDemoRejectsNonLoopbackHostAndIgnoresUntrustedIdentityCookies()
     {
@@ -261,6 +284,7 @@ public sealed class CaseSecurityTests
         using var local = await client.GetAsync("/cases"); Assert.Equal(HttpStatusCode.OK, local.StatusCode);
         using var callback = await client.PostAsync("/auth/callback", new StringContent("forged")); Assert.Equal(HttpStatusCode.NotFound, callback.StatusCode);
         using var foreignHost = await client.GetAsync("http://untrusted.example/cases"); await Denial(foreignHost, 403);
+        using var foreignFeed = await client.GetAsync("http://untrusted.example/integrations/case-closures"); await Denial(foreignFeed, 403);
         Assert.Equal(0, database.Count());
     }
 
