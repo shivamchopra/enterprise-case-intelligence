@@ -1,3 +1,4 @@
+using System.Net;
 using EnterpriseCaseIntelligence.Api.Cases;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -20,7 +21,7 @@ public sealed class TemporaryCaseDatabase : IDisposable
         }
     }
 
-    public WebApplicationFactory<Program> CreateFactory(TimeProvider? clock = null) => new WebApplicationFactory<Program>()
+    public WebApplicationFactory<Program> CreateFactory(TimeProvider? clock = null, IPAddress? peer = null) => new WebApplicationFactory<Program>()
         .WithWebHostBuilder(builder =>
         {
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
@@ -30,7 +31,7 @@ public sealed class TemporaryCaseDatabase : IDisposable
                     ["Security:Mode"] = "LocalDemo",
                     ["urls"] = "http://127.0.0.1:0"
                 }));
-            builder.ConfigureServices(services => services.AddSingleton<IStartupFilter, LoopbackTestConnection>());
+            builder.ConfigureServices(services => services.AddSingleton<IStartupFilter>(new TestPeerConnection(peer ?? IPAddress.Loopback)));
             if (clock is not null) builder.ConfigureServices(services => services.AddSingleton(clock));
         });
 
@@ -62,15 +63,15 @@ public sealed class TemporaryCaseDatabase : IDisposable
 }
 
 // TestServer has no TCP peer; this supplies only the connection information
-// its local-mode boundary needs, never an identity or permission shortcut.
-internal sealed class LoopbackTestConnection : IStartupFilter
+// the local-mode boundary uses.
+internal sealed class TestPeerConnection(IPAddress peer) : IStartupFilter
 {
     public Action<Microsoft.AspNetCore.Builder.IApplicationBuilder> Configure(Action<Microsoft.AspNetCore.Builder.IApplicationBuilder> next)
         => app =>
         {
             Microsoft.AspNetCore.Builder.UseExtensions.Use(app, async (context, continuation) =>
             {
-                context.Connection.RemoteIpAddress = System.Net.IPAddress.Loopback;
+                context.Connection.RemoteIpAddress = peer;
                 await continuation(context);
             });
             next(app);

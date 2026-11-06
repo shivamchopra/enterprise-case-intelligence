@@ -50,7 +50,7 @@ public class CasePriorityStorageTests : CaseListApiTest
         using (var response = await Client.PutAsJsonAsync(PathFor(record.Id) + "/priority", new { priority = "High" }))
             await AssertProblemAsync(response, HttpStatusCode.InternalServerError, "internal_error");
         Database.Execute("DROP TRIGGER priority_failure");
-        Assert.Equal(5, Database.Database.Inspect());
+        Assert.Equal(6, Database.Database.Inspect());
         var store = new SqliteCaseStore(Database.Database);
         Assert.Equal(new(record.Id, CasePriority.Normal), store.Priority(record.Id));
         Assert.Equal(history, store.History(record.Id));

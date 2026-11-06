@@ -143,10 +143,25 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
             {
                 row.Status = record.Status.ToString();
                 context.SaveSingleChange();
-                CaseHistory.Insert(context, id, CaseHistory.Record(history.Count + 1, "StatusChanged", previous, record.Status, _clock));
+                var entry = CaseHistory.Record(history.Count + 1, "StatusChanged", previous, record.Status, _clock);
+                CaseHistory.Insert(context, id, entry);
+                if (record.Status == CaseStatus.Closed) CaseClosures.Append(context, id, entry.Sequence);
             }
             transaction.Commit();
             return new(Snapshot(record), false);
+        }
+    }
+
+    internal (ClosurePage? Page, string? Conflict) ReadClosures(int limit, Guid? streamId, long after)
+    {
+        lock (_gate)
+        {
+            using var connection = database.Open();
+            using var transaction = connection.BeginTransaction(deferred: true);
+            using var context = database.Context(connection, transaction);
+            var result = CaseClosures.Read(context, limit, streamId, after);
+            transaction.Commit();
+            return result;
         }
     }
 

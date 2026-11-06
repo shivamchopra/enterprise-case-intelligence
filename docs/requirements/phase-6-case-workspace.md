@@ -1,6 +1,6 @@
 # Phase 6 requirements: local browser case workspace
 
-Current persistence is format 5 under [ADR 0016](../adr/0016-expose-case-priority-without-changing-creation-replay.md); the Phase 6 format references describe its original delivery. The current browser and API both expose priority filtering and selected-case triage under the Phase 9 amendment.
+Current persistence is format 6 under [ADR 0017](../adr/0017-use-a-transactional-closure-feed.md). The Phase 6 format references describe its original delivery. The current browser and API both expose priority filtering and selected-case triage under the Phase 9 amendment.
 
 **Status: Reviewed requirements — local browser workflow implemented.** The [project assessment](../roadmap.md) prioritizes a complete local case journey. Phase 6 adds the workspace to the existing API/EF Core Code First baseline, without changing format 4. [ADR 0008](../adr/0008-serve-a-local-browser-case-workspace.md) records the same-host implementation and browser-test approach.
 

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Pipes;
 using EnterpriseCaseIntelligence.Api.Cases;
+using EnterpriseCaseIntelligence.Domain.Cases;
 using EnterpriseCaseIntelligence.UpgradeFixture;
 
 namespace EnterpriseCaseIntelligence.Api.Tests.Cases;
@@ -44,7 +45,7 @@ public class CaseUpgradeProcessTests
         Assert.Contains("Case store version: 1.", inspected.Output);
         CaseStoreUpgradeTests.AssertLegacy(fixture, original);
         fixture.Database.Upgrade();
-        Assert.Equal(5, fixture.Database.Inspect());
+        Assert.Equal(6, fixture.Database.Inspect());
         var store = new SqliteCaseStore(fixture.Database);
         Assert.All(original, record => Assert.Single(store.History(record.Id)!));
     }
@@ -54,6 +55,7 @@ public class CaseUpgradeProcessTests
     [InlineData(2)]
     [InlineData(3)]
     [InlineData(4)]
+    [InlineData(5)]
     public async Task LostUpgradeCompletionMessageIsReconciledByInspectionWithoutRepeatingUpgrade(int version)
     {
         using var fixture = new TemporaryCaseDatabase(initialize: false);
@@ -62,7 +64,8 @@ public class CaseUpgradeProcessTests
             1 => LegacyCaseStore.Initialize(fixture),
             2 => VersionTwoCaseStore.Initialize(fixture),
             3 => VersionThreeCaseStore.Initialize(fixture).Cases,
-            _ => VersionFourCaseStore.Initialize(fixture).Cases
+            4 => VersionFourCaseStore.Initialize(fixture).Cases,
+            _ => VersionFiveCaseStore.Initialize(fixture).Cases
         };
         var history = version >= 2 ? VersionTwoCaseStore.HistoryFields(fixture) : [];
         using var process = StartFixture("lost-output", fixture.Path, "unused");
@@ -86,7 +89,7 @@ public class CaseUpgradeProcessTests
 
         var inspect = await ApiProcess.RunAsync("inspect-store", "--CaseStorage:DatabasePath", fixture.Path);
         Assert.Equal(0, inspect.ExitCode);
-        Assert.Contains("Case store version: 5.", inspect.Output);
+        Assert.Contains("Case store version: 6.", inspect.Output);
         var refused = await ApiProcess.RunAsync("upgrade-store", "--CaseStorage:DatabasePath", fixture.Path);
         Assert.Equal(1, refused.ExitCode);
         var store = new SqliteCaseStore(fixture.Database);
@@ -149,7 +152,7 @@ public class CaseUpgradeProcessTests
         for (var index = 0; index < history.Length; index++) Assert.Equal(history[index], actual[index]);
         Assert.Equal((long)bindings.Count, fixture.Scalar("SELECT count(*) FROM case_creation_keys"));
         fixture.Database.Upgrade();
-        Assert.Equal(5, fixture.Database.Inspect());
+        Assert.Equal(6, fixture.Database.Inspect());
         var store = new SqliteCaseStore(fixture.Database);
         foreach (var (key, id) in bindings)
         {
@@ -158,7 +161,72 @@ public class CaseUpgradeProcessTests
         }
     }
 
-    private static Process StartFixture(string mode, string path, string pipe)
+    [Theory]
+    [InlineData("closure-schema")]
+    [InlineData("closure-stream")]
+    [InlineData("closure-metadata")]
+    public async Task TerminationDuringClosureUpgradeRecoversFormatFive(string stage)
+    {
+        using var fixture = new TemporaryCaseDatabase(false);
+        VersionFiveCaseStore.Initialize(fixture);
+        await KillAtBarrier(stage, fixture.Path);
+        Assert.Equal(5, fixture.Database.Inspect());
+        Assert.Equal(0L, fixture.Scalar("SELECT count(*) FROM sqlite_schema WHERE name GLOB 'case_closure_*'"));
+        Assert.Equal(2L, fixture.Scalar("SELECT count(*) FROM __EFMigrationsHistory"));
+        fixture.Database.Upgrade();
+        Assert.Equal(6, fixture.Database.Inspect());
+        Assert.Equal(0L, fixture.Scalar("SELECT count(*) FROM case_closure_notices"));
+    }
+
+    [Theory]
+    [InlineData("close-status", false)]
+    [InlineData("close-history", false)]
+    [InlineData("close-notice", false)]
+    [InlineData("close-committed", true)]
+    public async Task TerminationAtClosureBoundaryRecoversPriorOrFullyCommittedState(string stage, bool committed)
+    {
+        using var fixture = new TemporaryCaseDatabase();
+        var store = new SqliteCaseStore(fixture.Database);
+        var record = store.Create("Synthetic interrupted close", "Fictional description");
+        store.ChangeStatus(record.Id, CaseStatus.InReview);
+        await KillAtBarrier(stage, fixture.Path, record.Id);
+        Assert.Equal(6, fixture.Database.Inspect());
+        var reopened = new SqliteCaseStore(fixture.Database);
+        Assert.Equal(committed ? CaseStatus.Closed : CaseStatus.InReview, reopened.Find(record.Id)!.Status);
+        Assert.Equal(committed ? 3 : 2, reopened.History(record.Id)!.Count);
+        Assert.Equal(committed ? 1L : 0L, fixture.Scalar("SELECT count(*) FROM case_closure_notices"));
+        reopened.ChangeStatus(record.Id, CaseStatus.Closed);
+        Assert.Equal(1L, fixture.Scalar("SELECT count(*) FROM case_closure_notices"));
+    }
+
+    private static async Task KillAtBarrier(string stage, string path, Guid? id = null)
+    {
+        var pipeName = "eci-" + Guid.NewGuid().ToString("N")[..16];
+        using var pipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        using var process = StartFixture(stage, path, pipeName, id);
+        var output = process.StandardOutput.ReadToEndAsync();
+        var error = process.StandardError.ReadToEndAsync();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        try
+        {
+            await pipe.WaitForConnectionAsync(deadline.Token);
+            var ready = new byte[1];
+            await pipe.ReadExactlyAsync(ready, deadline.Token);
+            Assert.Equal(1, ready[0]);
+        }
+        finally
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+            }
+        }
+        Assert.Empty(await output);
+        Assert.Empty(await error);
+    }
+
+    private static Process StartFixture(string mode, string path, string pipe, Guid? id = null)
     {
         var start = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet")
         {
@@ -176,6 +244,7 @@ public class CaseUpgradeProcessTests
         start.ArgumentList.Add(mode);
         start.ArgumentList.Add(path);
         start.ArgumentList.Add(pipe);
+        if (id is { } caseId) start.ArgumentList.Add(caseId.ToString("D"));
         return Process.Start(start)!;
     }
 }

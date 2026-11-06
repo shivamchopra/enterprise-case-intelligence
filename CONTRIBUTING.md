@@ -33,7 +33,7 @@ The independent [operator probe](docs/usage/operator-review-probe.md) is built w
 
 Workspace tests use the pinned Microsoft.Playwright library and its Chromium download. After installing it, the normal test command includes the real-browser journey. For a browser-free backend check use `--filter 'Category!=Browser'`; browser coverage is still required before submitting UI changes. CI runs backend checks and a separate `Category=Browser` job: LocalDemo journeys use the published API; authenticated journeys use direct HTTPS and a real HTTPS-to-HTTP proxy fixture with test-only OIDC metadata/backchannel injection. The application itself needs neither Chromium nor Node. See [ADR 0008](docs/adr/0008-serve-a-local-browser-case-workspace.md) for the boundary and test approach.
 
-The UpgradeFixture project under `tests/` is an executable fixture for deterministic upgrade interruption and lost-completion tests. Keep its pipe barriers/failure controls out of production commands. Use frozen version-1/2/3 fixtures and the captured released format-4 catalogs for compatibility tests; never run upgrade validation against user data.
+The UpgradeFixture project under `tests/` is an executable fixture for deterministic upgrade interruption and lost-completion tests. Keep its pipe barriers/failure controls out of production commands. Use frozen version-1/2/3 fixtures and the captured released format-4 and format-5 catalogs for compatibility tests; never run upgrade validation against user data.
 
 Add tests when behavior changes. Update documentation when behavior or design changes, and add or update ADRs for meaningful architecture decisions. Keep planned functionality clearly distinguished from implemented functionality.
 

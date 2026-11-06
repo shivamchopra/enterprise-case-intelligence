@@ -28,7 +28,8 @@ public class CaseHistoryFailureTests : CaseApiTest
         var created = await CreateAsync();
         await SetStatusAsync(created.Id, "InReview");
         await SetStatusAsync(created.Id, "Closed");
-        Database.Execute("PRAGMA ignore_check_constraints=ON; " + corruption);
+        // Simulate damage outside the app, including history referenced by the closure notice.
+        Database.Execute("PRAGMA foreign_keys=OFF; PRAGMA ignore_check_constraints=ON; " + corruption);
         var before = File.ReadAllBytes(Database.Path);
         using var read = await Client.GetAsync(PathFor(created.Id) + "/history");
         await AssertProblemAsync(read, HttpStatusCode.InternalServerError, "internal_error");

@@ -1,6 +1,6 @@
 # Phase 8 proposal: secure, operable review hosting
 
-**Status: Identity/session and application-ingress slices implemented; hosted acceptance remains proposed.** The shipped baseline includes configured OIDC/Reader/Caseworker access, verified with local test fixtures and selected private Entra checks, alongside the explicit loopback demo and SQLite format 5. This document selects a first hosted scenario and acceptance expectations. [ADR 0011](../adr/0011-use-entra-for-private-review-identity.md) selects Entra for private review; no Azure compute service, database replacement or production-readiness claim follows.
+**Status: Identity/session and application-ingress slices implemented; hosted acceptance remains proposed.** The shipped baseline includes configured OIDC/Reader/Caseworker access, verified with local test fixtures and selected private Entra checks, alongside the explicit loopback demo and SQLite format 6. This document selects a first hosted scenario and acceptance expectations. [ADR 0011](../adr/0011-use-entra-for-private-review-identity.md) selects Entra for private review; no Azure compute service, database replacement or production-readiness claim follows.
 
 ## Outcome and scope
 

@@ -65,6 +65,7 @@ app.MapSecurity(security!);
 app.MapGet("/", () => new { service = "Enterprise Case Intelligence", status = "foundation" });
 app.MapHealthChecks("/health");
 app.MapCaseEndpoints();
+if (security!.LocalDemo) app.MapClosureFeed();
 app.MapWorkspace();
 
 await app.RunAsync();

@@ -14,6 +14,8 @@ public sealed class CaseDbContext(DbContextOptions<CaseDbContext> options) : DbC
     public DbSet<StoredHistory> History => Set<StoredHistory>();
     public DbSet<StoredCreationKey> CreationKeys => Set<StoredCreationKey>();
     public DbSet<StoredPriority> Priorities => Set<StoredPriority>();
+    public DbSet<StoredClosureStream> ClosureStreams => Set<StoredClosureStream>();
+    public DbSet<StoredClosureNotice> ClosureNotices => Set<StoredClosureNotice>();
     public DbSet<StoredMigration> MigrationHistory => Set<StoredMigration>();
 
     internal static DbContextOptions<CaseDbContext> Options(SqliteConnection connection, bool migrating = false)
@@ -79,6 +81,22 @@ public sealed class CaseDbContext(DbContextOptions<CaseDbContext> options) : DbC
         history.Property(row => row.ToStatus).HasColumnName("to_status").HasColumnOrder(4).IsRequired();
         history.Property(row => row.RecordedAtUtc).HasColumnName("recorded_at_utc").HasColumnOrder(5).IsRequired();
 
+        var stream = model.Entity<StoredClosureStream>();
+        stream.ToTable("case_closure_stream", table => table.HasCheckConstraint("CK_closure_stream_slot", "slot = 1"));
+        stream.HasKey(row => row.Slot);
+        stream.Property(row => row.Slot).HasColumnName("slot").HasColumnOrder(0).ValueGeneratedNever();
+        stream.Property(row => row.StreamId).HasColumnName("stream_id").HasColumnOrder(1).IsRequired();
+
+        var notices = model.Entity<StoredClosureNotice>();
+        notices.ToTable("case_closure_notices", table => table.HasCheckConstraint("CK_closure_position", "position > 0"));
+        notices.HasKey(row => row.Position);
+        notices.HasAlternateKey(row => new { row.CaseId, row.HistorySequence });
+        notices.HasOne<StoredHistory>().WithOne().HasForeignKey<StoredClosureNotice>(row => new { row.CaseId, row.HistorySequence })
+            .OnDelete(DeleteBehavior.Restrict);
+        notices.Property(row => row.Position).HasColumnName("position").HasColumnOrder(0).ValueGeneratedOnAdd();
+        notices.Property(row => row.CaseId).HasColumnName("case_id").HasColumnOrder(1).IsRequired();
+        notices.Property(row => row.HistorySequence).HasColumnName("history_sequence").HasColumnOrder(2);
+
         var keys = model.Entity<StoredCreationKey>();
         keys.ToTable("case_creation_keys", table => table.HasCheckConstraint("CK_creation_key_uuid", """
             length(request_key) = 36
@@ -135,6 +153,19 @@ public sealed class StoredCreationKey
 {
     public string RequestKey { get; set; } = "";
     public string CaseId { get; set; } = "";
+}
+
+public sealed class StoredClosureStream
+{
+    public int Slot { get; set; }
+    public string StreamId { get; set; } = "";
+}
+
+public sealed class StoredClosureNotice
+{
+    public long Position { get; set; }
+    public string CaseId { get; set; } = "";
+    public long HistorySequence { get; set; }
 }
 
 public sealed class StoredMigration

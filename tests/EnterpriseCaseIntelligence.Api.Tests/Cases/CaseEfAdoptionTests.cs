@@ -14,12 +14,12 @@ public class CaseEfAdoptionTests
         using var context = new CaseDbContextFactory().CreateDbContext([]);
         Assert.False(context.Database.HasPendingModelChanges());
         var migration = context.Database.GetMigrations().First();
-        Assert.Equal(2, context.Database.GetMigrations().Count());
+        Assert.Equal(3, context.Database.GetMigrations().Count());
         Assert.Equal(migration, fixture.Scalar("SELECT MigrationId FROM __EFMigrationsHistory ORDER BY MigrationId LIMIT 1"));
         Assert.Equal(Microsoft.EntityFrameworkCore.Infrastructure.ProductInfo.GetVersion(), fixture.Scalar("SELECT ProductVersion FROM __EFMigrationsHistory ORDER BY MigrationId LIMIT 1"));
         Assert.Equal(3L, fixture.Scalar("SELECT count(*) FROM pragma_table_list WHERE name IN ('cases','case_status_history','case_creation_keys') AND strict=1"));
         Assert.Equal(0L, fixture.Scalar("SELECT count(*) FROM sqlite_schema WHERE name='__EFMigrationsLock'"));
-        Assert.Equal(5, fixture.Database.Inspect());
+        Assert.Equal(6, fixture.Database.Inspect());
         fixture.Database.ValidateStartup();
         var error = Assert.Throws<SqliteException>(() => fixture.Execute("INSERT INTO cases VALUES ($id,$title,'Synthetic','New')",
             ("$id", Guid.NewGuid().ToString("D")), ("$title", new byte[] { 1, 2, 3 })));
@@ -38,7 +38,7 @@ public class CaseEfAdoptionTests
         fixture.Execute("UPDATE __EFMigrationsHistory SET ProductVersion='10.0.13' WHERE MigrationId='20261022194811_InitialCaseStore'");
         var before = File.ReadAllBytes(fixture.Path);
         fixture.Database.ValidateStartup();
-        Assert.Equal(5, fixture.Database.Inspect());
+        Assert.Equal(6, fixture.Database.Inspect());
         Assert.Equal(original with { Status = CaseStatus.InReview }, store.Find(original.Id));
         Assert.Equal(original, store.Create(original.Title, original.Description, key).Case);
         Assert.Equal("10.0.13", fixture.Scalar("SELECT ProductVersion FROM __EFMigrationsHistory ORDER BY MigrationId LIMIT 1"));
@@ -62,7 +62,7 @@ public class CaseEfAdoptionTests
         Assert.Throws<InvalidDataException>(() => fixture.Database.ValidateStartup());
         var database = new CaseDatabase(fixture.Path, new ForbiddenClock());
         database.Upgrade();
-        Assert.Equal(5, database.Inspect());
+        Assert.Equal(6, database.Inspect());
         database.ValidateStartup();
         AssertHistory(history, VersionTwoCaseStore.HistoryFields(fixture));
         foreach (var (name, schema) in originalSchemas) Assert.Equal(schema, Schemas(fixture)[name]);
@@ -84,7 +84,7 @@ public class CaseEfAdoptionTests
         Assert.NotNull(current.Create("After adoption", "Synthetic", Guid.NewGuid()).Case);
         Assert.NotNull(current.Create("Independent", "Synthetic"));
         Assert.Throws<InvalidDataException>(() => database.Upgrade());
-        Assert.Equal(5, database.Inspect());
+        Assert.Equal(6, database.Inspect());
         Assert.Equal(0L, fixture.Scalar("SELECT count(*) FROM sqlite_schema WHERE name='__EFMigrationsLock'"));
     }
 
@@ -116,13 +116,14 @@ public class CaseEfAdoptionTests
         if (version >= 2) AssertHistory(history, VersionTwoCaseStore.HistoryFields(fixture));
         Assert.Equal(0L, fixture.Scalar("SELECT count(*) FROM sqlite_schema WHERE name IN ('__EFMigrationsHistory','__EFMigrationsLock')"));
         fixture.Database.Upgrade();
-        Assert.Equal(5, fixture.Database.Inspect());
+        Assert.Equal(6, fixture.Database.Inspect());
     }
 
     [Theory]
     [InlineData("DELETE FROM __EFMigrationsHistory")]
     [InlineData("DELETE FROM __EFMigrationsHistory WHERE MigrationId='20261022194811_InitialCaseStore'")]
     [InlineData("DELETE FROM __EFMigrationsHistory WHERE MigrationId LIKE '%AddCasePriority'")]
+    [InlineData("DELETE FROM __EFMigrationsHistory WHERE MigrationId LIKE '%AddCaseClosureFeed'")]
     [InlineData("UPDATE __EFMigrationsHistory SET ProductVersion='10.0.13' WHERE MigrationId LIKE '%AddCasePriority'")]
     [InlineData("UPDATE __EFMigrationsHistory SET MigrationId='SYNTHETIC_SENSITIVE_MARKER' WHERE MigrationId='20261022194811_InitialCaseStore'")]
     [InlineData("UPDATE __EFMigrationsHistory SET ProductVersion='invalid'")]
@@ -180,7 +181,7 @@ public class CaseEfAdoptionTests
         var upgraded = await ApiProcess.RunAsync("upgrade-store", "--CaseStorage:DatabasePath", fixture.Path);
         Assert.Equal(0, upgraded.ExitCode);
         Assert.DoesNotContain("Now listening", upgraded.Output);
-        Assert.Equal(5, fixture.Database.Inspect());
+        Assert.Equal(6, fixture.Database.Inspect());
         var repeated = await ApiProcess.RunAsync("upgrade-store", "--CaseStorage:DatabasePath", fixture.Path);
         Assert.Equal(1, repeated.ExitCode);
     }

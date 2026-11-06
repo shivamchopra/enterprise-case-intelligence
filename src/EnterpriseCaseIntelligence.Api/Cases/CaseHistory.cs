@@ -43,15 +43,16 @@ internal static class CaseHistory
         return entries.AsReadOnly();
     }
 
+    internal static bool IsTimestamp(string value) => DateTimeOffset.TryParseExact(value, TimestampFormat, CultureInfo.InvariantCulture,
+        DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out _);
+
     private static void Validate(CaseStatus current, List<CaseHistoryEntry> entries)
     {
         if (entries.Count is < 1 or > 3) throw InvalidHistory();
         for (var index = 0; index < entries.Count; index++)
         {
             var entry = entries[index];
-            if (entry.Sequence != index + 1 ||
-                !DateTimeOffset.TryParseExact(entry.RecordedAtUtc, TimestampFormat, CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out _)) throw InvalidHistory();
+            if (entry.Sequence != index + 1 || !IsTimestamp(entry.RecordedAtUtc)) throw InvalidHistory();
 
             if (index == 0)
             {

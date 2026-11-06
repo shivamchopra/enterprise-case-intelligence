@@ -1,6 +1,6 @@
 # Phase 10 case closure handoff
 
-**Proposed.** This contract defines the next local integration milestone. The format-5 experiment below exercises the existing API. The closure feed, receipt consumer and format-6 lifecycle are implementation work for this phase.
+**Producer implemented locally.** Format 6 and the LocalDemo feed are available. The separate records intake command and its receipt-store verification are the next slice.
 
 ## Scenario
 
@@ -15,7 +15,7 @@ A Caseworker closes a fictional documentation case. A separate records clerk can
 
 ## Pull contract
 
-Proposed endpoint `GET /integrations/case-closures` is served through the existing `LocalDemo` loopback boundary. The first request may supply `limit` alone. Continuations require both `streamId` and `after`, with `after=0` allowed before the first notice. Each field can occur once. Use the current list bounds of default 20 and maximum 100. Require a canonical lowercase nonempty UUID for the stream and canonical nonnegative Int64 decimal for `after`. Read stream identity, validate a positive cursor against a retained notice, then query strictly after it in ascending position order within the same read transaction. Fetch at most `limit + 1` rows for `hasMore`.
+Endpoint `GET /integrations/case-closures` is served through the existing `LocalDemo` loopback boundary. The first request may supply `limit` alone. Continuations require both `streamId` and `after`, with `after=0` allowed before the first notice. Each field can occur once. Use the current list bounds of default 20 and maximum 100. Require a canonical lowercase nonempty UUID for the stream and canonical nonnegative Int64 decimal for `after`. Read stream identity, validate a positive cursor against a retained notice, then query strictly after it in ascending position order within the same read transaction. Fetch at most `limit + 1` rows for `hasMore`.
 
 A successful page exposes `streamId`, `items`, `nextAfter` and `hasMore`. A first page with a single available closure would return the following.
 
@@ -40,7 +40,7 @@ The last returned position is the next cursor. An empty page preserves the reque
 
 Reuse safe, no-store problem responses. Invalid query shape returns `400 validation_failed` before storage access. A different stream returns `409 handoff_source_changed` and an unrecognized positive cursor returns `409 handoff_checkpoint_unknown`. Storage and encountered data failures use the existing generic server error. The OIDC host reserves this integration surface for a later service authorization decision and serves no closure feed route in this phase.
 
-## Records intake
+## Planned records intake
 
 An operator explicitly initializes a separate receipt file and invokes a one-page pull. The pull uses an explicit numeric loopback HTTP origin, a fixed feed path, a five-second request deadline, a 64 KiB response limit and direct connections. A redirect is a failed pull. The caller supplies the origin and receipt-file path. The receipt store retains its source stream and last applied position. The first successful pull binds the stream even when the page is empty.
 
@@ -52,7 +52,7 @@ Success output reports received and newly applied counts plus the resulting chec
 
 ## Format and verification
 
-Propose format 6 for the producer. Use EF Core Code First with a checked-in migration and snapshot. Preserve the explicit offline lifecycle and formats 1–5 as supported sources. Capture independent format-5 catalogs from the fresh and inherited layouts before changing the model. Verify generated DDL against real SQLite, including STRICT table behavior, foreign keys and transaction ownership. Preserve every case, priority, history value and creation-key binding. Apply Code First to the separate receipt file as well, with an explicit initializer and a tracked receipt/checkpoint transaction. The storage details and rationale are recorded in the proposed ADR. [ADR 0017](../adr/0017-use-a-transactional-closure-feed.md)
+The producer uses EF Core Code First with a scaffolded migration and snapshot. Its offline lifecycle supports formats 1–5 as upgrade sources. Independent format-5 catalogs capture the fresh and inherited layouts. Real SQLite tests verify STRICT tables, the history foreign key, transaction rollback and retained case, priority, history and key values. The receipt file will use Code First with an explicit initializer and tracked receipt/checkpoint transaction. [ADR 0017](../adr/0017-use-a-transactional-closure-feed.md)
 
 | ID | Acceptance evidence required for implementation |
 | --- | --- |
@@ -66,6 +66,8 @@ Propose format 6 for the producer. Use EF Core Code First with a checked-in migr
 | CH-08 | Exercise fresh initialization and explicit formats 1–5 adoption. An upgraded Closed case generates no notice, while a later close on an upgraded open case does. Startup refuses older format until offline upgrade and initialization refuses existing files. |
 | CH-09 | Run existing case and browser regressions, EF snapshot agreement and offline hosting-envelope checks. Document a repeatable synthetic demo with two retained files and operator recovery steps. |
 
+The producer evidence covers CH-01 through CH-04 and CH-08. CH-05 has LocalDemo ingress and OIDC route coverage. CH-09 has the producer regression gates and a one-file walkthrough. Consumer checks, the two-file walkthrough and CH-06/07 belong to the next slice. [Feed tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseClosureFeedTests.cs) · [Upgrade and process tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseUpgradeProcessTests.cs) · [Producer walkthrough](../usage/local-case-workflow.md#read-the-local-closure-feed)
+
 ## Evidence from the existing API
 
-A Release build at `5e21a7b` ran on loopback against a disposable format-5 file on November 5, 2026. Three synthetic cases were created through HTTP and sorted by canonical ID as A, B and C. The experiment closed B and C, then read `GET /cases?status=Closed&limit=1`. The page returned B with B as `nextAfter`. After A closed, continuing with B returned only C and reached the end. A fresh filtered list returned all three cases, and `GET /cases/{A}/history` confirmed A's closure. Reproduce the sequence on a fresh disposable file using the creation and status commands. CH-03 carries this case into the proposed feed tests. [Local case walkthrough](../usage/local-case-workflow.md)
+A Release build at `5e21a7b` ran on loopback against a disposable format-5 file on November 5, 2026. Three synthetic cases were created through HTTP and sorted by canonical ID as A, B and C. The experiment closed B and C, then read `GET /cases?status=Closed&limit=1`. The page returned B with B as `nextAfter`. After A closed, continuing with B returned only C and reached the end. A fresh filtered list returned all three cases, and `GET /cases/{A}/history` confirmed A's closure. Reproduce the sequence on a fresh disposable file using the creation and status commands. The CH-03 feed tests cover the same ID-order case using a stream position. [Local case walkthrough](../usage/local-case-workflow.md)
