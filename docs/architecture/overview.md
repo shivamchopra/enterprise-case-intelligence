@@ -114,6 +114,10 @@ The workspace combines the priority filter with submitted title/status and conti
 
 Closing a case commits the status change, its history entry and a notice in one transaction. The notice references that entry and SQLite assigns its position. The LocalDemo feed reads stream identity, validates the supplied checkpoint and fetches a bounded page in one read transaction. The separate intake executable validates a complete bounded response before starting a receipt write transaction. Its own SQLite file binds one stream. A receipt position within that file identifies one applied notice. Tracked receipt writes and the checkpoint advance commit together. A concurrent attempt with a stale checkpoint can report success only when the complete nonempty page already matches durable receipts. [Phase 10 contract and evidence](../requirements/phase-10-case-closure-handoff.md) · [ADR 0017](../adr/0017-use-a-transactional-closure-feed.md)
 
+## Offline closure brief evaluation
+
+The evaluation projects the selected case status and recorded closure transition into three cited facts. Missing, inconsistent or mismatched evidence produces a categorized abstention. The file-based tool scores checked-in synthetic cases with a rules baseline and can score candidate outputs with the same contract. A future workspace integration would keep the draft tied to authorized reads for the current selection and require human review. [Phase 11 evaluation](../requirements/phase-11-closure-brief-evaluation.md) · [ADR 0018](../adr/0018-evaluate-a-cited-closure-brief-offline.md)
+
 ## Deferred local reliability proposal — not implemented
 
 The [storage-readiness proposal](../requirements/phase-6-storage-readiness.md) addresses the gap between a responsive host and available storage. It describes a separate `/health/ready` contract with fixed format/EF-metadata checks and a rollback-only write probe, finite work/waits and generic `200`/`503` output. It keeps `/health` storage-independent and leaves deep whole-store validation to the offline inspector. Revisit it with hosting requirements; it is no longer the next milestone. No readiness endpoint, storage-format change or monitoring deployment is implemented by the proposal.
@@ -135,7 +139,7 @@ flowchart TD
     App -.-> Integration[Potential asynchronous integration]
     App -.-> Hosting[Potential Azure hosting]
     App -.-> Python[Potential Python AI capability]
-    Python -.-> Evaluation[Potential retrieval and evaluation]
+    Python -.-> Retrieval[Potential model-backed retrieval]
 ```
 
 SQL Server / Azure SQL, Azure deployment, messaging, containers, operational infrastructure/release automation, restricted structured telemetry and Python/AI remain future possibilities. No cloud service, broker or model provider is selected by this diagram; each requires concrete requirements and decisions.

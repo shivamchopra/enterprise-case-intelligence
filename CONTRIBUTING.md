@@ -21,6 +21,7 @@ dotnet format EnterpriseCaseIntelligence.slnx --verify-no-changes --no-restore
 dotnet build EnterpriseCaseIntelligence.slnx --configuration Release --no-restore
 dotnet build tools/ReviewHostPreflight.cs --configuration Release
 dotnet run --file tools/ReviewHostPreflight.cs --configuration Release --no-build -- --proposal infra/review-probe/azuredeploy.json
+dotnet run --file tools/ClosureBriefEvaluation.cs --configuration Release -- --baseline tests/fixtures/closure-brief/cases.json
 dotnet ef migrations has-pending-model-changes --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build
 dotnet ef migrations has-pending-model-changes --project tools/EnterpriseCaseIntelligence.RecordsIntake --configuration Release --no-build
 # Once per Playwright update; Linux may require install --with-deps chromium.
@@ -39,6 +40,8 @@ The [records intake executable](docs/usage/local-records-intake.md) uses its own
 The UpgradeFixture project under `tests/` is an executable fixture for deterministic upgrade, closure and intake interruption tests. Keep its pipe barriers/failure controls out of production commands. Use frozen version-1/2/3 fixtures and the captured released format-4 and format-5 catalogs for compatibility tests; never run upgrade validation against user data.
 
 Add tests when behavior changes. Update documentation when behavior or design changes, and add or update ADRs for meaningful architecture decisions. Keep planned functionality clearly distinguished from implemented functionality.
+
+The offline [closure brief evaluation](docs/requirements/phase-11-closure-brief-evaluation.md) reads synthetic fixtures and scores the rules baseline in CI. Keep expected answers separate from candidate inputs and keep all evaluation data synthetic.
 
 The optional [hosting catalog checker](docs/tasks/app-service-compatibility.md#run-the-catalog-checker) is a .NET 10 file-based operator tool, not an API runtime dependency. CI builds its standalone entry point and tests its linked implementation with disposable responses; no real Azure CLI login is required. The same tool checks the fixed [undeployed probe envelope](infra/review-probe/README.md) offline; negative tests reject paid/additional resources, weakened boundaries, startup commands other than the fixed preparation-only probe and secret-bearing template inputs/outputs. Neither catalog nor proposal success proves Azure/provider validation, deployment readiness, free-tier eligibility or owner approval.
 
