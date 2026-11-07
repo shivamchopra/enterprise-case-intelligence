@@ -29,6 +29,20 @@ If a list, detail, priority or history read fails, use its explicit **Refresh** 
 
 This explicit LocalDemo mode has no sign-in or staff permission checks and is not safe for network hosting. Oidc mode adds sign-in, Reader/Caseworker permissions and CSRF but still requires separate hosted acceptance. Keep the supported demonstration on loopback with synthetic data. `/health` still reports host liveness only; storage readiness remains deferred.
 
+## View a closure brief
+
+After a synthetic case moves from **In review** to **Closed**, select it and choose **View closure brief**. The read-only draft shows **Current status**, **Previous status** and the exact **Recorded closure time** in UTC. Choose **Case status** or **History entry** beside a fact to focus its matching source in the workspace. If the matching source is unavailable in the workspace, the link opens the authorized case or history response for the same case. Check the cited entry before using the draft.
+
+An open case explains when a brief becomes available. A retained case first recorded as Closed during an upgrade explains why it has no closure time. An unverifiable read shows a retry message and clears the facts. Selecting another case, refreshing case or history, or losing access clears the current brief. Choose **View closure brief** again to read fresh evidence.
+
+Both Reader and Caseworker can read the brief in Oidc mode. Use the same loopback base URL and the selected case ID for a LocalDemo API example.
+
+```sh
+curl -sS "http://localhost:5080/cases/$CASE_ID/closure-brief"
+```
+
+The response contains `caseId`, `outcome`, `reason` and `facts`. A draft carries three cited facts. An abstention carries a reason and an empty fact list. [Phase 11 contract](../requirements/phase-11-closure-brief-evaluation.md#workspace-and-http)
+
 ## Inspect overall workload through HTTP
 
 ```sh

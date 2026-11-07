@@ -20,7 +20,7 @@ To clear the gate, the candidate must correctly route all 30 requests and match 
 
 Two local runs with the same model and settings returned identical labels on this test set. The model passed all six evidence-driven abstentions through to the rules. Its 12 false accepts instead presented a closure brief in response to a different request. Among them were a request to change case status and an instruction to force the classifier to choose the brief. The output schema constrained the label shape. The holdout measured whether the labels were correct. [Recorded model labels](../../tests/fixtures/closure-brief-routing/observed-model.json)
 
-These are results for one prompt policy, one model snapshot and one synthetic set. Any revised candidate needs new synthetic cases for a fresh acceptance run. The experiment provides evidence to keep the explicit request for this workflow.
+These are results for one prompt policy, one model snapshot and one synthetic set. Any revised candidate needs new synthetic cases for a fresh acceptance run. The workspace follows this result with an explicit **View closure brief** action. [Workspace contract](../requirements/phase-11-closure-brief-evaluation.md#workspace-and-http)
 
 ## Reproduce
 

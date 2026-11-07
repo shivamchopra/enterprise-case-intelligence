@@ -455,6 +455,24 @@ textarea {
 .priority-section > .feedback:not(:empty) {
     padding: 12px 0;
 }
+#closure-brief-facts {
+    margin: 4px 0 0;
+    font-size: 0.8667rem;
+}
+#closure-brief-facts dt {
+    font-weight: 700;
+}
+#closure-brief-facts dd {
+    margin: 3px 0 12px;
+    overflow-wrap: anywhere;
+}
+#closure-brief-facts dd:last-child {
+    margin-bottom: 0;
+}
+#closure-brief-facts a {
+    color: var(--green);
+    white-space: nowrap;
+}
 .timeline {
     list-style: none;
     padding: 0;

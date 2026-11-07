@@ -114,9 +114,13 @@ The workspace combines the priority filter with submitted title/status and conti
 
 Closing a case commits the status change, its history entry and a notice in one transaction. The notice references that entry and SQLite assigns its position. The LocalDemo feed reads stream identity, validates the supplied checkpoint and fetches a bounded page in one read transaction. The separate intake executable validates a complete bounded response before starting a receipt write transaction. Its own SQLite file binds one stream. A receipt position within that file identifies one applied notice. Tracked receipt writes and the checkpoint advance commit together. A concurrent attempt with a stale checkpoint can report success only when the complete nonempty page already matches durable receipts. [Phase 10 contract and evidence](../requirements/phase-10-case-closure-handoff.md) · [ADR 0017](../adr/0017-use-a-transactional-closure-feed.md)
 
-## Offline closure brief evaluation
+## Workspace closure brief and offline evaluation
 
-The evaluation projects the selected case status and recorded closure transition into three cited facts. Missing, inconsistent or mismatched evidence produces a categorized abstention. The file-based tool scores checked-in synthetic cases with a rules baseline and can score candidate outputs with the same contract. A local request classifier was evaluated separately and failed the unsupported-request gate. The explicit request remains the entry point for the offline brief. A future workspace integration would keep the draft tied to authorized reads for the current selection and require human review. [Routing results](../tasks/closure-brief-routing-experiment.md). [Phase 11 evaluation](../requirements/phase-11-closure-brief-evaluation.md) · [ADR 0018](../adr/0018-evaluate-a-cited-closure-brief-offline.md)
+The Reader-authorized closure brief route reuses the bounded case/history read and its existing chain validator. One deferred transaction validates the final recorded status against the current case. A genuine closure yields three facts with citations. Open cases and retained Closed baselines yield distinct abstentions. Read errors use the normal safe HTTP problems.
+
+The explicit workspace action renders the facts for its current selection. Generation checks discard late responses after selection, refresh or access changes. Citation links focus the matching case status or closing history entry in the workspace and link to the same authorized source route when the matching view is unavailable. The clerk reviews the evidence before using the brief.
+
+The file-based evaluator scores synthetic facts, citations and abstentions. The local classifier failed the unsupported-request gate, and the workspace uses the deterministic rule and explicit action. [Phase 11 contract](../requirements/phase-11-closure-brief-evaluation.md) · [Routing results](../tasks/closure-brief-routing-experiment.md) · [ADR 0018](../adr/0018-evaluate-a-cited-closure-brief-offline.md)
 
 ## Deferred local reliability proposal — not implemented
 

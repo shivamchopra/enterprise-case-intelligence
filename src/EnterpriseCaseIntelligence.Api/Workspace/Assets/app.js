@@ -6,6 +6,7 @@ const priorityNames = ["Low", "Normal", "High"];
 let listGeneration = 0;
 let detailGeneration = 0;
 let historyGeneration = 0;
+let briefGeneration = 0;
 let overviewGeneration = 0;
 let priorityGeneration = 0;
 let nextAfter = null;
@@ -95,6 +96,8 @@ function clearAccess(text) {
     ++overviewGeneration;
     ++priorityGeneration;
     clearPriority();
+    clearClosureBrief();
+    byId("closure-brief").hidden = true;
     byId("priority-section").hidden = true;
     message("priority-message", "");
     clearOverview();
@@ -395,6 +398,7 @@ function renderAction() {
           : "Close case";
     byId("closed-note").hidden = currentCase?.status !== "Closed";
     renderPriority();
+    byId("view-closure-brief").disabled = !canRead || !selectedId || changingStatus;
 }
 
 async function loadDetails(id) {
@@ -409,7 +413,7 @@ async function loadDetails(id) {
         if (record.id !== id) throw new Error("Unexpected case ID");
         currentCase = record;
         byId("case-status").replaceWith(
-            Object.assign(badge(record.status), { id: "case-status" }),
+            Object.assign(badge(record.status), { id: "case-status", tabIndex: -1 }),
         );
         byId("case-id").textContent = record.id;
         byId("case-title").textContent = record.title;
@@ -503,6 +507,7 @@ function requireCurrentState(id) {
     ++priorityGeneration;
     currentCase = null;
     byId("case-detail").hidden = true;
+    clearClosureBrief();
     clearPriority();
     message("detail-message", "Refresh case to read current state before another action.", true);
     message("priority-message", "Refresh case and priority before another action.", true);
@@ -572,9 +577,11 @@ async function loadHistory(id) {
         const entries = [...history.items].sort(
             (a, b) => a.sequence - b.sequence,
         );
-        const rendered = entries.map((entry) => {
+        const rendered = entries.map((entry, index) => {
             if (
+                entry.sequence !== index + 1 ||
                 !Object.hasOwn(statusNames, entry.toStatus) ||
+                (entry.kind === "StatusChanged" && !Object.hasOwn(statusNames, entry.fromStatus)) ||
                 typeof entry.recordedAtUtc !== "string" ||
                 !["Created", "Baseline", "StatusChanged"].includes(entry.kind)
             )
@@ -589,6 +596,10 @@ async function loadHistory(id) {
                         " → " +
                         statusNames[entry.toStatus];
             const item = node("li", label);
+            item.id = "case-history-entry-" + entry.sequence;
+            item.tabIndex = -1;
+            item.dataset.transition = entry.kind === "StatusChanged"
+                ? entry.fromStatus + ":" + entry.toStatus : "";
             const time = node("time", entry.recordedAtUtc + " (UTC)");
             time.dateTime = entry.recordedAtUtc;
             item.append(time);
@@ -606,9 +617,96 @@ async function loadHistory(id) {
     }
 }
 
+function clearClosureBrief() {
+    ++briefGeneration;
+    byId("closure-brief-facts").replaceChildren();
+    byId("closure-brief-facts").hidden = true;
+    byId("closure-brief-facts").setAttribute("aria-busy", "false");
+    message("closure-brief-message", "");
+}
+
+function closureBriefFacts(value, id) {
+    if (value?.caseId !== id || !Array.isArray(value.facts))
+        throw new Error("Invalid closure brief");
+    if (value.outcome === "abstain" && value.facts.length === 0) {
+        if (value.reason === "case_not_closed") return "This case is open. A closure brief is available after a recorded close.";
+        if (value.reason === "closure_transition_unrecorded") return "This case was first recorded as Closed at upgrade. No closure transition or closure time was recorded.";
+    }
+    if (value.outcome !== "draft" || value.reason !== null || value.facts.length !== 3)
+        throw new Error("Invalid closure brief");
+
+    const facts = new Map(value.facts.map(fact => [fact.name, fact]));
+    const status = facts.get("currentStatus");
+    const previous = facts.get("previousStatus");
+    const time = facts.get("closedAtUtc");
+    const sequence = ["2", "3"].find(sequence => time?.citation === `history:${id}#${sequence}`);
+    if (!sequence || status?.value !== "Closed" || status.citation !== `case:${id}#status` ||
+        previous?.value !== "InReview" || previous.citation !== time.citation ||
+        typeof time.value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{7}Z$/.test(time.value))
+        throw new Error("Invalid closure brief");
+
+    const historySource = () => {
+        const entry = byId("case-history-entry-" + sequence);
+        return entry?.dataset.transition === "InReview:Closed" &&
+            entry.querySelector("time")?.dateTime === time.value ? entry : null;
+    };
+    const caseSource = () => currentCase?.id === id && currentCase.status === "Closed"
+        ? byId("case-status") : null;
+    return [
+        ["Current status", "Closed", "Case status", "", caseSource],
+        ["Previous status", "In review", "History entry " + sequence, "/history", historySource],
+        ["Recorded closure time", time.value + " (UTC)", "History entry " + sequence, "/history", historySource],
+    ].flatMap(([label, text, source, path, findSource]) => {
+        const link = node("a", source);
+        link.href = "/cases/" + id + path;
+        link.addEventListener("click", event => {
+            if (selectedId !== id) {
+                event.preventDefault();
+                return;
+            }
+            if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+            const target = findSource();
+            if (!target) return;
+            event.preventDefault();
+            target.focus();
+        });
+        const definition = node("dd", text + " · ");
+        definition.append(link);
+        return [node("dt", label), definition];
+    });
+}
+
+async function viewClosureBrief() {
+    if (!canRead || !selectedId || changingStatus) return;
+    const id = selectedId;
+    clearClosureBrief();
+    const generation = briefGeneration;
+    const facts = byId("closure-brief-facts");
+    facts.setAttribute("aria-busy", "true");
+    message("closure-brief-message", "Loading closure brief…");
+    try {
+        const response = await request("/cases/" + id + "/closure-brief");
+        if (generation !== briefGeneration || id !== selectedId) return;
+        const result = closureBriefFacts(response, id);
+        if (typeof result === "string") message("closure-brief-message", result);
+        else {
+            facts.replaceChildren(...result);
+            facts.hidden = false;
+            message("closure-brief-message", "Closure brief ready for review.");
+        }
+    } catch {
+        if (generation === briefGeneration && id === selectedId)
+            message("closure-brief-message", "The closure brief could not be verified. Check the case and recorded history, then try again.", true);
+    } finally {
+        if (generation === briefGeneration) facts.setAttribute("aria-busy", "false");
+    }
+}
+
 function selectCase(id) {
     if (!canRead) return;
     selectedId = id;
+    clearClosureBrief();
+    byId("closure-brief").hidden = false;
     byId("case-lookup").value = id;
     byId("case-lookup").setAttribute("aria-invalid", "false");
     byId("case-lookup-error").textContent = "";
@@ -634,6 +732,7 @@ async function advanceCase() {
     const title = currentCase.title;
     const status = currentCase.status === "New" ? "InReview" : "Closed";
     changingStatus = true;
+    clearClosureBrief();
     renderAction();
     message("mutation-message", "Saving status change…");
     try {
@@ -826,8 +925,11 @@ byId("refresh-case").addEventListener("click", () => {
     if (selectedId) selectCase(selectedId);
 });
 byId("refresh-history").addEventListener("click", () => {
-    if (selectedId) void loadHistory(selectedId);
+    if (!selectedId) return;
+    clearClosureBrief();
+    void loadHistory(selectedId);
 });
+byId("view-closure-brief").addEventListener("click", () => void viewClosureBrief());
 byId("advance-case").addEventListener("click", () => void advanceCase());
 byId("new-case").addEventListener("click", () => {
     if (!canWrite) return;
