@@ -36,6 +36,19 @@ jobs:
         run: dotnet run --file tools/ReviewHostPreflight.cs --configuration Release --no-build -- --proposal infra/review-probe/azuredeploy.json
       - name: Evaluate the synthetic closure brief baseline
         run: dotnet run --file tools/ClosureBriefEvaluation.cs --configuration Release -- --baseline tests/fixtures/closure-brief/cases.json
+      - name: Verify synthetic routing evidence
+        run: |
+          cases=tests/fixtures/closure-brief-routing/cases.json
+          observed=tests/fixtures/closure-brief-routing/observed-model.json
+          dotnet run --file tools/ClosureBriefEvaluation.cs --configuration Release --no-build -- --baseline "$cases"
+          if report="$(dotnet run --file tools/ClosureBriefEvaluation.cs --configuration Release --no-build -- --route-score "$cases" "$observed")"; then
+            echo "The recorded model unexpectedly passed the routing gate." >&2
+            exit 1
+          else
+            test "$?" -eq 1
+          fi
+          printf '%s\n' "$report"
+          python3 -c 'import json, sys; r = json.load(sys.stdin); assert (r["supportedCorrect"], r["unsupportedCorrect"]) == (16, 2); assert {f["code"] for f in r["routeFailures"]} == {"false_accept"} and len(r["routeFailures"]) == 12' <<< "$report"
       - name: Verify EF model snapshot
         run: dotnet ef migrations has-pending-model-changes --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build
       - name: Verify receipt store EF model snapshot

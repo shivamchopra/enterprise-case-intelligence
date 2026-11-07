@@ -41,7 +41,7 @@ The UpgradeFixture project under `tests/` is an executable fixture for determini
 
 Add tests when behavior changes. Update documentation when behavior or design changes, and add or update ADRs for meaningful architecture decisions. Keep planned functionality clearly distinguished from implemented functionality.
 
-The offline [closure brief evaluation](docs/requirements/phase-11-closure-brief-evaluation.md) reads synthetic fixtures and scores the rules baseline in CI. Keep expected answers separate from candidate inputs and keep all evaluation data synthetic.
+The offline [closure brief evaluation](docs/requirements/phase-11-closure-brief-evaluation.md) reads synthetic fixtures and scores the rules baseline in CI. Keep expected answers separate from candidate inputs and keep all evaluation data synthetic. CI also scores the recorded routing decisions. Local inference is optional when reproducing the experiment. [Routing protocol](docs/tasks/closure-brief-routing-experiment.md)
 
 The optional [hosting catalog checker](docs/tasks/app-service-compatibility.md#run-the-catalog-checker) is a .NET 10 file-based operator tool, not an API runtime dependency. CI builds its standalone entry point and tests its linked implementation with disposable responses; no real Azure CLI login is required. The same tool checks the fixed [undeployed probe envelope](infra/review-probe/README.md) offline; negative tests reject paid/additional resources, weakened boundaries, startup commands other than the fixed preparation-only probe and secret-bearing template inputs/outputs. Neither catalog nor proposal success proves Azure/provider validation, deployment readiness, free-tier eligibility or owner approval.
 

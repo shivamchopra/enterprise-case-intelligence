@@ -116,7 +116,7 @@ Closing a case commits the status change, its history entry and a notice in one 
 
 ## Offline closure brief evaluation
 
-The evaluation projects the selected case status and recorded closure transition into three cited facts. Missing, inconsistent or mismatched evidence produces a categorized abstention. The file-based tool scores checked-in synthetic cases with a rules baseline and can score candidate outputs with the same contract. A future workspace integration would keep the draft tied to authorized reads for the current selection and require human review. [Phase 11 evaluation](../requirements/phase-11-closure-brief-evaluation.md) · [ADR 0018](../adr/0018-evaluate-a-cited-closure-brief-offline.md)
+The evaluation projects the selected case status and recorded closure transition into three cited facts. Missing, inconsistent or mismatched evidence produces a categorized abstention. The file-based tool scores checked-in synthetic cases with a rules baseline and can score candidate outputs with the same contract. A local request classifier was evaluated separately and failed the unsupported-request gate. The explicit request remains the entry point for the offline brief. A future workspace integration would keep the draft tied to authorized reads for the current selection and require human review. [Routing results](../tasks/closure-brief-routing-experiment.md). [Phase 11 evaluation](../requirements/phase-11-closure-brief-evaluation.md) · [ADR 0018](../adr/0018-evaluate-a-cited-closure-brief-offline.md)
 
 ## Deferred local reliability proposal — not implemented
 

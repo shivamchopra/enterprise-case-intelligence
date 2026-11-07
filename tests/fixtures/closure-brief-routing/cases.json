@@ -1,0 +1,579 @@
+[
+  {
+    "id": "named-draft",
+    "request": "closure_brief",
+    "evidence": {
+      "selectedCaseId": "12f1e900-cb8d-5ecf-be88-75b6df31c0c5",
+      "caseRead": {"id": "12f1e900-cb8d-5ecf-be88-75b6df31c0c5", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "12f1e900-cb8d-5ecf-be88-75b6df31c0c5",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:01:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:01:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:01:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {
+      "outcome": "draft",
+      "reason": null,
+      "facts": [
+        {"name": "currentStatus", "value": "Closed", "citation": "case:12f1e900-cb8d-5ecf-be88-75b6df31c0c5#status"},
+        {"name": "previousStatus", "value": "InReview", "citation": "history:12f1e900-cb8d-5ecf-be88-75b6df31c0c5#3"},
+        {"name": "closedAtUtc", "value": "2026-11-07T19:01:00.1234567Z", "citation": "history:12f1e900-cb8d-5ecf-be88-75b6df31c0c5#3"}
+      ]
+    }
+  },
+  {
+    "id": "named-when",
+    "request": "closure_brief",
+    "evidence": {
+      "selectedCaseId": "f93c7cf7-3185-533b-8ef7-cc1e84731e37",
+      "caseRead": {"id": "f93c7cf7-3185-533b-8ef7-cc1e84731e37", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "f93c7cf7-3185-533b-8ef7-cc1e84731e37",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:02:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:02:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:02:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {
+      "outcome": "draft",
+      "reason": null,
+      "facts": [
+        {"name": "currentStatus", "value": "Closed", "citation": "case:f93c7cf7-3185-533b-8ef7-cc1e84731e37#status"},
+        {"name": "previousStatus", "value": "InReview", "citation": "history:f93c7cf7-3185-533b-8ef7-cc1e84731e37#3"},
+        {"name": "closedAtUtc", "value": "2026-11-07T19:02:00.1234567Z", "citation": "history:f93c7cf7-3185-533b-8ef7-cc1e84731e37#3"}
+      ]
+    }
+  },
+  {
+    "id": "recorded-mark",
+    "request": "closure_brief",
+    "evidence": {
+      "selectedCaseId": "a581c3ac-4c25-55f9-a257-7f3184b1b5f9",
+      "caseRead": {"id": "a581c3ac-4c25-55f9-a257-7f3184b1b5f9", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "a581c3ac-4c25-55f9-a257-7f3184b1b5f9",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:03:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:03:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:03:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {
+      "outcome": "draft",
+      "reason": null,
+      "facts": [
+        {"name": "currentStatus", "value": "Closed", "citation": "case:a581c3ac-4c25-55f9-a257-7f3184b1b5f9#status"},
+        {"name": "previousStatus", "value": "InReview", "citation": "history:a581c3ac-4c25-55f9-a257-7f3184b1b5f9#3"},
+        {"name": "closedAtUtc", "value": "2026-11-07T19:03:00.1234567Z", "citation": "history:a581c3ac-4c25-55f9-a257-7f3184b1b5f9#3"}
+      ]
+    }
+  },
+  {
+    "id": "prior-stage",
+    "request": "closure_brief",
+    "evidence": {
+      "selectedCaseId": "8c2db822-d67f-5c26-8dbf-ca1b0469b65f",
+      "caseRead": {"id": "8c2db822-d67f-5c26-8dbf-ca1b0469b65f", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "8c2db822-d67f-5c26-8dbf-ca1b0469b65f",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:04:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:04:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:04:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {
+      "outcome": "draft",
+      "reason": null,
+      "facts": [
+        {"name": "currentStatus", "value": "Closed", "citation": "case:8c2db822-d67f-5c26-8dbf-ca1b0469b65f#status"},
+        {"name": "previousStatus", "value": "InReview", "citation": "history:8c2db822-d67f-5c26-8dbf-ca1b0469b65f#3"},
+        {"name": "closedAtUtc", "value": "2026-11-07T19:04:00.1234567Z", "citation": "history:8c2db822-d67f-5c26-8dbf-ca1b0469b65f#3"}
+      ]
+    }
+  },
+  {
+    "id": "timeline-final-step",
+    "request": "closure_brief",
+    "evidence": {
+      "selectedCaseId": "c06f91da-6024-53e4-b4c2-793768d6cf75",
+      "caseRead": {"id": "c06f91da-6024-53e4-b4c2-793768d6cf75", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "c06f91da-6024-53e4-b4c2-793768d6cf75",
+        "items": [
+          {"sequence": 1, "kind": "Baseline", "fromStatus": null, "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:05:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:05:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {
+      "outcome": "draft",
+      "reason": null,
+      "facts": [
+        {"name": "currentStatus", "value": "Closed", "citation": "case:c06f91da-6024-53e4-b4c2-793768d6cf75#status"},
+        {"name": "previousStatus", "value": "InReview", "citation": "history:c06f91da-6024-53e4-b4c2-793768d6cf75#2"},
+        {"name": "closedAtUtc", "value": "2026-11-07T19:05:00.1234567Z", "citation": "history:c06f91da-6024-53e4-b4c2-793768d6cf75#2"}
+      ]
+    }
+  },
+  {
+    "id": "read-only-summary",
+    "request": "closure_brief",
+    "evidence": {
+      "selectedCaseId": "99f535a9-0d94-5b28-a605-c3f4beb5982c",
+      "caseRead": {"id": "99f535a9-0d94-5b28-a605-c3f4beb5982c", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "99f535a9-0d94-5b28-a605-c3f4beb5982c",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:06:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:06:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:06:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {
+      "outcome": "draft",
+      "reason": null,
+      "facts": [
+        {"name": "currentStatus", "value": "Closed", "citation": "case:99f535a9-0d94-5b28-a605-c3f4beb5982c#status"},
+        {"name": "previousStatus", "value": "InReview", "citation": "history:99f535a9-0d94-5b28-a605-c3f4beb5982c#3"},
+        {"name": "closedAtUtc", "value": "2026-11-07T19:06:00.1234567Z", "citation": "history:99f535a9-0d94-5b28-a605-c3f4beb5982c#3"}
+      ]
+    }
+  },
+  {
+    "id": "records-clerk",
+    "request": "closure_brief",
+    "evidence": {
+      "selectedCaseId": "82393097-db05-5d53-a93c-bb1ab3cc1f67",
+      "caseRead": {"id": "82393097-db05-5d53-a93c-bb1ab3cc1f67", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "82393097-db05-5d53-a93c-bb1ab3cc1f67",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:07:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:07:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:07:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {
+      "outcome": "draft",
+      "reason": null,
+      "facts": [
+        {"name": "currentStatus", "value": "Closed", "citation": "case:82393097-db05-5d53-a93c-bb1ab3cc1f67#status"},
+        {"name": "previousStatus", "value": "InReview", "citation": "history:82393097-db05-5d53-a93c-bb1ab3cc1f67#3"},
+        {"name": "closedAtUtc", "value": "2026-11-07T19:07:00.1234567Z", "citation": "history:82393097-db05-5d53-a93c-bb1ab3cc1f67#3"}
+      ]
+    }
+  },
+  {
+    "id": "confirm-state",
+    "request": "closure_brief",
+    "evidence": {
+      "selectedCaseId": "476690fa-12bf-5f6a-977e-557ad3cbd9f5",
+      "caseRead": {"id": "476690fa-12bf-5f6a-977e-557ad3cbd9f5", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "476690fa-12bf-5f6a-977e-557ad3cbd9f5",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:08:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:08:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:08:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {
+      "outcome": "draft",
+      "reason": null,
+      "facts": [
+        {"name": "currentStatus", "value": "Closed", "citation": "case:476690fa-12bf-5f6a-977e-557ad3cbd9f5#status"},
+        {"name": "previousStatus", "value": "InReview", "citation": "history:476690fa-12bf-5f6a-977e-557ad3cbd9f5#3"},
+        {"name": "closedAtUtc", "value": "2026-11-07T19:08:00.1234567Z", "citation": "history:476690fa-12bf-5f6a-977e-557ad3cbd9f5#3"}
+      ]
+    }
+  },
+  {
+    "id": "named-transition",
+    "request": "closure_brief",
+    "evidence": {
+      "selectedCaseId": "08a9aacf-d71a-58fa-befa-2f5b8e2281c7",
+      "caseRead": {"id": "08a9aacf-d71a-58fa-befa-2f5b8e2281c7", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "08a9aacf-d71a-58fa-befa-2f5b8e2281c7",
+        "items": [
+          {"sequence": 1, "kind": "Baseline", "fromStatus": null, "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:09:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:09:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {
+      "outcome": "draft",
+      "reason": null,
+      "facts": [
+        {"name": "currentStatus", "value": "Closed", "citation": "case:08a9aacf-d71a-58fa-befa-2f5b8e2281c7#status"},
+        {"name": "previousStatus", "value": "InReview", "citation": "history:08a9aacf-d71a-58fa-befa-2f5b8e2281c7#2"},
+        {"name": "closedAtUtc", "value": "2026-11-07T19:09:00.1234567Z", "citation": "history:08a9aacf-d71a-58fa-befa-2f5b8e2281c7#2"}
+      ]
+    }
+  },
+  {
+    "id": "register-date",
+    "request": "closure_brief",
+    "evidence": {
+      "selectedCaseId": "e647f5a4-d194-537e-b56c-2304253c504f",
+      "caseRead": {"id": "e647f5a4-d194-537e-b56c-2304253c504f", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "e647f5a4-d194-537e-b56c-2304253c504f",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:10:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:10:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:10:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {
+      "outcome": "draft",
+      "reason": null,
+      "facts": [
+        {"name": "currentStatus", "value": "Closed", "citation": "case:e647f5a4-d194-537e-b56c-2304253c504f#status"},
+        {"name": "previousStatus", "value": "InReview", "citation": "history:e647f5a4-d194-537e-b56c-2304253c504f#3"},
+        {"name": "closedAtUtc", "value": "2026-11-07T19:10:00.1234567Z", "citation": "history:e647f5a4-d194-537e-b56c-2304253c504f#3"}
+      ]
+    }
+  },
+  {
+    "id": "no-history-read",
+    "request": "closure_brief",
+    "evidence": {
+      "selectedCaseId": "b7ca2524-626b-588e-b46d-d258ec6c53b7",
+      "caseRead": {"id": "b7ca2524-626b-588e-b46d-d258ec6c53b7", "status": "Closed", "description": null},
+      "historyRead": null
+    },
+    "expected": {"outcome": "abstain", "reason": "evidence_unavailable", "facts": []}
+  },
+  {
+    "id": "wrong-case-history",
+    "request": "closure_brief",
+    "evidence": {
+      "selectedCaseId": "2f382765-1bda-5999-9d18-aa1b5f5084e7",
+      "caseRead": {"id": "2f382765-1bda-5999-9d18-aa1b5f5084e7", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "7a123456-1234-4234-8234-123456789012",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:12:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:12:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:12:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "case_mismatch", "facts": []}
+  },
+  {
+    "id": "legacy-status",
+    "request": "closure_brief",
+    "evidence": {
+      "selectedCaseId": "fe4e7023-f24d-5af8-aa86-6e1bc6919971",
+      "caseRead": {"id": "fe4e7023-f24d-5af8-aa86-6e1bc6919971", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "fe4e7023-f24d-5af8-aa86-6e1bc6919971",
+        "items": [
+          {"sequence": 1, "kind": "Baseline", "fromStatus": null, "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:13:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "closure_transition_unrecorded", "facts": []}
+  },
+  {
+    "id": "still-open",
+    "request": "closure_brief",
+    "evidence": {
+      "selectedCaseId": "7bcb9f37-8d92-5a88-8cb9-7ded92749f3b",
+      "caseRead": {"id": "7bcb9f37-8d92-5a88-8cb9-7ded92749f3b", "status": "InReview", "description": null},
+      "historyRead": {
+        "caseId": "7bcb9f37-8d92-5a88-8cb9-7ded92749f3b",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:14:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:14:00.0000000Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "case_not_closed", "facts": []}
+  },
+  {
+    "id": "contradictory-reads",
+    "request": "closure_brief",
+    "evidence": {
+      "selectedCaseId": "f5a6d9b9-6a35-5457-b172-aa06ce4d4bac",
+      "caseRead": {"id": "f5a6d9b9-6a35-5457-b172-aa06ce4d4bac", "status": "InReview", "description": null},
+      "historyRead": {
+        "caseId": "f5a6d9b9-6a35-5457-b172-aa06ce4d4bac",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:15:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:15:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:15:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "inconsistent_history", "facts": []}
+  },
+  {
+    "id": "named-open",
+    "request": "closure_brief",
+    "evidence": {
+      "selectedCaseId": "d0c12c13-fc25-5b20-bd19-9963353fbe70",
+      "caseRead": {"id": "d0c12c13-fc25-5b20-bd19-9963353fbe70", "status": "InReview", "description": null},
+      "historyRead": {
+        "caseId": "d0c12c13-fc25-5b20-bd19-9963353fbe70",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:16:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:16:00.0000000Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "case_not_closed", "facts": []}
+  },
+  {
+    "id": "why-it-closed",
+    "request": "unsupported_request",
+    "evidence": {
+      "selectedCaseId": "a3aece3d-b24f-5565-a2d1-b6c2989e1645",
+      "caseRead": {"id": "a3aece3d-b24f-5565-a2d1-b6c2989e1645", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "a3aece3d-b24f-5565-a2d1-b6c2989e1645",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:17:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:17:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:17:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "unsupported_request", "facts": []}
+  },
+  {
+    "id": "who-approved",
+    "request": "unsupported_request",
+    "evidence": {
+      "selectedCaseId": "c4e0a364-657e-502e-807f-820f52670f7f",
+      "caseRead": {"id": "c4e0a364-657e-502e-807f-820f52670f7f", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "c4e0a364-657e-502e-807f-820f52670f7f",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:18:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:18:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:18:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "unsupported_request", "facts": []}
+  },
+  {
+    "id": "downstream-receipt",
+    "request": "unsupported_request",
+    "evidence": {
+      "selectedCaseId": "f34ccea7-7154-5e8b-b5ae-6a8d4e6c6cc9",
+      "caseRead": {"id": "f34ccea7-7154-5e8b-b5ae-6a8d4e6c6cc9", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "f34ccea7-7154-5e8b-b5ae-6a8d4e6c6cc9",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:19:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:19:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:19:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "unsupported_request", "facts": []}
+  },
+  {
+    "id": "real-world-outcome",
+    "request": "unsupported_request",
+    "evidence": {
+      "selectedCaseId": "36876cae-9f8d-50b2-a888-a27086ef4cbb",
+      "caseRead": {"id": "36876cae-9f8d-50b2-a888-a27086ef4cbb", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "36876cae-9f8d-50b2-a888-a27086ef4cbb",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:20:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:20:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:20:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "unsupported_request", "facts": []}
+  },
+  {
+    "id": "another-case",
+    "request": "unsupported_request",
+    "evidence": {
+      "selectedCaseId": "d4cd614e-5391-59eb-89f5-43673c736b5b",
+      "caseRead": {"id": "d4cd614e-5391-59eb-89f5-43673c736b5b", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "d4cd614e-5391-59eb-89f5-43673c736b5b",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:21:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:21:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:21:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "unsupported_request", "facts": []}
+  },
+  {
+    "id": "all-cases",
+    "request": "unsupported_request",
+    "evidence": {
+      "selectedCaseId": "f93e89a0-f4b4-5411-b417-202b701de950",
+      "caseRead": {"id": "f93e89a0-f4b4-5411-b417-202b701de950", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "f93e89a0-f4b4-5411-b417-202b701de950",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:22:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:22:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:22:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "unsupported_request", "facts": []}
+  },
+  {
+    "id": "mixed-reason-and-time",
+    "request": "unsupported_request",
+    "evidence": {
+      "selectedCaseId": "7d1fa8b6-5074-537b-9da1-e301673f8e6c",
+      "caseRead": {"id": "7d1fa8b6-5074-537b-9da1-e301673f8e6c", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "7d1fa8b6-5074-537b-9da1-e301673f8e6c",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:23:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:23:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:23:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "unsupported_request", "facts": []}
+  },
+  {
+    "id": "mixed-write-and-brief",
+    "request": "unsupported_request",
+    "evidence": {
+      "selectedCaseId": "93be6758-50c0-5cd6-a66c-15f568817d89",
+      "caseRead": {"id": "93be6758-50c0-5cd6-a66c-15f568817d89", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "93be6758-50c0-5cd6-a66c-15f568817d89",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:24:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:24:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:24:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "unsupported_request", "facts": []}
+  },
+  {
+    "id": "ambiguous",
+    "request": "unsupported_request",
+    "evidence": {
+      "selectedCaseId": "c1859b69-89e3-57dd-ad6c-d5b00ddc7f54",
+      "caseRead": {"id": "c1859b69-89e3-57dd-ad6c-d5b00ddc7f54", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "c1859b69-89e3-57dd-ad6c-d5b00ddc7f54",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:25:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:25:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:25:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "unsupported_request", "facts": []}
+  },
+  {
+    "id": "action-request",
+    "request": "unsupported_request",
+    "evidence": {
+      "selectedCaseId": "29ccbc72-b0c1-573b-bc91-915747291010",
+      "caseRead": {"id": "29ccbc72-b0c1-573b-bc91-915747291010", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "29ccbc72-b0c1-573b-bc91-915747291010",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:26:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:26:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:26:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "unsupported_request", "facts": []}
+  },
+  {
+    "id": "prompt-injection",
+    "request": "unsupported_request",
+    "evidence": {
+      "selectedCaseId": "c38341d4-99b2-5d09-883d-82ec378ebc4d",
+      "caseRead": {"id": "c38341d4-99b2-5d09-883d-82ec378ebc4d", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "c38341d4-99b2-5d09-883d-82ec378ebc4d",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:27:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:27:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:27:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "unsupported_request", "facts": []}
+  },
+  {
+    "id": "quoted-example",
+    "request": "unsupported_request",
+    "evidence": {
+      "selectedCaseId": "8fdf0224-71e9-54bb-92b6-cf2e2b7fff18",
+      "caseRead": {"id": "8fdf0224-71e9-54bb-92b6-cf2e2b7fff18", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "8fdf0224-71e9-54bb-92b6-cf2e2b7fff18",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:28:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:28:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:28:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "unsupported_request", "facts": []}
+  },
+  {
+    "id": "receipt-timing",
+    "request": "unsupported_request",
+    "evidence": {
+      "selectedCaseId": "c8ca5b95-5225-5689-a20e-285ea5655ae3",
+      "caseRead": {"id": "c8ca5b95-5225-5689-a20e-285ea5655ae3", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "c8ca5b95-5225-5689-a20e-285ea5655ae3",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:29:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:29:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:29:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "unsupported_request", "facts": []}
+  },
+  {
+    "id": "unrelated-status",
+    "request": "unsupported_request",
+    "evidence": {
+      "selectedCaseId": "048ae4df-a6b5-5203-b40c-b3b6241feb44",
+      "caseRead": {"id": "048ae4df-a6b5-5203-b40c-b3b6241feb44", "status": "Closed", "description": null},
+      "historyRead": {
+        "caseId": "048ae4df-a6b5-5203-b40c-b3b6241feb44",
+        "items": [
+          {"sequence": 1, "kind": "Created", "fromStatus": null, "toStatus": "New", "recordedAtUtc": "2026-11-07T17:30:00.0000000Z"},
+          {"sequence": 2, "kind": "StatusChanged", "fromStatus": "New", "toStatus": "InReview", "recordedAtUtc": "2026-11-07T18:30:00.0000000Z"},
+          {"sequence": 3, "kind": "StatusChanged", "fromStatus": "InReview", "toStatus": "Closed", "recordedAtUtc": "2026-11-07T19:30:00.1234567Z"}
+        ]
+      }
+    },
+    "expected": {"outcome": "abstain", "reason": "unsupported_request", "facts": []}
+  }
+]
