@@ -34,6 +34,8 @@ jobs:
         run: dotnet build tools/ReviewHostPreflight.cs --configuration Release
       - name: Check undeployed F1 probe envelope offline
         run: dotnet run --file tools/ReviewHostPreflight.cs --configuration Release --no-build -- --proposal infra/review-probe/azuredeploy.json
+      - name: Evaluate the synthetic closure brief baseline
+        run: dotnet run --file tools/ClosureBriefEvaluation.cs --configuration Release -- --baseline tests/fixtures/closure-brief/cases.json
       - name: Verify EF model snapshot
         run: dotnet ef migrations has-pending-model-changes --project src/EnterpriseCaseIntelligence.Api --configuration Release --no-build
       - name: Verify receipt store EF model snapshot

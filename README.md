@@ -90,6 +90,7 @@ tests/
 tools/
   EnterpriseCaseIntelligence.RecordsIntake/ Local closure consumer and receipt store
   EnterpriseCaseIntelligence.ReviewProbe/ Independent diagnostic host/client, no case API
+  ClosureBriefEvaluation.cs             Offline synthetic closure brief evaluation
   ReviewHostPreflight.cs                 Catalog and offline resource-envelope checks
 docs/
   architecture/                         Design and conceptual direction
@@ -174,10 +175,11 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 - [ADR 0016](docs/adr/0016-expose-case-priority-without-changing-creation-replay.md): implemented priority resources and format-5 EF lifecycle amendment while preserving creation replay, with selected-case browser editing and filtering.
 
 - [ADR 0017](docs/adr/0017-use-a-transactional-closure-feed.md) records the transactional closure producer, format-6 lifecycle and separate receipt store.
+- [ADR 0018](docs/adr/0018-evaluate-a-cited-closure-brief-offline.md) defines the offline closure brief evaluation and human review boundary.
 
 ## Planned Evolution
 
-**Planned / Conceptual — none is implemented today:** server-managed persistence such as SQL Server / Azure SQL; Azure deployment; broker-backed or hosted integration; operational infrastructure/release automation; restricted structured observability; remaining real-provider/hosted acceptance; Python-based AI capabilities; retrieval; AI evaluation; human approval boundaries. Specific technologies and services require future requirements and ADRs.
+**Planned / Conceptual — none is implemented today:** server-managed persistence such as SQL Server / Azure SQL; Azure deployment; broker-backed or hosted integration; operational infrastructure/release automation; restricted structured observability; remaining real-provider/hosted acceptance; a workspace AI assistant; model-backed retrieval; an assistant review interface. Specific technologies and services require future requirements and ADRs.
 
 ## Roadmap
 
@@ -188,7 +190,7 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 - **Case prioritization — implemented locally:** [Low/Normal/High rules, priority resources and list filtering](docs/requirements/phase-9-case-prioritization.md), with a scaffolded EF Code First format-5 migration, explicit retained-store upgrades and browser filter/read/edit controls. The [delivery task](docs/tasks/case-prioritization.md) maps domain/provider/API/process/browser acceptance, including uncertain writes and protected-state clearing. Priority expresses current staff choice without actor history, SLA or automatic priority ordering.
 - **Deferred:** [storage readiness](docs/requirements/phase-6-storage-readiness.md), to revisit against the selected hosting/provider design. `/health` remains storage-independent liveness.
 - **Case closure handoff — implemented locally.** A separate intake command pulls committed closures, writes receipts and resumes from its retained checkpoint. [Run the two-file demo](docs/usage/local-records-intake.md). [Phase 10 contract](docs/requirements/phase-10-case-closure-handoff.md) · [ADR 0017](docs/adr/0017-use-a-transactional-closure-feed.md)
-- **Later:** evaluate AI against a concrete case scenario and revisit hosted delivery when the hosting prerequisites are met. [Project roadmap](docs/roadmap.md)
+- **Closure brief evaluation — implemented offline.** Synthetic cases score exact facts, citations and abstention against a rules baseline. Workspace integration and a model experiment are proposed separately. [Run the evaluation](docs/requirements/phase-11-closure-brief-evaluation.md#run-the-evaluation)
 
 ## Security and Privacy
 
