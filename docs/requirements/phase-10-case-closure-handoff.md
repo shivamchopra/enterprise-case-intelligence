@@ -1,6 +1,6 @@
 # Phase 10 case closure handoff
 
-**Producer implemented locally.** Format 6 and the LocalDemo feed are available. The separate records intake command and its receipt-store verification are the next slice.
+**Implemented locally.** Format 6 serves the LocalDemo feed. A separate records intake command applies one page to its own Code First SQLite file and resumes from a durable checkpoint.
 
 ## Scenario
 
@@ -40,9 +40,9 @@ The last returned position is the next cursor. An empty page preserves the reque
 
 Reuse safe, no-store problem responses. Invalid query shape returns `400 validation_failed` before storage access. A different stream returns `409 handoff_source_changed` and an unrecognized positive cursor returns `409 handoff_checkpoint_unknown`. Storage and encountered data failures use the existing generic server error. The OIDC host reserves this integration surface for a later service authorization decision and serves no closure feed route in this phase.
 
-## Planned records intake
+## Records intake
 
-An operator explicitly initializes a separate receipt file and invokes a one-page pull. The pull uses an explicit numeric loopback HTTP origin, a fixed feed path, a five-second request deadline, a 64 KiB response limit and direct connections. A redirect is a failed pull. The caller supplies the origin and receipt-file path. The receipt store retains its source stream and last applied position. The first successful pull binds the stream even when the page is empty.
+An operator explicitly initializes a separate receipt file and invokes a one-page pull. The pull uses a canonical numeric loopback HTTP origin with an explicit port, a fixed feed path, a five-second request deadline, a 64 KiB response limit and direct connections. A redirect is a failed pull. The caller supplies the origin and receipt-file path. The receipt store retains its source stream and last applied position. The first successful pull binds the stream even when the page is empty.
 
 Validate the complete page before applying it, including version, field shapes, increasing positions, page bounds and cursor consistency. Within one receipt-store transaction, verify the expected checkpoint, insert the receipts and advance to the last fully applied position. The event identity is `(streamId, position)`. If a checkpoint has already moved, accept a fully applied nonempty page only when every receipt matches exactly, with the checkpoint left at its current position. A conflicting duplicate, inconsistent page, unexpected stream or other stale checkpoint fails without partial application. Recovery after a lost response or failed process uses the same durable receipt file to determine what committed. A new pull starts from the persisted checkpoint. An explicit inspection command reports the current checkpoint and receipt count so the operator can reconcile an uncertain outcome.
 
@@ -52,7 +52,7 @@ Success output reports received and newly applied counts plus the resulting chec
 
 ## Format and verification
 
-The producer uses EF Core Code First with a scaffolded migration and snapshot. Its offline lifecycle supports formats 1–5 as upgrade sources. Independent format-5 catalogs capture the fresh and inherited layouts. Real SQLite tests verify STRICT tables, the history foreign key, transaction rollback and retained case, priority, history and key values. The receipt file will use Code First with an explicit initializer and tracked receipt/checkpoint transaction. [ADR 0017](../adr/0017-use-a-transactional-closure-feed.md)
+The producer uses EF Core Code First with a scaffolded migration and snapshot. Its offline lifecycle supports formats 1–5 as upgrade sources. Independent format-5 catalogs capture the fresh and inherited layouts. Real SQLite tests verify STRICT tables, the history foreign key, transaction rollback and retained case, priority, history and key values. The receipt file uses its own scaffolded EF migration and snapshot, explicit initializer and tracked receipt/checkpoint transaction. [ADR 0017](../adr/0017-use-a-transactional-closure-feed.md)
 
 | ID | Acceptance evidence required for implementation |
 | --- | --- |
@@ -66,7 +66,9 @@ The producer uses EF Core Code First with a scaffolded migration and snapshot. I
 | CH-08 | Exercise fresh initialization and explicit formats 1–5 adoption. An upgraded Closed case generates no notice, while a later close on an upgraded open case does. Startup refuses older format until offline upgrade and initialization refuses existing files. |
 | CH-09 | Run existing case and browser regressions, EF snapshot agreement and offline hosting-envelope checks. Document a repeatable synthetic demo with two retained files and operator recovery steps. |
 
-The producer evidence covers CH-01 through CH-04 and CH-08. CH-05 has LocalDemo ingress and OIDC route coverage. CH-09 has the producer regression gates and a one-file walkthrough. Consumer checks, the two-file walkthrough and CH-06/07 belong to the next slice. [Feed tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseClosureFeedTests.cs) · [Upgrade and process tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseUpgradeProcessTests.cs) · [Producer walkthrough](../usage/local-case-workflow.md#read-the-local-closure-feed)
+The producer tests cover CH-01 through CH-04 and CH-08. CH-05 has LocalDemo ingress and OIDC route tests, plus intake transport tests for response bounds, privacy and redirect refusal. [Feed tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseClosureFeedTests.cs) · [Upgrade and process tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseUpgradeProcessTests.cs) · [Intake feed tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Intake/ReceiptFeedTests.cs)
+
+CH-06 and CH-07 have real two-file process tests, concurrent pulls, provider failures and interruption before and after commit. CH-09 includes both EF snapshots, the existing browser and offline gates, and the documented operator recovery procedure. [Intake process tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Intake/ReceiptProcessTests.cs) · [Receipt store tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Intake/ReceiptStoreTests.cs) · [Two-file walkthrough](../usage/local-records-intake.md)
 
 ## Evidence from the existing API
 

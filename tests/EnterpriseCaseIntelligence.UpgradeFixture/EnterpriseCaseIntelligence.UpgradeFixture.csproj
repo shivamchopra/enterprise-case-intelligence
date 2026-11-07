@@ -6,5 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/EnterpriseCaseIntelligence.Api/EnterpriseCaseIntelligence.Api.csproj" />
+    <ProjectReference Include="../../tools/EnterpriseCaseIntelligence.RecordsIntake/EnterpriseCaseIntelligence.RecordsIntake.csproj" />
   </ItemGroup>
 </Project>

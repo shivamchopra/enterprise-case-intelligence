@@ -235,11 +235,6 @@ public class CaseUpgradeProcessTests
             UseShellExecute = false,
             WorkingDirectory = AppContext.BaseDirectory
         };
-        start.ArgumentList.Add("exec");
-        start.ArgumentList.Add("--runtimeconfig");
-        start.ArgumentList.Add(Path.ChangeExtension(typeof(Program).Assembly.Location, ".runtimeconfig.json"));
-        start.ArgumentList.Add("--depsfile");
-        start.ArgumentList.Add(Path.ChangeExtension(typeof(Program).Assembly.Location, ".deps.json"));
         start.ArgumentList.Add(typeof(UpgradeFixtureProgram).Assembly.Location);
         start.ArgumentList.Add(mode);
         start.ArgumentList.Add(path);

@@ -9,6 +9,7 @@
     <Project Path="tests/EnterpriseCaseIntelligence.UpgradeFixture/EnterpriseCaseIntelligence.UpgradeFixture.csproj" />
   </Folder>
   <Folder Name="/tools/">
+    <Project Path="tools/EnterpriseCaseIntelligence.RecordsIntake/EnterpriseCaseIntelligence.RecordsIntake.csproj" />
     <Project Path="tools/EnterpriseCaseIntelligence.ReviewProbe/EnterpriseCaseIntelligence.ReviewProbe.csproj" />
   </Folder>
 </Solution>

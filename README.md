@@ -41,6 +41,7 @@ Enterprise case processes span legacy systems, fragmented information and manual
 | Optional quoted `Idempotency-Key` on creation: atomic binding, original-result replay and safe `422` on changed fields | [Retry API tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseKeyApiTests.cs) · [Atomic failure tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseKeyFailureTests.cs) |
 | `GET/PUT /cases/{id}/priority`: Low/Normal/High, Normal on creation, Closed no-op/change rules; API/browser filtering and selected-case editing | [Priority contract](docs/requirements/phase-9-case-prioritization.md) · [API tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CasePriorityApiTests.cs) · [Upgrade tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CasePriorityLifecycleTests.cs) · [Browser tests](tests/EnterpriseCaseIntelligence.Api.Tests/Workspace/CasePriorityBrowserTests.cs) |
 | `GET /integrations/case-closures` in LocalDemo serves committed closures by stream position. Status, history and notice commit together | [Closure feed walkthrough](docs/usage/local-case-workflow.md#read-the-local-closure-feed) · [Feed tests](tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseClosureFeedTests.cs) |
+| The separate records intake command pulls a closure page and commits durable receipts with its checkpoint | [Two-file walkthrough](docs/usage/local-records-intake.md) · [Process tests](tests/EnterpriseCaseIntelligence.Api.Tests/Intake/ReceiptProcessTests.cs) |
 | EF Core LINQ/tracked writes, explicit SQLite transactions, commit-before-success and immutable snapshots | [Store](src/EnterpriseCaseIntelligence.Api/Cases/SqliteCaseStore.cs) |
 | C# model, Fluent API and scaffolded EF migrations/snapshot own new schema; initialization and startup validate format 6 | [EF context](src/EnterpriseCaseIntelligence.Api/Cases/CaseDbContext.cs) · [Migrations](src/EnterpriseCaseIntelligence.Api/Cases/Migrations) |
 | Explicit initialization, schema validation and safe startup refusal | [Database lifecycle](src/EnterpriseCaseIntelligence.Api/Cases/CaseDatabase.cs) |
@@ -87,6 +88,7 @@ tests/
   EnterpriseCaseIntelligence.Domain.Tests/ Domain unit tests
   EnterpriseCaseIntelligence.UpgradeFixture/ Test-only upgrade interruption executable
 tools/
+  EnterpriseCaseIntelligence.RecordsIntake/ Local closure consumer and receipt store
   EnterpriseCaseIntelligence.ReviewProbe/ Independent diagnostic host/client, no case API
   ReviewHostPreflight.cs                 Catalog and offline resource-envelope checks
 docs/
@@ -171,7 +173,7 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 - [ADR 0015](docs/adr/0015-prepare-probe-storage-before-explicit-initialization.md): explicit preparation and read-only initialization evidence; existing storage and startup guards retained.
 - [ADR 0016](docs/adr/0016-expose-case-priority-without-changing-creation-replay.md): implemented priority resources and format-5 EF lifecycle amendment while preserving creation replay, with selected-case browser editing and filtering.
 
-- [ADR 0017](docs/adr/0017-use-a-transactional-closure-feed.md) records the transactional closure producer and format-6 lifecycle.
+- [ADR 0017](docs/adr/0017-use-a-transactional-closure-feed.md) records the transactional closure producer, format-6 lifecycle and separate receipt store.
 
 ## Planned Evolution
 
@@ -185,7 +187,7 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 - **Next — not implemented:** complete [secure review hosting](docs/requirements/phase-8-secure-hosting.md), including compatible storage/ingress, operational recovery and hosted provider/multi-user checks. The [$0 cost boundary](docs/tasks/zero-cost-review-hosting.md) keeps development local while App Service F1 + Azure SQL free limits are assessed; that stack is not supported yet. The [independent operator probe](docs/usage/operator-review-probe.md) has local preparation, access and retained-key receipt evidence. Its [preparation-only deployment proposal](docs/tasks/preparation-only-deployment-proposal.md) now fixes initial startup and defines resource/configuration/release/removal boundaries. Fresh private reads still do not establish eligible allocation; resolve eligibility/policy evidence before creation review. Actual platform storage/isolation must pass before key initialization; cloud ingress and key retention remain unverified. No cloud compute or public deployment is provisioned. The earlier VM option requires separately approved costs; local Entra evidence does not establish hosted acceptance.
 - **Case prioritization — implemented locally:** [Low/Normal/High rules, priority resources and list filtering](docs/requirements/phase-9-case-prioritization.md), with a scaffolded EF Code First format-5 migration, explicit retained-store upgrades and browser filter/read/edit controls. The [delivery task](docs/tasks/case-prioritization.md) maps domain/provider/API/process/browser acceptance, including uncertain writes and protected-state clearing. Priority expresses current staff choice without actor history, SLA or automatic priority ordering.
 - **Deferred:** [storage readiness](docs/requirements/phase-6-storage-readiness.md), to revisit against the selected hosting/provider design. `/health` remains storage-independent liveness.
-- **Case closure handoff** has a working local producer. The next slice is a separate records intake command that commits durable receipts and a checkpoint together. [Phase 10 contract](docs/requirements/phase-10-case-closure-handoff.md) · [ADR 0017](docs/adr/0017-use-a-transactional-closure-feed.md)
+- **Case closure handoff — implemented locally.** A separate intake command pulls committed closures, writes receipts and resumes from its retained checkpoint. [Run the two-file demo](docs/usage/local-records-intake.md). [Phase 10 contract](docs/requirements/phase-10-case-closure-handoff.md) · [ADR 0017](docs/adr/0017-use-a-transactional-closure-feed.md)
 - **Later:** evaluate AI against a concrete case scenario and revisit hosted delivery when the hosting prerequisites are met. [Project roadmap](docs/roadmap.md)
 
 ## Security and Privacy
