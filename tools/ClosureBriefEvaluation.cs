@@ -10,11 +10,14 @@ internal static partial class ClosureBriefEvaluation
 {
     private const int MaximumBytes = 512 * 1024;
     private const string TimestampFormat = "yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'";
+    private const string ClosureBrief = "closure_brief";
+    private const string Unsupported = "unsupported_request";
+
     public static int Main(string[] args)
     {
-        if (args is not ["--baseline", _] and not ["--score", _, _])
+        if (args is not ["--baseline", _] and not ["--score", _, _] and not ["--route-score", _, _])
         {
-            Console.Error.WriteLine("Use --baseline FIXTURES or --score FIXTURES CANDIDATES.");
+            Console.Error.WriteLine("Use --baseline FIXTURES, --score FIXTURES CANDIDATES, or --route-score FIXTURES PREDICTIONS.");
             return 2;
         }
 
@@ -22,6 +25,9 @@ internal static partial class ClosureBriefEvaluation
         {
             var fixtures = Read(args[1], EvaluationJsonContext.Default.Fixtures);
             ValidateFixtures(fixtures);
+            if (args[0] == "--route-score")
+                return ScoreRoutes(fixtures, Read(args[2], EvaluationJsonContext.Default.Predictions));
+
             var baseline = args[0] == "--baseline";
             var candidates = baseline
                 ? fixtures.Select(fixture => new Candidate(fixture.Id, Draft(fixture.Request, fixture.Evidence))).ToArray()
@@ -71,7 +77,7 @@ internal static partial class ClosureBriefEvaluation
 
     private static Answer Draft(string request, Evidence evidence)
     {
-        if (request != "closure_brief") return Abstain("unsupported_request");
+        if (request != ClosureBrief) return Abstain(Unsupported);
         if (evidence.CaseRead is not { } detail || evidence.HistoryRead is not { } history)
             return Abstain("evidence_unavailable");
         if (detail.Id != evidence.SelectedCaseId || history.CaseId != evidence.SelectedCaseId)
@@ -150,6 +156,45 @@ internal static partial class ClosureBriefEvaluation
         return new(drafts, abstentions, failures);
     }
 
+    private static int ScoreRoutes(Fixture[] fixtures, RoutePrediction[] predictions)
+    {
+        if (predictions.Any(prediction => prediction is null) ||
+            fixtures.Any(fixture => fixture.Request is not (ClosureBrief or Unsupported)))
+            throw new InvalidDataException();
+
+        var byId = predictions.ToLookup(prediction => prediction.Id, StringComparer.Ordinal);
+        var knownIds = fixtures.Select(fixture => fixture.Id).ToHashSet(StringComparer.Ordinal);
+        var candidates = new List<Candidate>();
+        var failures = new List<Failure>();
+        var supportedCorrect = 0;
+        var unsupportedCorrect = 0;
+        if (predictions.Any(prediction => !knownIds.Contains(prediction.Id)))
+            failures.Add(new(null, "unexpected_prediction"));
+
+        foreach (var fixture in fixtures)
+        {
+            var entries = byId[fixture.Id].Take(2).ToArray();
+            var route = entries is [{ Request: ClosureBrief or Unsupported } valid] ? valid.Request! : Unsupported;
+            if (entries.Length != 1)
+                failures.Add(new(fixture.Id, entries.Length == 0 ? "missing_prediction" : "duplicate_prediction"));
+            else if (entries[0].Request is not (ClosureBrief or Unsupported))
+                failures.Add(new(fixture.Id, "invalid_prediction"));
+            else if (route != fixture.Request)
+                failures.Add(new(fixture.Id, route == ClosureBrief ? "false_accept" : "false_reject"));
+            else if (route == ClosureBrief) supportedCorrect++;
+            else unsupportedCorrect++;
+
+            candidates.Add(new(fixture.Id, Draft(route, fixture.Evidence)));
+        }
+
+        var answers = Score(fixtures, candidates.ToArray());
+        var supportedTotal = fixtures.Count(fixture => fixture.Request == ClosureBrief);
+        var report = new RoutingReport(supportedTotal, supportedCorrect, fixtures.Length - supportedTotal, unsupportedCorrect,
+            answers.DraftsCorrect, answers.AbstentionsCorrect, failures, answers.Failures);
+        Console.WriteLine(JsonSerializer.Serialize(report, EvaluationJsonContext.Default.RoutingReport));
+        return failures.Count == 0 && answers.Failures.Count == 0 ? 0 : 1;
+    }
+
     private static string? Compare(Answer expected, Answer answer)
     {
         if (answer.Outcome != expected.Outcome) return "wrong_outcome";
@@ -208,6 +253,9 @@ internal static partial class ClosureBriefEvaluation
     private sealed record Answer(string Outcome, string? Reason, Fact[] Facts);
     private sealed record Fact(string Name, string Value, string Citation);
     private sealed record Candidate(string Id, Answer Answer);
+    private sealed record RoutePrediction(string Id, string? Request);
+    private sealed record RoutingReport(int SupportedTotal, int SupportedCorrect, int UnsupportedTotal, int UnsupportedCorrect,
+        int DraftsCorrect, int AbstentionsCorrect, List<Failure> RouteFailures, List<Failure> AnswerFailures);
     private sealed record Failure(string? Id, string Code);
     private sealed record Result(int DraftsCorrect, int AbstentionsCorrect, List<Failure> Failures);
     private sealed record Report(string Mode, string Scope, int Fixtures, int DraftsCorrect, int AbstentionsCorrect,
@@ -219,5 +267,7 @@ internal static partial class ClosureBriefEvaluation
     [JsonSerializable(typeof(Fixture[]), TypeInfoPropertyName = "Fixtures")]
     [JsonSerializable(typeof(Candidate[]), TypeInfoPropertyName = "Candidates")]
     [JsonSerializable(typeof(Report))]
+    [JsonSerializable(typeof(RoutePrediction[]), TypeInfoPropertyName = "Predictions")]
+    [JsonSerializable(typeof(RoutingReport))]
     private sealed partial class EvaluationJsonContext : JsonSerializerContext;
 }
