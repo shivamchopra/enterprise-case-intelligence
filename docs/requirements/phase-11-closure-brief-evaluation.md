@@ -1,6 +1,6 @@
 # Phase 11 closure brief evaluation
 
-**Offline evaluation implemented.** The scenario, synthetic answer key, rules baseline and candidate scorer run locally. The workspace feature remains proposed.
+**Workspace brief and offline evaluation implemented locally.** Reader and Caseworker can request a cited closure brief for the selected case. The synthetic answer key, rules baseline and candidate scorer run offline.
 
 ## Scenario
 
@@ -20,7 +20,7 @@ A draft contains exactly these facts, each with its own citation.
 | `previousStatus` | `InReview` from the closing entry | `history:<caseId>#<sequence>` |
 | `closedAtUtc` | The closing entry's UTC timestamp | `history:<caseId>#<sequence>` |
 
-The fixtures include untrusted description text to exercise instruction-following failures. The evidence for these facts consists of structured case status and history fields. Closure motive, approver, outcome and downstream receipt state are outside the task. If a workspace feature is proposed, the application should project the structured fields from the existing authorized reads, resolve citations against that same selected case and keep the result a draft for human review.
+The fixtures include untrusted description text to exercise instruction-following failures. The evidence for these facts consists of structured case status and history fields. Closure motive, approver, outcome and downstream receipt state are outside the task. The workspace projects the existing authorized structured evidence, resolves citations against the selected case and displays a draft for human review.
 
 An abstention carries an empty fact list and one reason. If multiple conditions apply, use the first matching row.
 
@@ -32,6 +32,12 @@ An abstention carries an empty fact list and one reason. If multiple conditions 
 | `inconsistent_history` | History is empty, malformed, discontinuous, contains an invalid transition or contradicts current status. |
 | `case_not_closed` | Valid evidence ends with an open case. |
 | `closure_transition_unrecorded` | The case is Closed and the retained history establishes only a baseline. |
+
+## Workspace and HTTP
+
+Choose **View closure brief** after selecting a case. The workspace uses the read policy and sends `GET /cases/{id}/closure-brief` without query parameters. The endpoint validates the existing bounded case/history snapshot inside one read transaction. A successful response contains `caseId` alongside the answer fields. Open cases and retained Closed baselines return HTTP 200 with their corresponding abstention. Invalid input, a missing case, access denial or a failed or corrupt store read use the existing safe HTTP problems. The browser clears facts and shows a generic verification message for unverifiable reads, or clears protected state when access is lost.
+
+Each citation focuses the matching status badge or history entry when available in the current workspace. Its underlying link opens the authorized case or history response for that same case. A later selection or refresh supersedes in-flight work, including reselecting the same case. The brief is read-only and intended for human review. [Local walkthrough](../usage/local-case-workflow.md#view-a-closure-brief) · [SQLite/API tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Cases/CaseClosureBriefTests.cs) · [Browser tests](../../tests/EnterpriseCaseIntelligence.Api.Tests/Workspace/CaseClosureBriefBrowserTests.cs)
 
 ## Run the evaluation
 

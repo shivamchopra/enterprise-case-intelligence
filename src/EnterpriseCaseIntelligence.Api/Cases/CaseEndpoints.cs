@@ -17,6 +17,7 @@ internal static class CaseEndpoints
         endpoints.MapGet("/cases/{id}/priority", GetPriority).RequireAuthorization(CaseSecurity.Read);
         endpoints.MapPut("/cases/{id}/priority", ChangePriority).RequireAuthorization(CaseSecurity.Write).WithMetadata(new CaseSecurity.CsrfRequired());
         endpoints.MapGet("/cases/{id}/history", GetHistory).RequireAuthorization(CaseSecurity.Read);
+        endpoints.MapGet("/cases/{id}/closure-brief", GetClosureBrief).RequireAuthorization(CaseSecurity.Read);
         endpoints.MapPut("/cases/{id}/status", ChangeStatus).RequireAuthorization(CaseSecurity.Write).WithMetadata(new CaseSecurity.CsrfRequired());
     }
 
@@ -253,6 +254,37 @@ internal static class CaseEndpoints
             }).ToArray()
         });
     }
+
+    private static IResult GetClosureBrief(string id, HttpRequest request, SqliteCaseStore store)
+    {
+        if (!TryReadId(id, out var caseId)) return Validation("id", "Use a non-empty hyphenated UUID.");
+        if (request.Query.Count > 0) return Validation("query", "The query contains an unsupported parameter.");
+        var entries = store.History(caseId);
+        if (entries is null) return MissingCase();
+
+        // History validates the last entry against the current case inside the same read transaction.
+        var last = entries[^1];
+        if (last.ToStatus != CaseStatus.Closed) return Abstain("case_not_closed");
+        if (last.Kind == "Baseline") return Abstain("closure_transition_unrecorded");
+
+        var change = $"history:{caseId:D}#{last.Sequence.ToString(CultureInfo.InvariantCulture)}";
+        return Results.Ok(new
+        {
+            caseId,
+            outcome = "draft",
+            reason = (string?)null,
+            facts = new[]
+            {
+                new ClosureFact("currentStatus", last.ToStatus.ToString(), $"case:{caseId:D}#status"),
+                new ClosureFact("previousStatus", last.FromStatus!.Value.ToString(), change),
+                new ClosureFact("closedAtUtc", last.RecordedAtUtc, change)
+            }
+        });
+
+        IResult Abstain(string reason) => Results.Ok(new { caseId, outcome = "abstain", reason, facts = Array.Empty<ClosureFact>() });
+    }
+
+    private sealed record ClosureFact(string Name, string Value, string Citation);
 
     private static async Task<IResult> ChangeStatus(string id, HttpRequest request, SqliteCaseStore store, CancellationToken cancellationToken)
     {

@@ -136,6 +136,31 @@ public sealed class AuthenticatedBrowserTests(WorkspaceBrowser driver) : IClassF
         await Expect(page.Locator("#priority-choice")).ToHaveValueAsync("");
     }
 
+    [Theory]
+    [InlineData("Reader", false)]
+    [InlineData("Caseworker", true)]
+    public async Task AuthorizedClosureBriefClearsOnSignOut(string role, bool proxy)
+    {
+        await using var host = new SecurityHost();
+        host.Provider.Role = role;
+        var store = new EnterpriseCaseIntelligence.Api.Cases.SqliteCaseStore(host.Database.Database);
+        var id = store.Create("Synthetic closed guide", "Fictional description.").Id;
+        store.ChangeStatus(id, Domain.Cases.CaseStatus.InReview);
+        store.ChangeStatus(id, Domain.Cases.CaseStatus.Closed);
+        var (context, page) = await Open(host, proxy);
+        await using var browserContext = context;
+        await Expect(page.Locator("#closure-brief")).Not.ToBeVisibleAsync();
+        await Login(page);
+        await page.Locator($"button[data-id='{id:D}']").ClickAsync();
+        await page.Locator("#view-closure-brief").ClickAsync();
+        await Expect(page.Locator("#closure-brief-facts dd")).ToHaveCountAsync(3);
+        await page.Locator("#sign-out").ClickAsync();
+        await Expect(page.Locator("#closure-brief")).Not.ToBeVisibleAsync();
+        await Expect(page.Locator("#closure-brief-facts dd")).ToHaveCountAsync(0);
+        var denied = await context.APIRequest.GetAsync(new Uri(host.Origin, $"/cases/{id:D}/closure-brief").AbsoluteUri);
+        Assert.Equal(401, denied.Status);
+    }
+
     [Fact]
     public async Task ExpiryClearsViewsAndLatePriorSessionResponsesCannotRestoreThem()
     {

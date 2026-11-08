@@ -13,7 +13,7 @@ public sealed class CaseSecurityTests
     private static readonly string Id = Guid.NewGuid().ToString("D");
     public static TheoryData<string, string> Routes => new()
     {
-        { "GET", "/cases?limit=bad" }, { "GET", "/cases/invalid" }, { "GET", $"/cases/{Id}/history" },
+        { "GET", "/cases?limit=bad" }, { "GET", "/cases/invalid" }, { "GET", $"/cases/{Id}/history" }, { "GET", $"/cases/{Id}/closure-brief" },
         { "GET", "/cases/summary?status=invalid" },
         { "GET", $"/cases/{Id}/priority?x=invalid" }, { "PUT", $"/cases/{Id}/priority" },
         { "GET", "/cases?priority=invalid" },
