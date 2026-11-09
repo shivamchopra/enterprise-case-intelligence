@@ -55,12 +55,12 @@ jobs:
         run: dotnet ef migrations has-pending-model-changes --project tools/EnterpriseCaseIntelligence.RecordsIntake --configuration Release --no-build
       - name: Publish records intake
         run: dotnet publish tools/EnterpriseCaseIntelligence.RecordsIntake --configuration Release --no-build --no-restore --output "$RUNNER_TEMP/records-intake"
-      - name: Publish independent operator probe
-        run: dotnet publish tools/EnterpriseCaseIntelligence.ReviewProbe --configuration Release --no-build --no-restore --output "$RUNNER_TEMP/review-probe"
+      - name: Rehearse the independent operator probe ZIP
+        run: bash tools/package-review-probe.sh "$RUNNER_TEMP/review-probe-release"
       - name: Test
         env:
           ECI_TEST_INTAKE_ASSEMBLY: ${{ runner.temp }}/records-intake/EnterpriseCaseIntelligence.RecordsIntake.dll
-          ECI_TEST_PROBE_ASSEMBLY: ${{ runner.temp }}/review-probe/EnterpriseCaseIntelligence.ReviewProbe.dll
+          ECI_TEST_PROBE_ASSEMBLY: ${{ runner.temp }}/review-probe-release/extracted/EnterpriseCaseIntelligence.ReviewProbe.dll
         run: dotnet test EnterpriseCaseIntelligence.slnx --configuration Release --no-build --filter 'Category!=Browser'
 
   browser-workflow:
