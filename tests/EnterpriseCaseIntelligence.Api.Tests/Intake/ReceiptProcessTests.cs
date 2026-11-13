@@ -1,6 +1,8 @@
 using System.IO.Pipes;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using EnterpriseCaseIntelligence.Api.Tests.Cases;
 using EnterpriseCaseIntelligence.RecordsIntake;
 using Microsoft.EntityFrameworkCore;
 
@@ -69,6 +71,116 @@ public class ReceiptProcessTests
         AssertInspection((await IntakeFiles.RunProcessAsync(receipt.Arguments("inspect-receipts"))).Success(), stream, "3", 3);
     }
 
+    [Fact]
+    public async Task QuiescentRestorePreservesReplayAndRequiresReceiptsFromTheSameRecoveryPoint()
+    {
+        using var source = new TemporaryCaseDatabase();
+        using var liveReceipts = new IntakeFiles();
+        using var snapshotSource = new TemporaryCaseDatabase(initialize: false);
+        using var snapshotReceipts = new IntakeFiles();
+        using var restoredSource = new TemporaryCaseDatabase(initialize: false);
+        using var restoredReceipts = new IntakeFiles();
+        using var newerReceiptCopy = new IntakeFiles();
+        (await IntakeFiles.RunProcessAsync(liveReceipts.Arguments("init-receipts"))).Success();
+        var keptKey = Guid.NewGuid();
+        var laterKey = Guid.NewGuid();
+        const string keptTitle = "Review the synthetic retained manual";
+        const string laterTitle = "Review the synthetic later appendix";
+
+        (string CaseId, int Sequence, string ClosedAt) kept;
+        string stream;
+        using (var producer = await ApiProcess.StartAsync(source.Path))
+        using (var client = new HttpClient { BaseAddress = producer.Address })
+        {
+            kept = await CloseAsync(client, keptTitle, keptKey);
+            var pull = await PullAsync(liveReceipts, producer);
+            stream = pull.GetProperty("streamId").GetString()!;
+            AssertPull(pull, stream, "1", 1, 1, false);
+        }
+
+        var inspected = await ApiProcess.RunAsync("inspect-store", "--CaseStorage:DatabasePath", source.Path);
+        Assert.Equal(0, inspected.ExitCode);
+        AssertInspection((await IntakeFiles.RunProcessAsync(liveReceipts.Arguments("inspect-receipts"))).Success(), stream, "1", 1);
+        CopyStopped(source.Path, snapshotSource.Path);
+        CopyStopped(liveReceipts.Path, snapshotReceipts.Path);
+        var snapshotSourceBytes = File.ReadAllBytes(snapshotSource.Path);
+        var snapshotReceiptBytes = File.ReadAllBytes(snapshotReceipts.Path);
+
+        (string CaseId, int Sequence, string ClosedAt) later;
+        using (var producer = await ApiProcess.StartAsync(source.Path))
+        using (var client = new HttpClient { BaseAddress = producer.Address })
+        {
+            later = await CloseAsync(client, laterTitle, laterKey);
+            AssertPull(await PullAsync(liveReceipts, producer), stream, "2", 1, 1, false);
+        }
+
+        var liveSourceBytes = File.ReadAllBytes(source.Path);
+        var liveReceiptBytes = File.ReadAllBytes(liveReceipts.Path);
+        CopyStopped(snapshotSource.Path, restoredSource.Path);
+        CopyStopped(snapshotReceipts.Path, restoredReceipts.Path);
+        CopyStopped(liveReceipts.Path, newerReceiptCopy.Path);
+        var restoredInspection = await ApiProcess.RunAsync("inspect-store", "--CaseStorage:DatabasePath", restoredSource.Path);
+        Assert.Equal(0, restoredInspection.ExitCode);
+        AssertInspection((await IntakeFiles.RunProcessAsync(restoredReceipts.Arguments("inspect-receipts"))).Success(), stream, "1", 1);
+
+        using var restored = await ApiProcess.StartAsync(restoredSource.Path);
+        using var review = new HttpClient { BaseAddress = restored.Address };
+        using var brief = await review.GetFromJsonAsync<JsonDocument>($"/cases/{kept.CaseId}/closure-brief");
+        Assert.Equal("draft", brief!.RootElement.GetProperty("outcome").GetString());
+        var time = brief.RootElement.GetProperty("facts").EnumerateArray().Single(fact => fact.GetProperty("name").GetString() == "closedAtUtc");
+        Assert.Equal(kept.ClosedAt, time.GetProperty("value").GetString());
+        Assert.Equal($"history:{kept.CaseId}#{kept.Sequence}", time.GetProperty("citation").GetString());
+
+        using var replay = await CreateAsync(review, keptTitle, keptKey);
+        Assert.Equal(kept.CaseId, replay.RootElement.GetProperty("id").GetString());
+        Assert.Equal("New", replay.RootElement.GetProperty("status").GetString());
+        using var current = await review.GetFromJsonAsync<JsonDocument>($"/cases/{kept.CaseId}");
+        Assert.Equal("Closed", current!.RootElement.GetProperty("status").GetString());
+        using var lost = await review.GetAsync($"/cases/{later.CaseId}");
+        Assert.Equal(HttpStatusCode.NotFound, lost.StatusCode);
+        Assert.Equal(1L, restoredSource.Count());
+
+        var origin = restored.Address.GetLeftPart(UriPartial.Authority);
+        var refused = await IntakeFiles.RunProcessAsync(newerReceiptCopy.Arguments("pull", "--origin", origin));
+        refused.Failure("pull", "source_conflict");
+        Assert.Equal(liveReceiptBytes, File.ReadAllBytes(newerReceiptCopy.Path));
+        AssertPull(await PullAsync(restoredReceipts, restored), stream, "1", 0, 0, false);
+
+        // Deliberate reconciliation in the isolated copy shows that the later key is unbound.
+        // The restored feed can reuse a lost position, so a newer receipt file is unsafe even
+        // if its checkpoint eventually exists again.
+        var reconciled = await CloseAsync(review, laterTitle, laterKey);
+        Assert.NotEqual(later.CaseId, reconciled.CaseId);
+        AssertPull(await PullAsync(restoredReceipts, restored), stream, "2", 1, 1, false);
+        using (var context = restoredReceipts.OpenContext())
+        {
+            Assert.Equal(new[] { kept.CaseId, reconciled.CaseId },
+                context.Receipts.AsNoTracking().OrderBy(row => row.Position).Select(row => row.CaseId).ToArray());
+        }
+
+        AssertPull(await PullAsync(newerReceiptCopy, restored), stream, "2", 0, 0, false);
+        using (var context = newerReceiptCopy.OpenContext())
+        {
+            Assert.Equal(later.CaseId, context.Receipts.AsNoTracking().Single(row => row.Position == 2).CaseId);
+        }
+
+        Assert.Equal(liveSourceBytes, File.ReadAllBytes(source.Path));
+        Assert.Equal(liveReceiptBytes, File.ReadAllBytes(liveReceipts.Path));
+        Assert.Equal(snapshotSourceBytes, File.ReadAllBytes(snapshotSource.Path));
+        Assert.Equal(snapshotReceiptBytes, File.ReadAllBytes(snapshotReceipts.Path));
+    }
+
+    private static void CopyStopped(string source, string destination)
+    {
+        foreach (var suffix in new[] { "-journal", "-wal", "-shm" })
+            Assert.False(File.Exists(source + suffix));
+        File.Copy(source, destination, overwrite: false);
+    }
+
+    private static async Task<JsonElement> PullAsync(IntakeFiles files, ApiProcess source)
+        => (await IntakeFiles.RunProcessAsync(files.Arguments("pull", "--origin",
+            source.Address.GetLeftPart(UriPartial.Authority)))).Success();
+
     [Theory]
     [InlineData("receipt-row", false)]
     [InlineData("receipt-checkpoint", false)]
@@ -122,11 +234,18 @@ public class ReceiptProcessTests
         AssertInspection((await IntakeFiles.RunProcessAsync(receipt.Arguments("inspect-receipts"))).Success(), stream, "2", 2);
     }
 
-    private static async Task<(string, int, string)> CloseAsync(HttpClient client, string title)
+    private static async Task<JsonDocument> CreateAsync(HttpClient client, string title, Guid? key)
     {
-        using var created = await client.PostAsJsonAsync("/cases", new { title, description = "Synthetic records intake test." });
-        created.EnsureSuccessStatusCode();
-        using var record = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        const string description = "Synthetic records intake test.";
+        var json = JsonSerializer.Serialize(new { title, description });
+        using var created = await CaseKeyApiTests.SendAsync(client, json, key is { } value ? [$"\"{value:D}\""] : null);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        return JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+    }
+
+    private static async Task<(string CaseId, int Sequence, string ClosedAt)> CloseAsync(HttpClient client, string title, Guid? key = null)
+    {
+        using var record = await CreateAsync(client, title, key);
         var id = record.RootElement.GetProperty("id").GetString()!;
         foreach (var status in new[] { "InReview", "Closed" })
         {
