@@ -114,6 +114,8 @@ The workspace combines the priority filter with submitted title/status and conti
 
 Closing a case commits the status change, its history entry and a notice in one transaction. The notice references that entry and SQLite assigns its position. The LocalDemo feed reads stream identity, validates the supplied checkpoint and fetches a bounded page in one read transaction. The separate intake executable validates a complete bounded response before starting a receipt write transaction. Its own SQLite file binds one stream. A receipt position within that file identifies one applied notice. Tracked receipt writes and the checkpoint advance commit together. A concurrent attempt with a stale checkpoint can report success only when the complete nonempty page already matches durable receipts. [Phase 10 contract and evidence](../requirements/phase-10-case-closure-handoff.md) · [ADR 0017](../adr/0017-use-a-transactional-closure-feed.md)
 
+The local recovery rehearsal copies the case and receipt files at one stopped recovery point, restores to fresh paths and verifies history, creation replay and the intake checkpoint. An older source can reuse a lost position on its retained stream, so intake recovery requires the matching receipt snapshot. [Local restore rehearsal](../usage/local-restore-rehearsal.md).
+
 ## Workspace closure brief and offline evaluation
 
 The Reader-authorized closure brief route reuses the bounded case/history read and its existing chain validator. One deferred transaction validates the final recorded status against the current case. A genuine closure yields three facts with citations. Open cases and retained Closed baselines yield distinct abstentions. Read errors use the normal safe HTTP problems.

@@ -13,6 +13,8 @@
 
 Keep actual account identifiers, quota values, offer details, role or policy assignments, and raw provider responses in restricted owner evidence. Before proposing creation, record exact Linux F1 eligibility and quota interpretation, the offer and spending protection, effective permissions and policy effects, and every resource or attachment that the reviewed scope could create. The separate platform gates for storage isolation, ingress and key retention still apply. [Private evidence checklist](preparation-only-deployment-proposal.md#private-record-required-before-creation-review)
 
+A November 12 read-only recheck still did not establish exact Linux F1 allocation or active spending protection. The next private checks are the exact SKU and region in **Quotas → App Service (Public Preview)** and the subscription protection status in **Cost Management + Billing**. The project continued locally with an isolated recovery rehearsal. [App Service quota guidance](https://learn.microsoft.com/en-us/troubleshoot/azure/app-service/troubleshoot-non-zone-redundant-quota-requests) · [Local restore rehearsal](../usage/local-restore-rehearsal.md)
+
 ## Rehearse the probe ZIP locally
 
 Run from the repository root with the pinned .NET SDK, Bash, `zip` and `unzip`. Choose a new path under a temporary directory.

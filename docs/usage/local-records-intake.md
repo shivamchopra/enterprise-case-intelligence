@@ -73,4 +73,6 @@ Success prints one JSON line on standard output. Failures print a stage, categor
 | `source_conflict` | Check that the original case file is open and the retained checkpoint still exists on its stream. |
 | `checkpoint_conflict` or `receipt_store` | Inspect the retained file before retrying. If inspection fails, check its path, permissions and integrity while preserving the file and its journal. |
 
+For a restore, use a matched case and receipt snapshot from the same stopped copy point. A later checkpoint can refer to different evidence after restoring an older source. [Local restore rehearsal](local-restore-rehearsal.md).
+
 Receipt initialization reserves a new path exclusively. Keep an existing receipt file for resume, and use a new receipt path if you deliberately start intake for a different case stream. [Phase 10 contract](../requirements/phase-10-case-closure-handoff.md) · [ADR 0017](../adr/0017-use-a-transactional-closure-feed.md)

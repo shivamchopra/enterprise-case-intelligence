@@ -1,0 +1,19 @@
+# Rehearse a local restore
+
+This exercise covers the synthetic LocalDemo case store and its records intake receipt store. Use disposable files and a fresh directory on a local filesystem. It validates recovery to a known copy point. The hosted recovery targets, backup scheduling and session-key recovery require separate evidence. [Secure review hosting recovery requirements](../requirements/phase-8-secure-hosting.md#recovery-targets-and-evidence)
+
+## Take one recovery point for both files
+
+1. Follow the [records intake walkthrough](local-records-intake.md) until one synthetic closure has been pulled. Record the stream ID, receipt position and count, and the time of the copy point. Keep the source and receipt files from this point together. Capture the current format and build revision in the same private record.
+2. Stop the API and wait for it to exit. Wait for every intake command and other process using either SQLite file to finish. Run `inspect-store` on the case file and `inspect-receipts` on the receipt file, then wait for both commands to exit. Check that neither file has a `-journal`, `-wal` or `-shm` sidecar. If a sidecar remains, stop and investigate the store before copying. Preserve the sidecar with the source. [SQLite backup guidance](https://www.sqlite.org/backup.html)
+3. Copy both stopped files to a fresh, restricted directory. Keep this copy untouched during the rehearsal. Resume the original case and receipt files only after the two copies are complete.
+4. Create a second closure and pull its receipt on the original files. Record this as work after the copy point. For the keyed replay check, create the first and second cases with distinct keys using the [creation retry walkthrough](local-case-workflow.md#retry-a-creation-with-a-retained-key).
+
+## Verify recovery in isolation
+
+1. Copy both snapshot files into another fresh directory. Run the two inspection commands against these restored copies and compare their results with the recorded format, stream, position and count. Preserve the original files and the snapshot.
+2. Start LocalDemo on a different loopback port with the restored case file. Open the retained case and verify its cited closure brief against the history. Replay the first creation key with its original payload. The original create response returns the same ID and New status. A separate read still shows the retained Closed case. The second case is absent because it was created after the copy.
+3. Before adding any data to the restored source, run one pull with a disposable copy of the newer receipt file. It should return `source_conflict` because the older source lacks the newer checkpoint. A pull using the paired restored receipt file should succeed and return an empty page at the saved position.
+4. In the isolated copy, deliberately re-enter the post-snapshot case with its old key after verifying the case is absent. The restored store has no binding for that key and returns a new ID. Close the case and pull into the paired restored receipt file. Check that the count and position advance once. Record the lost window and the manual reconciliation.
+
+An older case copy retains the same stream ID. After new closures are committed, a position from the lost window can exist again with different evidence. The automated rehearsal demonstrates that the newer receipt copy then returns an empty pull even though its position 2 still names the lost case. Always recover the source and receipt stores from the same stopped copy point. Keep later receipts separate for reconciliation. [Automated SQLite and process rehearsal](../../tests/EnterpriseCaseIntelligence.Api.Tests/Intake/ReceiptProcessTests.cs)
