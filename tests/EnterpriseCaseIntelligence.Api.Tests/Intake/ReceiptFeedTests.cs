@@ -182,7 +182,7 @@ public class ReceiptFeedTests
         (await IntakeFiles.RunProcessAsync(files.Arguments("pull", "--origin", source.Origin), env)).Failure("pull", "source_response");
         Assert.Equal(1, Volatile.Read(ref sourceCalls));
         Assert.Equal(0, Volatile.Read(ref proxyCalls));
-        Assert.Equal(new Checkpoint(null, 0), new ReceiptStore(files.Path).ReadCheckpoint());
+        Assert.Equal(new Checkpoint(null, 0), new ReceiptStore(files.Path).ReadContinuation().Checkpoint);
     }
 
     [Fact]
@@ -201,7 +201,7 @@ public class ReceiptFeedTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(12));
         var failed = await IntakeFiles.InvokeAsync(files.Arguments("pull", "--origin", source.Origin)).WaitAsync(timeout.Token);
         failed.Failure("pull", "source_timeout");
-        Assert.Equal(new Checkpoint(null, 0), new ReceiptStore(files.Path).ReadCheckpoint());
+        Assert.Equal(new Checkpoint(null, 0), new ReceiptStore(files.Path).ReadContinuation().Checkpoint);
     }
 
     [Theory]
@@ -246,12 +246,49 @@ public class ReceiptFeedTests
             if (after == "") return WriteAsync(context, Page(position, [Item(position)]));
             Assert.Equal(position, after);
             Assert.Equal(Stream, context.Request.Query["streamId"].ToString());
+            const string proof = "8013395eb0d38aa8055bf8578d92856cb37c35653d929fd4621869717340db63";
+            Assert.Equal(proof, context.Request.Query["afterProof"].ToString());
+            context.Response.Headers["X-ECI-Checkpoint-Proof"] = proof;
             return WriteAsync(context, Page(position, []));
         });
         var pull = files.Arguments("pull", "--origin", source.Origin);
         Assert.Equal(position, (await IntakeFiles.InvokeAsync(pull)).Success().GetProperty("after").GetString());
         Assert.Equal(0, (await IntakeFiles.InvokeAsync(pull)).Success().GetProperty("received").GetInt32());
         Assert.Equal(new ReceiptInspection(new Checkpoint(Stream, long.MaxValue), 1), store.Inspect());
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("wrong")]
+    [InlineData("duplicate")]
+    [InlineData("old_source")]
+    public async Task PositiveCheckpointRequiresExplicitSourceVerification(string acknowledgement)
+    {
+        using var files = new IntakeFiles();
+        var store = new ReceiptStore(files.Path);
+        store.Initialize();
+        var receipt = new ClosureNotice(1, CaseId, 3, Time);
+        store.Apply(new Checkpoint(null, 0), new ClosurePage(Stream, [receipt], 1, false));
+        var before = File.ReadAllBytes(files.Path);
+        await using var source = await TestClosureSource.StartAsync(context =>
+        {
+            var proof = context.Request.Query["afterProof"].ToString();
+            Assert.Equal(64, proof.Length);
+            if (acknowledgement == "old_source")
+            {
+                context.Response.StatusCode = 400;
+                return Task.CompletedTask;
+            }
+            if (acknowledgement == "wrong")
+                context.Response.Headers["X-ECI-Checkpoint-Proof"] = new string('0', 64);
+            if (acknowledgement == "duplicate")
+                context.Response.Headers.Append("X-ECI-Checkpoint-Proof", new Microsoft.Extensions.Primitives.StringValues([proof, proof]));
+            return WriteAsync(context, Page("2", [Item("2", OtherId)]));
+        });
+
+        var result = await IntakeFiles.InvokeAsync(files.Arguments("pull", "--origin", source.Origin));
+        result.Failure("pull", "checkpoint_unverified");
+        Assert.Equal(before, File.ReadAllBytes(files.Path));
     }
 
     [Fact]

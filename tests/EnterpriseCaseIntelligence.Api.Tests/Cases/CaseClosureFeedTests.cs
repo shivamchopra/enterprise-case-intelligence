@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using EnterpriseCaseIntelligence.Api.Cases;
 using EnterpriseCaseIntelligence.Domain.Cases;
@@ -112,6 +114,9 @@ public class CaseClosureFeedTests : CaseApiTest
     [InlineData("?streamId=4b526b84-b472-4991-8575-123db4385758&after=-1", "after")]
     [InlineData("?streamId=4b526b84-b472-4991-8575-123db4385758&after=%2B1", "after")]
     [InlineData("?streamId=4b526b84-b472-4991-8575-123db4385758&after=9223372036854775808", "after")]
+    [InlineData("?afterProof=ff", "afterProof")]
+    [InlineData("?afterProof=0000000000000000000000000000000000000000000000000000000000000000", "afterProof")]
+    [InlineData("?streamId=4b526b84-b472-4991-8575-123db4385758&after=0&afterProof=0000000000000000000000000000000000000000000000000000000000000000", "afterProof")]
     public async Task InvalidQueryFailsBeforeOpeningStore(string query, string field)
     {
         File.Delete(Database.Path);
@@ -133,6 +138,31 @@ public class CaseClosureFeedTests : CaseApiTest
         await AssertProblemAsync(unknown, HttpStatusCode.Conflict, "handoff_checkpoint_unknown");
         Assert.True(changed.Headers.CacheControl?.NoStore);
         Assert.True(unknown.Headers.CacheControl?.NoStore);
+    }
+
+    [Fact]
+    public async Task CheckpointProofBindsNoticeContentWithoutChangingPageShape()
+    {
+        var record = await CreateAsync();
+        await SetStatusAsync(record.Id, "InReview");
+        await SetStatusAsync(record.Id, "Closed");
+        var page = await PageAsync(Client);
+        var stream = page.GetProperty("streamId").GetString();
+        var notice = Assert.Single(page.GetProperty("items").EnumerateArray());
+        var canonical = string.Join('\n', stream, "1", record.Id.ToString("D"), "3", notice.GetProperty("closedAtUtc").GetString());
+        var proof = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+        var continuation = $"{Feed}?streamId={stream}&after=1";
+        using var legacy = await Client.GetAsync(continuation);
+        using var verified = await Client.GetAsync(continuation + "&afterProof=" + proof);
+        Assert.Equal(HttpStatusCode.OK, verified.StatusCode);
+        Assert.Equal(await legacy.Content.ReadAsStringAsync(), await verified.Content.ReadAsStringAsync());
+        Assert.Equal(proof, Assert.Single(verified.Headers.GetValues("X-ECI-Checkpoint-Proof")));
+        Assert.False(legacy.Headers.Contains("X-ECI-Checkpoint-Proof"));
+
+        var wrong = (proof[0] == '0' ? "1" : "0") + proof[1..];
+        using var mismatch = await Client.GetAsync(continuation + "&afterProof=" + wrong);
+        await AssertProblemAsync(mismatch, HttpStatusCode.Conflict, "handoff_checkpoint_changed");
+        Assert.False(mismatch.Headers.Contains("X-ECI-Checkpoint-Proof"));
     }
 
     [Theory]

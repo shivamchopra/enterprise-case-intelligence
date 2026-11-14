@@ -30,3 +30,8 @@ The intake command has explicit initialization and checkpoint inspection because
 Re-scanning the closed-case list from the beginning and deduplicating every pass can eventually find the missed case in the experiment. It repeatedly visits old cases and has no position that represents a committed closure. Timestamp polling also needs tie-breaking and a policy for clock regression. A durable generated position fits the one-writer local store and the demonstrated continuation gap.
 
 Publishing to a broker from the status request introduces a second commit boundary and requires proof of recovery when either side fails. The pull design lets the local producer and consumer demonstrate those recovery semantics with existing .NET and SQLite tooling. Hosted delivery, broker selection, service credentials, retention and backup restoration can be assessed from that evidence under the existing hosting boundary. [Zero recurring hosting cost decision](0012-gate-cloud-hosting-on-zero-recurring-cost.md)
+
+
+## Checkpoint verification after restore
+
+The local restore rehearsal reproduced a newer receipt appearing caught up after a restored case file assigned the same position to a different notice. Intake now fingerprints the last receipt and sends that value with a positive checkpoint. The source checks the fingerprint against the notice in its page read transaction. Using the retained receipt fields keeps existing case and receipt database schemas compatible. The original position-only feed remains available for manual reads. [Wire contract](../requirements/phase-10-case-closure-handoff.md#pull-contract) · [Restore rehearsal](../usage/local-restore-rehearsal.md)

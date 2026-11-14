@@ -1,3 +1,4 @@
+using EnterpriseCaseIntelligence.ClosureIntegration;
 using Microsoft.EntityFrameworkCore;
 
 namespace EnterpriseCaseIntelligence.Api.Cases;
@@ -30,7 +31,7 @@ internal static class CaseClosures
         context.SaveSingleChange();
     }
 
-    internal static (ClosurePage? Page, string? Conflict) Read(CaseDbContext context, int limit, Guid? streamId, long after)
+    internal static (ClosurePage? Page, string? Conflict) Read(CaseDbContext context, int limit, Guid? streamId, long after, string? afterProof)
     {
         var stream = ReadStream(context);
         if (streamId is { } expected && expected != stream) return (null, "handoff_source_changed");
@@ -38,7 +39,10 @@ internal static class CaseClosures
         {
             var checkpoint = Query(context, context.ClosureNotices.Where(row => row.Position == after)).SingleOrDefault();
             if (checkpoint is null) return (null, "handoff_checkpoint_unknown");
-            ToNotice(checkpoint);
+            var notice = ToNotice(checkpoint);
+            if (afterProof is not null && afterProof != ClosureCheckpointProof.Create(stream.ToString("D"), notice.Position,
+                    notice.CaseId.ToString("D"), notice.HistorySequence, notice.ClosedAtUtc))
+                return (null, "handoff_checkpoint_changed");
         }
 
         var items = ReadAfter(context, after, limit + 1).Select(ToNotice).ToArray();

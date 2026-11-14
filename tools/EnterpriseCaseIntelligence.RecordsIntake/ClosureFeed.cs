@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Text.Json;
+using EnterpriseCaseIntelligence.ClosureIntegration;
 
 namespace EnterpriseCaseIntelligence.RecordsIntake;
 
@@ -30,7 +31,7 @@ internal static class ClosureFeed
         return true;
     }
 
-    internal static async Task<ClosurePage> PullAsync(Uri origin, Checkpoint checkpoint, int limit)
+    internal static async Task<ClosurePage> PullAsync(Uri origin, Checkpoint checkpoint, string? proof, int limit)
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         using var client = new HttpClient(new SocketsHttpHandler
@@ -45,12 +46,18 @@ internal static class ClosureFeed
         var query = $"?limit={Decimal(limit)}";
         if (checkpoint.StreamId is { } stream)
             query += $"&streamId={stream}&after={Decimal(checkpoint.Position)}";
+        if (proof is not null) query += $"&afterProof={proof}";
         try
         {
             using var response = await client.GetAsync(new Uri(origin, "/integrations/case-closures" + query),
                 HttpCompletionOption.ResponseHeadersRead, deadline.Token);
             if (response.StatusCode == HttpStatusCode.Conflict) throw new IntakeFailure("pull", "source_conflict");
+            if (proof is not null && response.StatusCode == HttpStatusCode.BadRequest)
+                throw new IntakeFailure("pull", "checkpoint_unverified");
             if (response.StatusCode != HttpStatusCode.OK) throw new IntakeFailure("pull", "source_response");
+            if (proof is not null && (!response.Headers.TryGetValues(ClosureCheckpointProof.Header, out var proofs) ||
+                !proofs.SequenceEqual([proof], StringComparer.Ordinal)))
+                throw new IntakeFailure("pull", "checkpoint_unverified");
             if (!string.Equals(response.Content.Headers.ContentType?.MediaType, "application/json", StringComparison.OrdinalIgnoreCase) ||
                 response.Content.Headers.ContentLength > MaximumBytes)
                 throw InvalidPage();

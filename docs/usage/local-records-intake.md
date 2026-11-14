@@ -61,7 +61,7 @@ The first two pulls apply one receipt each and advance to positions `"1"` and `"
 
 ## Read results and recover
 
-The command accepts a canonical numeric loopback HTTP origin with an explicit port, such as `http://127.0.0.1:5080` or `http://[::1]:5080`. It calls the fixed feed path directly with a five-second deadline and a 64 KiB body limit. The default page limit is 20 and the maximum is 100. `hasMore` describes the fetched page. A successful retry of a page applied by another attempt reports zero applied and the current durable position.
+The command accepts a canonical numeric loopback HTTP origin with an explicit port, such as `http://127.0.0.1:5080` or `http://[::1]:5080`. It calls the fixed feed path directly with a five-second deadline and a 64 KiB body limit. The default page limit is 20 and the maximum is 100. For a positive checkpoint, use the same release for the source and intake. Intake verifies that the notice at its saved position matches the last retained receipt before applying the page. Existing SQLite files already contain the information for this check. `hasMore` describes the fetched page. A successful retry of a page applied by another attempt reports zero applied and the current durable position.
 
 Success prints one JSON line on standard output. Failures print a stage, category and operator action on standard error. Invalid arguments exit with status 2. Operation failures exit with status 1.
 
@@ -70,9 +70,10 @@ Success prints one JSON line on standard output. Failures print a stage, categor
 | Interrupted pull or missing success output | Run `intake inspect-receipts` first. The retained receipt count and position show the last committed page. Then pull again with the same receipt file and source. |
 | `source_unavailable` or `source_timeout` | Verify the original LocalDemo process is listening on the supplied loopback port. Pull again when it is available. |
 | `source_response` or `invalid_page` | Verify the configured origin serves the closure feed. The receipt transaction starts only after page validation. |
-| `source_conflict` | Check that the original case file is open and the retained checkpoint still exists on its stream. |
+| `source_conflict` | Check that the case and receipt files belong to the same recovery point. The source may have a different stream, lack the checkpoint, or now hold a different notice at that position. |
+| `checkpoint_unverified` | Use a source release that acknowledges the checkpoint fingerprint before retrying the pull. |
 | `checkpoint_conflict` or `receipt_store` | Inspect the retained file before retrying. If inspection fails, check its path, permissions and integrity while preserving the file and its journal. |
 
-For a restore, use a matched case and receipt snapshot from the same stopped copy point. A later checkpoint can refer to different evidence after restoring an older source. [Local restore rehearsal](local-restore-rehearsal.md).
+For a restore, use a matched case and receipt snapshot from the same stopped copy point. After restoring an older source, a reused position with different notice content causes `source_conflict`. [Local restore rehearsal](local-restore-rehearsal.md).
 
 Receipt initialization reserves a new path exclusively. Keep an existing receipt file for resume, and use a new receipt path if you deliberately start intake for a different case stream. [Phase 10 contract](../requirements/phase-10-case-closure-handoff.md) · [ADR 0017](../adr/0017-use-a-transactional-closure-feed.md)

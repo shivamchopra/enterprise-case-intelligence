@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using EnterpriseCaseIntelligence.Api.Security;
+using EnterpriseCaseIntelligence.ClosureIntegration;
 using EnterpriseCaseIntelligence.Domain.Cases;
 
 namespace EnterpriseCaseIntelligence.Api.Cases;
@@ -30,9 +31,10 @@ internal static class CaseEndpoints
         var limit = 20;
         Guid? streamId = null;
         long after = 0;
+        string? afterProof = null;
         foreach (var (name, values) in request.Query)
         {
-            if (name is not ("limit" or "streamId" or "after"))
+            if (name is not ("limit" or "streamId" or "after" or "afterProof"))
             {
                 errors["query"] = ["The query contains an unsupported parameter."];
                 continue;
@@ -56,14 +58,21 @@ internal static class CaseEndpoints
                     if (!long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out after) ||
                         value != after.ToString(CultureInfo.InvariantCulture)) errors[name] = ["Use a nonnegative Int64 position without padding."];
                     break;
+                case "afterProof":
+                    if (ClosureCheckpointProof.IsCanonical(value)) afterProof = value;
+                    else errors[name] = ["Use a 64-character lowercase hexadecimal proof."];
+                    break;
             }
         }
         if (request.Query.ContainsKey("streamId") != request.Query.ContainsKey("after"))
             errors["query"] = ["Supply streamId and after together."];
+        if (afterProof is not null && (streamId is null || after <= 0))
+            errors["afterProof"] = ["Supply the proof with streamId and a positive after position."];
         if (errors.Count > 0) return Validation(errors);
 
-        var (page, conflict) = store.ReadClosures(limit, streamId, after);
+        var (page, conflict) = store.ReadClosures(limit, streamId, after, afterProof);
         if (conflict is not null) return Problem(409, "Conflict", conflict);
+        if (afterProof is not null) request.HttpContext.Response.Headers[ClosureCheckpointProof.Header] = afterProof;
         return Results.Ok(new
         {
             streamId = page!.StreamId,

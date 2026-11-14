@@ -152,14 +152,14 @@ public sealed class SqliteCaseStore(CaseDatabase database, TimeProvider? timePro
         }
     }
 
-    internal (ClosurePage? Page, string? Conflict) ReadClosures(int limit, Guid? streamId, long after)
+    internal (ClosurePage? Page, string? Conflict) ReadClosures(int limit, Guid? streamId, long after, string? afterProof)
     {
         lock (_gate)
         {
             using var connection = database.Open();
             using var transaction = connection.BeginTransaction(deferred: true);
             using var context = database.Context(connection, transaction);
-            var result = CaseClosures.Read(context, limit, streamId, after);
+            var result = CaseClosures.Read(context, limit, streamId, after, afterProof);
             transaction.Commit();
             return result;
         }

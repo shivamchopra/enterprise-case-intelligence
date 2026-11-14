@@ -147,8 +147,7 @@ public class ReceiptProcessTests
         AssertPull(await PullAsync(restoredReceipts, restored), stream, "1", 0, 0, false);
 
         // Deliberate reconciliation in the isolated copy shows that the later key is unbound.
-        // The restored feed can reuse a lost position, so a newer receipt file is unsafe even
-        // if its checkpoint eventually exists again.
+        // The restored feed can reuse position 2. Intake must check which notice is there.
         var reconciled = await CloseAsync(review, laterTitle, laterKey);
         Assert.NotEqual(later.CaseId, reconciled.CaseId);
         AssertPull(await PullAsync(restoredReceipts, restored), stream, "2", 1, 1, false);
@@ -158,7 +157,13 @@ public class ReceiptProcessTests
                 context.Receipts.AsNoTracking().OrderBy(row => row.Position).Select(row => row.CaseId).ToArray());
         }
 
-        AssertPull(await PullAsync(newerReceiptCopy, restored), stream, "2", 0, 0, false);
+        using var reusedPosition = await review.GetAsync($"/integrations/case-closures?streamId={stream}&after=2");
+        Assert.Equal(HttpStatusCode.OK, reusedPosition.StatusCode);
+        Assert.False(reusedPosition.Headers.Contains("X-ECI-Checkpoint-Proof"));
+
+        var mismatched = await IntakeFiles.RunProcessAsync(newerReceiptCopy.Arguments("pull", "--origin", origin));
+        mismatched.Failure("pull", "source_conflict");
+        Assert.Equal(liveReceiptBytes, File.ReadAllBytes(newerReceiptCopy.Path));
         using (var context = newerReceiptCopy.OpenContext())
         {
             Assert.Equal(later.CaseId, context.Receipts.AsNoTracking().Single(row => row.Position == 2).CaseId);
