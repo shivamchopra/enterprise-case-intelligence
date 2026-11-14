@@ -1,3 +1,4 @@
+using EnterpriseCaseIntelligence.ClosureIntegration;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -23,15 +24,24 @@ internal sealed class ReceiptStore(string path)
         transaction.Commit();
     }
 
-    internal Checkpoint ReadCheckpoint()
+    internal (Checkpoint Checkpoint, string? Proof) ReadContinuation()
     {
         using var connection = Connect();
         connection.Open();
         using var transaction = connection.BeginTransaction(deferred: true);
         using var context = Context(connection, transaction);
         var row = ReadCheckpoint(context, tracking: false);
+        string? proof = null;
+        if (row.Position > 0)
+        {
+            var receipt = context.Receipts.AsNoTracking().Single(receipt => receipt.Position == row.Position);
+            if (!ClosureFeed.IsCanonicalId(receipt.CaseId) || receipt.HistorySequence is < 2 or > 3 ||
+                !ClosureFeed.IsTimestamp(receipt.ClosedAtUtc))
+                throw new InvalidDataException("Invalid checkpoint receipt.");
+            proof = ClosureCheckpointProof.Create(row.StreamId!, receipt.Position, receipt.CaseId, receipt.HistorySequence, receipt.ClosedAtUtc);
+        }
         transaction.Commit();
-        return new Checkpoint(row.StreamId, row.Position);
+        return (new Checkpoint(row.StreamId, row.Position), proof);
     }
 
     internal ReceiptInspection Inspect()

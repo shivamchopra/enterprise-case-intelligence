@@ -36,8 +36,8 @@ internal static class IntakeCommand
                     break;
                 case "pull":
                     stage = "checkpoint";
-                    var expected = store.ReadCheckpoint();
-                    var page = await ClosureFeed.PullAsync(command.Origin!, expected, command.Limit);
+                    var (expected, proof) = store.ReadContinuation();
+                    var page = await ClosureFeed.PullAsync(command.Origin!, expected, proof, command.Limit);
                     stage = "apply";
                     var result = store.Apply(expected, page);
                     await WriteAsync(new
@@ -80,6 +80,8 @@ internal static class IntakeCommand
                 "arguments" => Usage,
                 "init" => "Inspect the file if it exists. Initialize only a new path.",
                 "inspect" => "Check the receipt path and permissions before retrying inspection.",
+                "pull" when category == "source_conflict" => "Verify that the case and receipt files belong to the same recovery point.",
+                "pull" when category == "checkpoint_unverified" => "Use a source version that verifies continuation checkpoints.",
                 _ => "Inspect the receipt file before retrying. Verify the same source is running."
             };
             await error.WriteLineAsync(JsonSerializer.Serialize(new { stage = failedStage, category, action }, JsonSerializerOptions.Web));
