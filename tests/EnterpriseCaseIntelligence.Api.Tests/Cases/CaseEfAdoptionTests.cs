@@ -26,8 +26,10 @@ public class CaseEfAdoptionTests
         Assert.Equal(19, error.SqliteErrorCode);
     }
 
-    [Fact]
-    public void OriginalEfPatchMetadataRemainsAcceptedWithoutRewritingRetainedState()
+    [Theory]
+    [InlineData("10.0.13")]
+    [InlineData("10.0.14")]
+    public void EarlierEfPatchMetadataRemainsAcceptedWithoutRewritingRetainedState(string initialVersion)
     {
         using var fixture = new TemporaryCaseDatabase();
         var store = new SqliteCaseStore(fixture.Database);
@@ -35,13 +37,15 @@ public class CaseEfAdoptionTests
         var original = store.Create("Synthetic retained patch fixture", "Fictional description.", key).Case!;
         store.ChangeStatus(original.Id, CaseStatus.InReview);
         // Historical-metadata fixture only; no production downgrade or metadata rewrite.
-        fixture.Execute("UPDATE __EFMigrationsHistory SET ProductVersion='10.0.13' WHERE MigrationId='20261022194811_InitialCaseStore'");
+        fixture.Execute("UPDATE __EFMigrationsHistory SET ProductVersion='10.0.14'");
+        fixture.Execute("UPDATE __EFMigrationsHistory SET ProductVersion=$version WHERE MigrationId='20261022194811_InitialCaseStore'",
+            ("$version", initialVersion));
         var before = File.ReadAllBytes(fixture.Path);
         fixture.Database.ValidateStartup();
         Assert.Equal(6, fixture.Database.Inspect());
         Assert.Equal(original with { Status = CaseStatus.InReview }, store.Find(original.Id));
         Assert.Equal(original, store.Create(original.Title, original.Description, key).Case);
-        Assert.Equal("10.0.13", fixture.Scalar("SELECT ProductVersion FROM __EFMigrationsHistory ORDER BY MigrationId LIMIT 1"));
+        Assert.Equal(initialVersion, fixture.Scalar("SELECT ProductVersion FROM __EFMigrationsHistory ORDER BY MigrationId LIMIT 1"));
         Assert.Equal(before, File.ReadAllBytes(fixture.Path));
     }
 

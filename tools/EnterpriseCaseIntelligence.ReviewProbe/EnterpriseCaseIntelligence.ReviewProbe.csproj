@@ -4,7 +4,7 @@
     <NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.15" />
     <Compile Include="../../src/EnterpriseCaseIntelligence.Api/Security/ProtectionCertificate.cs" Link="Protection/ProtectionCertificate.cs" />
     <Compile Include="../../src/EnterpriseCaseIntelligence.Api/Security/RetainedProtection.cs" Link="Protection/RetainedProtection.cs" />
     <InternalsVisibleTo Include="EnterpriseCaseIntelligence.Api.Tests" />

@@ -10,6 +10,8 @@ Prefer EF APIs and generated migration operations over hand-written SQL/DDL. EF-
 
 Keep EF Core runtime/provider and Design package updates together, with the direct Microsoft.Data.Sqlite reference and pinned `dotnet-ef` tool on the matching supported release. Dependabot groups related minor/patch package updates; review the local tool manifest alongside them. Run the full gates and retained-store/replay checks before merging. The compatibility badge summarizes other repositories' CI outcomes; it does not replace this repository's checks. Preserve generated historical migrations/snapshots when no model change is needed. A newer EF patch can stamp its version on newly initialized/adopted stores; the existing metadata validator can refuse those files under an older executable, so do not assume downgrade compatibility.
 
+The current servicing baseline is SDK 10.0.404 with ASP.NET Core, EF Core, Microsoft.Data.Sqlite, PKCS and the EF tool at 10.0.15. Dependabot groups the framework-aligned NuGet updates and suppresses major-version proposals for those dependencies to preserve the repository's .NET 10 baseline. Review SDK and EF tool pins with each servicing update. Other dependencies retain their existing update behavior.
+
 ## Validation
 
 Before submitting, run from the repository root:
