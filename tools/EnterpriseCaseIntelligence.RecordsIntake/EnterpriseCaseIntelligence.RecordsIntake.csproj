@@ -5,12 +5,12 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../src/EnterpriseCaseIntelligence.Api/Cases/ClosureCheckpointProof.cs" Link="ClosureCheckpointProof.cs" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.14" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14">
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.15" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.15">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.14" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.15" />
     <InternalsVisibleTo Include="EnterpriseCaseIntelligence.Api.Tests" />
     <InternalsVisibleTo Include="EnterpriseCaseIntelligence.UpgradeFixture" />
   </ItemGroup>

@@ -103,7 +103,9 @@ docs/
 
 ## Getting Started
 
-Use **.NET SDK 10.0.403** or a later stable .NET 10 SDK. This baseline includes the .NET 10.0.14 security fixes. The SQLite native engine comes through NuGet. Commands below use a POSIX shell. Choose an absolute path on an ordinary local filesystem outside network shares or synchronization-managed folders. [SDK pin](global.json) · [Microsoft release notes](https://github.com/dotnet/core/blob/main/release-notes/10.0/10.0.14/10.0.14.md)
+Use **.NET SDK 10.0.404** or a later stable .NET 10 SDK. This baseline includes the .NET 10.0.15 security fixes. The SQLite native engine comes through NuGet. Commands below use a POSIX shell. Choose an absolute path on an ordinary local filesystem outside network shares or synchronization-managed folders. [SDK pin](global.json) · [Microsoft release notes](https://github.com/dotnet/core/blob/main/release-notes/10.0/10.0.15/10.0.15.md)
+
+Existing supported case stores remain readable without a schema upgrade for this servicing update. Newly initialized or explicitly upgraded stores record the current EF patch in their migration metadata. Use the current executable when opening them. The earlier executable may reject the newer metadata. [Persistence compatibility guidance](CONTRIBUTING.md#persistence-approach)
 
 ```sh
 git clone https://github.com/shivamchopra/enterprise-case-intelligence.git
