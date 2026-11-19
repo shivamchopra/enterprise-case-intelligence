@@ -80,7 +80,6 @@ public class CasePriorityLifecycleTests
     [InlineData("DELETE FROM case_status_history")]
     [InlineData("UPDATE cases SET title=' corrupt '")]
     [InlineData("DELETE FROM __EFMigrationsHistory")]
-    [InlineData("UPDATE __EFMigrationsHistory SET ProductVersion='10.0.15'")]
     [InlineData("INSERT INTO __EFMigrationsHistory VALUES ('unexpected','10.0.14')")]
     [InlineData("CREATE TABLE case_priorities (case_id TEXT PRIMARY KEY,priority TEXT)")]
     public void InvalidFormatFourIsRefusedWithoutRepair(string corruption)
@@ -89,6 +88,19 @@ public class CasePriorityLifecycleTests
         VersionFourCaseStore.Initialize(fixture);
         fixture.Execute(corruption);
         var before = File.ReadAllBytes(fixture.Path);
+        Assert.Throws<InvalidDataException>(() => fixture.Database.Upgrade());
+        Assert.Equal(before, File.ReadAllBytes(fixture.Path));
+    }
+
+    [Fact]
+    public void NewerEfPatchMetadataIsRefusedWithoutRepair()
+    {
+        var running = Version.Parse(ProductInfo.GetVersion());
+        var future = new Version(running.Major, running.Minor, running.Build + 1);
+        using var fixture = new TemporaryCaseDatabase(false);
+        VersionFourCaseStore.Initialize(fixture, patch: future.ToString());
+        var before = File.ReadAllBytes(fixture.Path);
+        Assert.Throws<InvalidDataException>(() => fixture.Database.Inspect());
         Assert.Throws<InvalidDataException>(() => fixture.Database.Upgrade());
         Assert.Equal(before, File.ReadAllBytes(fixture.Path));
     }
