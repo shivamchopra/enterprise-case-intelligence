@@ -5,6 +5,7 @@ using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Net.Http.Headers;
 
 namespace EnterpriseCaseIntelligence.Api.Tests.Security;
 
@@ -160,6 +161,86 @@ public sealed class ProtectionCertificateTests
         Assert.Equal(keys, KeyFiles(host));
     }
 
+    [Fact]
+    public async Task LocalRestoreFromStoppedCopiesPreservesCasesAndSupportsExplicitSessionRevocation()
+    {
+        using var snapshot = new TemporaryCaseDatabase(initialize: false);
+        using var restored = new TemporaryCaseDatabase(initialize: false);
+        await using var host = new SecurityHost();
+        var settings = host.ConfigurationCertificate();
+        host.Start(configurationOverrides: settings);
+
+        var initialLogin = await host.Login("Caseworker");
+        using var original = initialLogin.Client;
+        using var callback = initialLogin.Response;
+        Assert.Equal(HttpStatusCode.Redirect, callback.StatusCode);
+        var sessionHeader = Assert.Single(callback.Headers.GetValues("Set-Cookie"), value => value.StartsWith(SecurityHost.CookieName + "=", StringComparison.Ordinal));
+        var originalTicket = SetCookieHeaderValue.Parse(sessionHeader).Value.ToString();
+
+        await CaseSecurityTests.Csrf(original);
+        var key = $"\"{Guid.NewGuid():D}\"";
+        original.DefaultRequestHeaders.Add("Idempotency-Key", key);
+        var payload = new { title = "Synthetic session recovery", description = "Fictional case only." };
+        using var created = await original.PostAsJsonAsync("/cases", payload);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var creation = await created.Content.ReadAsStringAsync();
+        using var json = JsonDocument.Parse(creation);
+        var casePath = $"/cases/{json.RootElement.GetProperty("id").GetString()}";
+        using var review = await original.PutAsJsonAsync(casePath + "/status", new { status = "InReview" });
+        using var closed = await original.PutAsJsonAsync(casePath + "/status", new { status = "Closed" });
+        Assert.Equal(HttpStatusCode.OK, review.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, closed.StatusCode);
+        var details = await original.GetStringAsync(casePath);
+        var history = await original.GetStringAsync(casePath + "/history");
+        await host.Factory.DisposeAsync();
+
+        foreach (var suffix in new[] { "-journal", "-wal", "-shm" })
+            Assert.False(File.Exists(host.Database.Path + suffix));
+        File.Copy(host.Database.Path, snapshot.Path);
+        File.Copy(snapshot.Path, restored.Path);
+        var snapshotKeys = Path.Combine(snapshot.DirectoryPath, "keys");
+        var restoredKeys = Path.Combine(restored.DirectoryPath, "keys");
+        CopyKeyRing(host.Keys, snapshotKeys);
+        CopyKeyRing(snapshotKeys, restoredKeys);
+        var caseBytes = File.ReadAllBytes(snapshot.Path);
+        var keyFiles = KeyFiles(snapshotKeys);
+        Assert.NotEmpty(keyFiles);
+        Assert.All(keyFiles, xml => Assert.Contains("encryptedSecret", xml));
+
+        settings["CaseStorage:DatabasePath"] = restored.Path;
+        settings["Security:KeyDirectory"] = restoredKeys;
+        host.Start(configurationOverrides: settings);
+        using var continued = host.CreateClient(originalTicket);
+        Assert.Equal(details, await continued.GetStringAsync(casePath));
+        Assert.Equal(history, await continued.GetStringAsync(casePath + "/history"));
+        await host.Factory.DisposeAsync();
+
+        host.Start(revision: "recovery-revision", configurationOverrides: settings);
+        using var stale = host.CreateClient(originalTicket);
+        using var denied = await stale.GetAsync(casePath);
+        Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
+
+        var freshLogin = await host.Login("Caseworker");
+        using var signedIn = freshLogin.Client;
+        using var freshCallback = freshLogin.Response;
+        Assert.Equal(HttpStatusCode.Redirect, freshCallback.StatusCode);
+        Assert.Equal(history, await signedIn.GetStringAsync(casePath + "/history"));
+        await CaseSecurityTests.Csrf(signedIn);
+        signedIn.DefaultRequestHeaders.Add("Idempotency-Key", key);
+        using var replay = await signedIn.PostAsJsonAsync("/cases", payload);
+        Assert.Equal(HttpStatusCode.Created, replay.StatusCode);
+        Assert.Equal(creation, await replay.Content.ReadAsStringAsync());
+        Assert.Equal(details, await signedIn.GetStringAsync(casePath));
+        await host.Factory.DisposeAsync();
+
+        Assert.Equal(caseBytes, File.ReadAllBytes(host.Database.Path));
+        Assert.Equal(caseBytes, File.ReadAllBytes(snapshot.Path));
+        Assert.Equal(caseBytes, File.ReadAllBytes(restored.Path));
+        Assert.Equal(keyFiles, KeyFiles(host));
+        Assert.Equal(keyFiles, KeyFiles(snapshotKeys));
+        Assert.Equal(keyFiles, KeyFiles(restoredKeys));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -183,7 +264,16 @@ public sealed class ProtectionCertificateTests
         Assert.Equal(HttpStatusCode.OK, read.StatusCode);
     }
 
-    private static string[] KeyFiles(SecurityHost host) => Directory.GetFiles(host.Keys, "key-*.xml").Order(StringComparer.Ordinal).Select(File.ReadAllText).ToArray();
+    private static string[] KeyFiles(SecurityHost host) => KeyFiles(host.Keys);
+
+    private static string[] KeyFiles(string directory) => Directory.GetFiles(directory, "*.xml").Order(StringComparer.Ordinal).Select(File.ReadAllText).ToArray();
+
+    private static void CopyKeyRing(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (var path in Directory.EnumerateFiles(source, "*.xml"))
+            File.Copy(path, Path.Combine(destination, Path.GetFileName(path)));
+    }
 
     private static async Task<(int Code, string Output)> RefusedProcess(SecurityHost host, Dictionary<string, string?> overrides)
     {

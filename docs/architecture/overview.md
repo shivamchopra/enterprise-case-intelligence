@@ -116,6 +116,8 @@ Closing a case commits the status change, its history entry and a notice in one 
 
 The local recovery rehearsal copies the case and receipt files at one stopped recovery point, restores to fresh paths and verifies history, creation replay and the intake checkpoint. An older source can reuse a lost position on its retained stream. Intake now refuses that position when the notice differs from its last receipt. Recover the case and receipt files from the same copy point. [Local restore rehearsal](../usage/local-restore-rehearsal.md).
 
+The authenticated rehearsal restores the case store and an encrypted session-key ring to fresh paths. With the matching protection certificate, a same-revision replacement can accept an unexpired session. Changing the revision rejects the old session. A fresh sign-in can read the recovered case and replay its original creation request. [OIDC session-key restore](../usage/local-restore-rehearsal.md#rehearse-an-oidc-session-key-restore)
+
 ## Workspace closure brief and offline evaluation
 
 The Reader-authorized closure brief route reuses the bounded case/history read and its existing chain validator. One deferred transaction validates the final recorded status against the current case. A genuine closure yields three facts with citations. Open cases and retained Closed baselines yield distinct abstentions. Read errors use the normal safe HTTP problems.
