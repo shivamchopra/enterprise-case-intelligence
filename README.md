@@ -4,9 +4,11 @@
 
 **Authenticated case workspace with priority triage**
 
-A .NET 10 / ASP.NET Core reference project for enterprise case modernization. Today: inspect overall workload, find synthetic cases by literal title text, status and priority, open a known case ID, create a case, review its details/history, set Low/Normal/High priority and progress its status in a local browser workspace or through the HTTP API. EF Core Code First and a retained SQLite file provide durable state and retry-safe creation. Configured OIDC sign-in, Reader/Caseworker policies, protected sessions and CSRF now support an authenticated browser/API slice. An optional same-host HTTPS proxy path is also tested. Private local Microsoft Entra role and session-revocation checks have passed; hosted operations acceptance remains pending. Domain, API, browser and recovery tests support the implemented workflows.
+A .NET 10 reference application for managing synthetic cases from creation to closure. The ASP.NET Core browser workspace and API let staff find cases, triage priority, move cases through review and inspect their history. EF Core Code First and SQLite preserve case records and support safe creation retries. LocalDemo runs on loopback. Configured OIDC sign-in supports Reader and Caseworker access, with role and session-revocation checks verified privately against Microsoft Entra. Hosted review is pending.
 
-[Review the implementation](#current-implemented-scope) · [Read the architecture](docs/architecture/overview.md) · [Run locally](#getting-started)
+**Try the project locally.** Follow one synthetic case from creation and priority triage through its cited closure brief and records intake receipt. [Reviewer walkthrough](docs/usage/reviewer-walkthrough.md)
+
+[Implemented scope](#current-implemented-scope) · [Architecture](docs/architecture/overview.md) · [Setup](#getting-started) · [Project roadmap](docs/roadmap.md)
 
 ![Authenticated Caseworker workspace showing a synthetic case, High priority and recorded status history](docs/images/authenticated-case-workspace.png)
 
@@ -64,7 +66,7 @@ History describes recorded status changes, without actor identity or tamper evid
 
 ## Architecture at a Glance
 
-One runnable ASP.NET host serves the API and browser assets, with a separate domain model; unit, integration and browser tests exercise the workflow.
+One ASP.NET Core host serves the case API and browser workspace. A separate records intake command reads the local closure feed and saves receipts in its own SQLite file.
 
 ```mermaid
 flowchart LR
@@ -75,7 +77,9 @@ flowchart LR
     ApiTests[Api.Tests: SQLite and process tests] --> Api[Api: case endpoints and SQLite store]
     DomainTests[Domain.Tests: unit tests] --> Domain[Domain: case rules]
     Api --> Domain
-    Api --> Database[(Local SQLite file)]
+    Api --> Database[(Case SQLite file)]
+    Intake[Records intake command] -->|LocalDemo closure feed| Api
+    Intake --> Receipts[(Receipt SQLite file)]
 ```
 
 ## Repository Structure
@@ -186,14 +190,7 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 
 ## Roadmap
 
-- **Now:** [authenticated Reader/Caseworker access](docs/usage/authenticated-case-workspace.md) and [same-host proxy support](docs/usage/proxy-case-workspace.md), plus [case title search](docs/requirements/phase-7-case-title-search.md#current-implementation-coverage), [lookup by known case ID](docs/tasks/open-case-by-id.md) and [workload overview](docs/tasks/case-workload-overview.md) in the browser/API journey, alongside retry-safe creation, status history and process-recovery coverage.
-- **Completed:** [EF Core Code First adoption](docs/tasks/ef-core-code-first-adoption.md) with retained-data and migration-recovery coverage.
-- **Verified privately:** [real Entra Reader, Caseworker, unmapped-role and emergency session-revocation flows](docs/usage/entra-review-verification.md#local-verification-on-2026-10-26), using one approved account and a local synthetic store. Account details and credentials stay outside Git.
-- **Next — not implemented:** complete [secure review hosting](docs/requirements/phase-8-secure-hosting.md), including compatible storage/ingress, operational recovery and hosted provider/multi-user checks. The [$0 cost boundary](docs/tasks/zero-cost-review-hosting.md) keeps development local while App Service F1 + Azure SQL free limits are assessed; that stack is not supported yet. The [independent operator probe](docs/usage/operator-review-probe.md) has local preparation, access and retained-key receipt evidence. Its [preparation-only deployment proposal](docs/tasks/preparation-only-deployment-proposal.md) now fixes initial startup and defines resource/configuration/release/removal boundaries. Regional quota reads are now available. Exact Linux F1 allocation, spending protection and effective policy still need private verification. The standalone probe ZIP has a local rehearsal. [Hosting evidence refresh](docs/tasks/review-hosting-evidence-refresh.md). Actual platform storage/isolation must pass before key initialization; cloud ingress and key retention remain unverified. No cloud compute or public deployment is provisioned. The earlier VM option requires separately approved costs; local Entra evidence does not establish hosted acceptance.
-- **Case prioritization — implemented locally:** [Low/Normal/High rules, priority resources and list filtering](docs/requirements/phase-9-case-prioritization.md), with a scaffolded EF Code First format-5 migration, explicit retained-store upgrades and browser filter/read/edit controls. The [delivery task](docs/tasks/case-prioritization.md) maps domain/provider/API/process/browser acceptance, including uncertain writes and protected-state clearing. Priority expresses current staff choice without actor history, SLA or automatic priority ordering.
-- **Deferred:** [storage readiness](docs/requirements/phase-6-storage-readiness.md), to revisit against the selected hosting/provider design. `/health` remains storage-independent liveness.
-- **Case closure handoff — implemented locally.** A separate intake command pulls committed closures, writes receipts and resumes from its retained checkpoint. [Run the two-file demo](docs/usage/local-records-intake.md). [Phase 10 contract](docs/requirements/phase-10-case-closure-handoff.md) · [ADR 0017](docs/adr/0017-use-a-transactional-closure-feed.md)
-- **Closure brief — implemented locally.** The workspace action uses deterministic status and history evidence. The offline evaluation scores exact facts, citations and abstentions. A local routing experiment improved recognition of paraphrases but failed the unsupported-request gate. [Routing results](docs/tasks/closure-brief-routing-experiment.md) · [Run the evaluation](docs/requirements/phase-11-closure-brief-evaluation.md#run-the-evaluation)
+The next milestone is a tagged local release that a reviewer can run from a fresh checkout. The project roadmap tracks the remaining release work, the conditions for a $0 hosted review and the product ideas that still need a concrete use case. [Project roadmap](docs/roadmap.md)
 
 ## Security and Privacy
 

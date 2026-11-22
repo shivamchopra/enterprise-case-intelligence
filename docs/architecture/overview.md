@@ -6,15 +6,19 @@ This reference project explores enterprise case modernization using generic synt
 
 ## Current architecture
 
-One ASP.NET Core .NET 10 application is the only deployable. It exposes `/`, `/health` and six case operations, including bounded case browsing, workload summary, status history and optional retry-safe creation, plus the `/workspace` browser UI and sign-in/session/sign-out routes. Explicit LocalDemo mode is loopback-only; configured Oidc mode adds authenticated Reader/Caseworker access. Oidc serves public HTTPS directly or through the explicit same-host proxy contract in ADR 0010. The Api project also owns the EF Core model/migrations, SQLite setup/access and explicit offline upgrade/inspection; Domain owns case rules and restoration. No separate persistence service or project exists.
+One ASP.NET Core .NET 10 host serves the browser workspace, sign-in and session routes, service metadata and health checks. Its nine case operations cover creation, browsing, workload totals, case details, priority reads and updates, status history, status changes and the cited closure brief. LocalDemo binds to loopback and also exposes a closure feed. The records intake command reads that feed over HTTP and stores receipts and a checkpoint in its own file. [Case routes](../../src/EnterpriseCaseIntelligence.Api/Cases/CaseEndpoints.cs) · [Records intake](../usage/local-records-intake.md)
+
+Oidc mode enforces Reader and Caseworker policies. It serves HTTPS directly or through the same-host proxy contract. The API owns the case store’s EF Core model, migrations and offline lifecycle. Domain owns case rules and restoration. [Proxy contract](../adr/0010-trust-a-single-loopback-https-proxy.md)
 
 ```mermaid
 flowchart LR
-    Browser[Local browser workspace] -->|HTTP| Api
+    Browser[Browser workspace] -->|HTTP in LocalDemo or HTTPS in Oidc| Api
     ApiTests[Api.Tests: HTTP and child-process tests] --> Api[Api: HTTP endpoints]
     Api --> Store[Api: EF Core case store]
     Store --> Domain[Domain: case rules and restoration]
-    Store --> Database[(Local SQLite file)]
+    Store --> Database[(Case SQLite file)]
+    Intake[Records intake command] -->|LocalDemo closure feed| Api
+    Intake --> Receipts[(Receipt SQLite file)]
     DomainTests[Domain.Tests] --> Domain
 ```
 
@@ -22,9 +26,10 @@ flowchart LR
 
 - **Api:** composition root, identity/session/authorization/CSRF, HTTP parsing/error mapping, SQLite configuration/initialization, schema checks and one concrete store per host. Provider failures remain generic `500 internal_error`; a rejected domain transition has an explicit store outcome mapped to `409 invalid_transition`.
 - **Domain:** immutable ID/text, creation validation, `New → InReview → Closed` lifecycle and validated restoration of existing cases. It references no web, provider or infrastructure code. Restoration rejects damaged/unnormalized text, empty IDs and undefined statuses without defaulting or replaying transitions.
+- **Records intake** owns a separate EF Core model and migrations for its receipt store. It commits each accepted page and its checkpoint in one transaction. [Closure handoff](#local-closure-handoff)
 - **Tests:** Api.Tests references Api and exercises actual SQLite files, in-process HTTP hosts and real API child processes. A separate UpgradeFixture executable under `tests/` supplies a controlled clock/barrier for interruption tests, without production test switches. Frozen version-1, version-2 and version-3 fixtures remain independent of current initialization. Domain.Tests references Domain directly and needs no database.
 
-Api references Domain and owns the EF Core persistence model and migrations. One concrete store remains in Api; no generic repository, provider interface or additional production project is introduced. Stored mutable entities never escape for HTTP serialization; callers receive immutable four-field snapshots.
+Api references Domain and owns the EF Core persistence model and migrations. Its concrete store returns immutable case snapshots for HTTP serialization.
 
 ## EF Core Code First
 
