@@ -190,7 +190,7 @@ The full suite includes Chromium tests. A backend-only run can use `--filter 'Ca
 
 ## Roadmap
 
-The next milestone is a tagged local release that a reviewer can run from a fresh checkout. The project roadmap tracks the remaining release work, the conditions for a $0 hosted review and the product ideas that still need a concrete use case. [Project roadmap](docs/roadmap.md)
+The next milestone is a tagged local release that a reviewer can run from a fresh checkout. The [release checklist](docs/tasks/local-reference-release.md) records its evidence and owner action. The project roadmap tracks the remaining release work, the conditions for a $0 hosted review and the product ideas that still need a concrete use case. [Project roadmap](docs/roadmap.md)
 
 ## Security and Privacy
 
