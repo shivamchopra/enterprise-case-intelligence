@@ -10,16 +10,16 @@ Hosted deployment, Azure resources, billing changes, a public identity configura
 
 ## Candidate commit and evidence
 
-The current candidate baseline is the merged main commit [`e74c6e8`](https://github.com/shivamchopra/enterprise-case-intelligence/commit/e74c6e8), which includes the roadmap and reviewer walkthrough from PR [#70](https://github.com/shivamchopra/enterprise-case-intelligence/pull/70). The merged change is documentation-only relative to the previously verified application commit. The final tag must identify the reviewed commit after this checklist merges.
+The current candidate baseline is the merged main commit [`a6601a9`](https://github.com/shivamchopra/enterprise-case-intelligence/commit/a6601a9), which includes the release roadmap and reviewer walkthrough from PR [#70](https://github.com/shivamchopra/enterprise-case-intelligence/pull/70), the release checklist from PR [#71](https://github.com/shivamchopra/enterprise-case-intelligence/pull/71), the five-client local rehearsal from PR [#72](https://github.com/shivamchopra/enterprise-case-intelligence/pull/72) and the private identity review packet from PR [#73](https://github.com/shivamchopra/enterprise-case-intelligence/pull/73). The post-application changes are tests and documentation; no runtime behavior or hosting configuration changed. The final tag must identify the reviewed commit after this checklist merges.
 
 The following evidence is available before the final tag decision.
 
 | Check | Evidence | State |
 | --- | --- | --- |
-| Local browser and intake walkthrough | The browser workflow passed all 81 Chromium tests on the candidate baseline. A clean-checkout walkthrough followed one synthetic case from creation through High priority, In review and Closed. The brief citations opened the case and closing history entry. Two intake pulls produced one receipt followed by zero new receipts at checkpoint `"1"`. | Browser evidence is complete on the candidate baseline. Repeat the exact walkthrough and record its CLI output before tagging. |
-| Recovery behavior | The targeted receipt-store and protected-session recovery tests ran against the merged checkout. | 38 passed on the candidate baseline. Repeat the full recovery rehearsal from [the local restore procedure](../usage/local-restore-rehearsal.md). |
-| Full repository gates | PR #70 ran 1,037 tests, including 81 Chromium tests, with formatting, EF model checks, synthetic evaluations, packaging and the dependency audit. | Complete on the reviewed head. Repeat the release commands below before tagging. |
-| Public documentation | The flagship README, architecture overview, roadmap and profile Featured Project describe the same local workflow and pending hosted review. | Complete after PR #70 and profile PR #4 merged. |
+| Local browser and intake walkthrough | The browser workflow passed all 81 Chromium tests on the previously verified application baseline. A clean-checkout walkthrough followed one synthetic case from creation through High priority, In review and Closed. The brief citations opened the case and closing history entry. Two intake pulls produced one receipt followed by zero new receipts at checkpoint `"1"`. PRs #71–#73 changed documentation and tests only. | Repeat the exact walkthrough from `a6601a9` and record its CLI output before tagging. |
+| Recovery behavior | The targeted receipt-store and protected-session recovery tests ran against the previously verified application baseline. | 38 passed on that baseline. Repeat the full recovery rehearsal from [the local restore procedure](../usage/local-restore-rehearsal.md) at `a6601a9`. |
+| Full repository gates | PR #73's CI run 147 passed build-and-test, the published browser workflow, CodeQL and the language analysis jobs on head `9720cfa`. The run included formatting, EF model checks, synthetic evaluations, packaging and the dependency audit. | Complete on the reviewed head. Repeat the release commands below from the exact commit selected for tagging. |
+| Public documentation | The flagship README, architecture overview, roadmap and profile Featured Project describe the same local workflow and pending hosted review. PR #73 also links the remaining private identity checks and redacted evidence procedure. | Complete after PR #70, profile PR #4 and PR #73 merged. |
 
 ## Release commands
 
