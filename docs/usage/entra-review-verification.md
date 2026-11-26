@@ -1,6 +1,6 @@
 # Configure and verify a review tenant in Microsoft Entra ID
 
-**Status: private local Entra role and revocation checks passed; hosted acceptance pending.** [ADR 0011](../adr/0011-use-entra-for-private-review-identity.md) selects Entra for the first private review registration. The [dated summary](#local-verification-on-2026-10-26) contains outcomes only; actual identifiers, grants/configuration files and credentials stay outside Git. Use an authorized tenant with a dedicated review registration and synthetic case content, never an employer/client tenant or records without authorization. Complete the remaining checks against the actual hosted environment before invitations.
+**Status: private local Entra role and revocation checks passed; hosted acceptance pending.** [ADR 0011](../adr/0011-use-entra-for-private-review-identity.md) selects Entra for the first private review registration. The [dated summary](#local-verification-on-2026-10-26) contains outcomes only; actual identifiers, grants/configuration files and credentials stay outside Git. Use an authorized tenant with a dedicated review registration and synthetic case content, never an employer/client tenant or records without authorization. Use the [ordered private identity review task](../tasks/private-identity-review.md) for the remaining unassigned-user, real-expiry and controlled-failure checks. Complete the remaining checks against the actual hosted environment before invitations.
 
 ## Prepare the registration and grants
 
